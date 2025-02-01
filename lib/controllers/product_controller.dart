@@ -47,4 +47,54 @@ class ProductController extends GetxController {
     searchQuery.value = query;
     fetchProducts();
   }
+
+  Future<void> addProduct(String name, double price, String imageUrl) async {
+    try {
+      isLoading.value = true;
+      final product = {
+        'name': name,
+        'price': price,
+        'imageUrl': imageUrl,
+        // Tambahkan properti lain yang diperlukan
+      };
+      await _supabase.from('products').insert(product);
+      fetchProducts();
+    } catch (e) {
+      Get.snackbar('Error', 'Gagal menambahkan produk: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> updateProduct(
+      int id, String name, double price, String imageUrl) async {
+    try {
+      isLoading.value = true;
+      final product = {
+        'id': id,
+        'name': name,
+        'price': price,
+        'imageUrl': imageUrl,
+        // Tambahkan properti lain yang diperlukan
+      };
+      await _supabase.from('products').update(product).eq('id', id);
+      fetchProducts();
+    } catch (e) {
+      Get.snackbar('Error', 'Gagal memperbarui produk: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> deleteProduct(int productId) async {
+    try {
+      isLoading.value = true;
+      await _supabase.from('products').delete().eq('id', productId);
+      fetchProducts();
+    } catch (e) {
+      Get.snackbar('Error', 'Gagal menghapus produk: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
 }

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/product_controller.dart';
 import '../../controllers/auth_controller.dart';
-import '../../pages/cart/cart_screen.dart';
-import '../../pages/profile/profile_screen.dart';
-import '../../pages/product/product_detail_screen.dart';
+import 'cart/cart_screen.dart';
+import 'profile/profile_screen.dart';
+import 'product/product_detail_screen.dart';
 
 class BuyerHomeScreen extends StatelessWidget {
   BuyerHomeScreen({super.key});
@@ -44,6 +44,15 @@ class BuyerHomeScreen extends StatelessWidget {
               onChanged: (value) => productController.searchProducts(value),
             ),
           ),
+
+          // Container(
+          //   height: 150,
+          //   decoration: BoxDecoration(
+          //       image: DecorationImage(
+          //     image: NetworkImage('https://via.placeholder.com/150'),
+          //     fit: BoxFit.cover,
+          //   )),
+          // ),
 
           // Category List
           SizedBox(

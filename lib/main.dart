@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
-import 'pages/login_page.dart';
-import 'pages/register_page.dart';
+import 'auth/login_page.dart';
+import 'auth/register_page.dart';
 import 'pages/buyer/home_screen.dart';
 import 'controllers/auth_controller.dart';
 import 'screens/home_screen.dart';

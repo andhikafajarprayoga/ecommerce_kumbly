@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:kumbly_ecommerce/pages/login_page.dart';
-import 'package:kumbly_ecommerce/pages/register_page.dart';
+import 'package:kumbly_ecommerce/auth/login_page.dart';
+import 'package:kumbly_ecommerce/auth/register_page.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -21,7 +21,6 @@ class HomeScreen extends StatelessWidget {
                 color: Colors.blue,
               ),
               const SizedBox(height: 24),
-              
               const Text(
                 'E-Commerce App',
                 style: TextStyle(
@@ -30,7 +29,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              
               const Text(
                 'Belanja mudah dan aman',
                 style: TextStyle(
@@ -40,7 +38,6 @@ class HomeScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
-              
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -55,7 +52,6 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(

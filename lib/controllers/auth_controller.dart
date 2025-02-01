@@ -7,6 +7,7 @@ class AuthController extends GetxController {
   final RxBool isLoading = false.obs;
   final Rxn<User> currentUser = Rxn<User>();
   final RxString userRole = ''.obs;
+  var isMerchant = false.obs;
 
   @override
   void onInit() {
