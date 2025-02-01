@@ -22,14 +22,20 @@ class AuthController extends GetxController {
 
   Future<void> _getUserRole() async {
     try {
-      final response = await _supabase
+      final userData = await _supabase
           .from('users')
           .select('role')
           .eq('id', currentUser.value!.id)
-          .single();
-      userRole.value = response['role'] as String;
+          .maybeSingle();
+
+      if (userData != null) {
+        userRole.value = userData['role'] as String;
+      } else {
+        userRole.value = 'buyer';
+      }
     } catch (e) {
       print('Error getting user role: $e');
+      userRole.value = 'buyer';
     }
   }
 
@@ -153,27 +159,44 @@ class AuthController extends GetxController {
         password: password,
       );
 
-      // Cek dan tambahkan user ke tabel users jika belum ada
       if (res.user != null) {
         try {
-          final exists = await _supabase
+          final userData = await _supabase
               .from('users')
               .select()
               .eq('id', res.user!.id)
-              .single();
+              .maybeSingle();
+
+          if (userData == null) {
+            await _supabase.from('users').upsert({
+              'id': res.user!.id,
+              'email': email,
+              'role': 'buyer',
+              'created_at': DateTime.now().toIso8601String(),
+            });
+          }
+
+          // Set current user dan role
+          currentUser.value = res.user;
+          userRole.value = userData?['role'] ?? 'buyer';
+
+          Get.back(); // Tutup loading
+
+          // Navigasi berdasarkan role
+          if (userRole.value == 'buyer') {
+            Get.offAllNamed(
+                '/buyer/home'); // Pastikan route ini sudah didefinisikan
+          } else if (userRole.value == 'seller') {
+            Get.offAllNamed('/seller/home');
+          }
+
+          Get.snackbar('Sukses', 'Login berhasil');
         } catch (e) {
-          // Jika user belum ada di tabel, tambahkan
-          await _supabase.from('users').insert({
-            'id': res.user!.id,
-            'email': email,
-            'role': 'buyer',
-            'created_at': DateTime.now().toIso8601String(),
-          });
+          print('Error saat cek/insert user: $e');
+          Get.back();
+          Get.snackbar('Error', 'Gagal mendapatkan data user');
         }
       }
-
-      Get.back();
-      Get.snackbar('Sukses', 'Login berhasil');
     } catch (e) {
       Get.back();
       Get.snackbar('Error', e.toString(),

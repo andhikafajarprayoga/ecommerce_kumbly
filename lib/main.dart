@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:get/get.dart';
-import 'screens/home_screen.dart';
+import 'pages/login_page.dart';
+import 'pages/register_page.dart';
 import 'pages/buyer/home_screen.dart';
 import 'controllers/auth_controller.dart';
+import 'screens/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,23 +18,19 @@ void main() async {
 
   Get.put(AuthController());
 
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return GetMaterialApp(
-      title: 'E-Commerce App',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: const AuthWrapper(),
-    );
-  }
+  runApp(GetMaterialApp(
+    title: 'E-Commerce App',
+    theme: ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      useMaterial3: true,
+    ),
+    home: const AuthWrapper(),
+    getPages: [
+      GetPage(name: '/login', page: () => LoginPage()),
+      GetPage(name: '/register', page: () => RegisterPage()),
+      GetPage(name: '/buyer/home', page: () => BuyerHomeScreen()),
+    ],
+  ));
 }
 
 class AuthWrapper extends StatelessWidget {
@@ -83,5 +81,21 @@ class AuthWrapper extends StatelessWidget {
       }
       return '';
     }
+  }
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GetMaterialApp(
+      home: const AuthWrapper(),
+      getPages: [
+        GetPage(name: '/login', page: () => LoginPage()),
+        GetPage(name: '/register', page: () => RegisterPage()),
+        GetPage(name: '/buyer/home', page: () => BuyerHomeScreen()),
+      ],
+    );
   }
 }
