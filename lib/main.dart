@@ -28,7 +28,7 @@ void main() async {
     getPages: [
       GetPage(name: '/login', page: () => LoginPage()),
       GetPage(name: '/register', page: () => RegisterPage()),
-      GetPage(name: '/buyer/home', page: () => BuyerHomeScreen()),
+      GetPage(name: '/buyer/home_screen', page: () => BuyerHomeScreen()),
     ],
   ));
 }

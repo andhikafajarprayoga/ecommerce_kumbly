@@ -49,31 +49,41 @@ class AuthController extends GetxController {
     try {
       isLoading.value = true;
 
-      // Validasi format email
-      if (!GetUtils.isEmail(email)) {
-        throw 'Format email tidak valid';
-      }
-
-      // Daftar user baru
-      final AuthResponse response = await _supabase.auth.signUp(
+      final AuthResponse res = await _supabase.auth.signUp(
         email: email,
         password: password,
-        data: {'role': role},
       );
 
-      if (response.user != null) {
-        // Tambahkan data user ke tabel users
+      if (res.user != null) {
         await _supabase.from('users').insert({
-          'id': response.user!.id,
+          'id': res.user!.id,
           'email': email,
           'role': role,
           'full_name': fullName,
           'phone': phone,
+          'created_at': DateTime.now().toIso8601String(),
         });
+
+        Get.snackbar(
+          'Sukses',
+          'Registrasi berhasil! Silakan periksa email Anda untuk verifikasi akun sebelum login.',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+          snackPosition: SnackPosition.TOP,
+        );
+
+        Get.offNamed('/login');
       }
     } catch (e) {
-      Get.snackbar('Error', e.toString(),
-          backgroundColor: Colors.red, colorText: Colors.white);
+      Get.snackbar(
+        'Error',
+        e.toString(),
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+      );
+      print('Error registrasi: $e');
     } finally {
       isLoading.value = false;
     }
@@ -108,10 +118,6 @@ class AuthController extends GetxController {
   Future<void> register(
       String email, String password, String fullName, String phone) async {
     try {
-      if (!GetUtils.isEmail(email)) {
-        throw 'Format email tidak valid';
-      }
-
       Get.dialog(
         const Center(child: CircularProgressIndicator()),
         barrierDismissible: false,
@@ -131,19 +137,32 @@ class AuthController extends GetxController {
           'phone': phone,
           'created_at': DateTime.now().toIso8601String(),
         });
-      }
 
-      Get.back();
-      Get.snackbar('Sukses', 'Registrasi berhasil, silakan cek email Anda');
-    } catch (e) {
-      Get.back();
-      if (e.toString().contains('rate_limit')) {
-        Get.snackbar('Error', 'Mohon tunggu 50 detik sebelum mencoba lagi',
-            backgroundColor: Colors.red, colorText: Colors.white);
-      } else {
-        Get.snackbar('Error', e.toString(),
-            backgroundColor: Colors.red, colorText: Colors.white);
+        Get.back(); // Tutup loading
+
+        // Tampilkan snackbar dan langsung navigasi
+        Get.snackbar(
+          'Sukses',
+          'Registrasi berhasil! Silakan login.',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+          snackPosition: SnackPosition.TOP,
+        );
+
+        // Langsung navigasi ke login page
+        Get.offNamed('/login');
       }
+    } catch (e) {
+      Get.back(); // Tutup loading
+      Get.snackbar(
+        'Error',
+        e.toString(),
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+      );
+      print('Error registrasi: $e'); // Tambahkan log untuk debugging
     }
   }
 
@@ -159,48 +178,32 @@ class AuthController extends GetxController {
         password: password,
       );
 
-      if (res.user != null) {
-        try {
-          final userData = await _supabase
-              .from('users')
-              .select()
-              .eq('id', res.user!.id)
-              .maybeSingle();
-
-          if (userData == null) {
-            await _supabase.from('users').upsert({
-              'id': res.user!.id,
-              'email': email,
-              'role': 'buyer',
-              'created_at': DateTime.now().toIso8601String(),
-            });
-          }
-
-          // Set current user dan role
-          currentUser.value = res.user;
-          userRole.value = userData?['role'] ?? 'buyer';
-
-          Get.back(); // Tutup loading
-
-          // Navigasi berdasarkan role
-          if (userRole.value == 'buyer') {
-            Get.offAllNamed(
-                '/buyer/home'); // Pastikan route ini sudah didefinisikan
-          } else if (userRole.value == 'seller') {
-            Get.offAllNamed('/seller/home');
-          }
-
-          Get.snackbar('Sukses', 'Login berhasil');
-        } catch (e) {
-          print('Error saat cek/insert user: $e');
-          Get.back();
-          Get.snackbar('Error', 'Gagal mendapatkan data user');
-        }
+      if (res.user != null && res.user!.confirmedAt != null) {
+        Get.back(); // Tutup loading
+        Get.offAllNamed('/buyer/home_screen');
+        Get.snackbar(
+          'Sukses',
+          'Login berhasil',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      } else {
+        Get.back();
+        Get.snackbar(
+          'Perhatian',
+          'Silakan verifikasi email Anda terlebih dahulu',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
       }
     } catch (e) {
       Get.back();
-      Get.snackbar('Error', e.toString(),
-          backgroundColor: Colors.red, colorText: Colors.white);
+      Get.snackbar(
+        'Error',
+        'Email atau password salah',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 }
