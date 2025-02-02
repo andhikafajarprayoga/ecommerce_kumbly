@@ -38,42 +38,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          // Switch untuk beralih antara Buyer dan Merchant
-          Center(
-              child: Obx(() => Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Buyer'),
-                      Switch(
-                        value: authController.isMerchant.value,
-                        onChanged: (value) async {
-                          if (value) {
-                            // Cek role user saat ini
-                            final userData = await supabase
-                                .from('users')
-                                .select('role')
-                                .eq('id', supabase.auth.currentUser!.id)
-                                .single();
-
-                            if (userData['role'] == 'seller') {
-                              // Jika sudah seller, langsung ke merchant home
-                              authController.isMerchant.value = value;
-                              Get.offAll(() => MerchantHomeScreen());
-                            } else {
-                              // Jika belum seller, ke halaman agreement
-                              Get.to(() => MerchantAgreementScreen());
-                            }
-                          } else {
-                            authController.isMerchant.value = value;
-                            Get.offAll(() => BuyerHomeScreen());
-                          }
-                        },
-                      ),
-                      const Text('Merchant'),
-                    ],
-                  ))),
-
-          const SizedBox(height: 32),
 
           // Menu Merchant
           ListTile(

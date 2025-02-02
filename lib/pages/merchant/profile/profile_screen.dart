@@ -31,36 +31,23 @@ class ProfileScreen extends StatelessWidget {
               style: const TextStyle(fontSize: 18),
             ),
           ),
-          const SizedBox(height: 16),
-          // Switch untuk beralih antara Buyer dan Merchant
-          Center(
-              child: Obx(() => Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Buyer'),
-                      Switch(
-                        value: authController.isMerchant.value,
-                        onChanged: (value) {
-                          authController.isMerchant.value = value;
-                          if (value) {
-                            // Jika switch diubah ke Merchant, navigasi ke MerchantHomeScreen
-                            Get.offAll(() => MerchantHomeScreen());
-                          } else {
-                            // Jika switch diubah ke Buyer, navigasi ke BuyerHomeScreen
-                            Get.offAll(() => BuyerHomeScreen());
-                          }
-                        },
-                      ),
-                      const Text('Merchant'),
-                    ],
-                  ))),
-
           const SizedBox(height: 32),
 
+          // Menu Items
           ListTile(
-              leading: const Icon(Icons.store),
-              title: const Text('Alamat Toko'),
-              onTap: () {}),
+            leading: const Icon(Icons.shopping_bag),
+            title: const Text('Beralih ke Pembeli'),
+            onTap: () {
+              authController.isMerchant.value = false;
+              Get.offAll(() => BuyerHomeScreen());
+            },
+          ),
+
+          ListTile(
+            leading: const Icon(Icons.store),
+            title: const Text('Alamat Toko'),
+            onTap: () {},
+          ),
 
           ListTile(
             leading: const Icon(Icons.logout),
