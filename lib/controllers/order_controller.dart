@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/material.dart';
 
 class OrderController extends GetxController {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -71,37 +72,51 @@ class OrderController extends GetxController {
     }
   }
 
-  Future<void> createOrder(Map<String, dynamic> data) async {
+  Future<void> createOrder(Map<String, dynamic> orderData) async {
     try {
-      isLoading.value = true;
+      isLoading(true);
 
-      // Simpan data pesanan ke database
-      final response = await _supabase.from('orders').insert({
-        'buyer_id': data['buyer_id'],
-        // 'courier_id': data['courier_id'],
-        'total_amount': data['total_amount'],
-        'status': 'pending', // Status awal
-        'shipping_address': data['shipping_address'],
-      });
+      // Buat order baru
+      final orderResponse = await _supabase
+          .from('orders')
+          .insert({
+            'buyer_id': orderData['buyer_id'],
+            'total_amount': orderData['total_amount'],
+            'shipping_address': orderData['shipping_address'],
+            'payment_method_id':
+                int.parse(orderData['payment_method_id']), // Convert ke int
+            'status': 'pending'
+          })
+          .select()
+          .single();
 
-      // Ambil ID pesanan yang baru dibuat
-      final orderId = response.data[0]['id'];
-
-      // Simpan detail item pesanan jika diperlukan
-      for (var item in data['items']) {
+      // Masukkan semua item ke order_items
+      final items = orderData['items'] as List;
+      for (var item in items) {
         await _supabase.from('order_items').insert({
-          'order_id': orderId, // Gunakan orderId yang baru dibuat
+          'order_id': orderResponse['id'],
           'product_id': item['product_id'],
           'quantity': item['quantity'],
+          'price': item['products']['price'],
         });
       }
 
-      Get.snackbar('Sukses', 'Pesanan berhasil dibuat!');
+      Get.snackbar(
+        'Sukses',
+        'Pesanan berhasil dibuat',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
     } catch (e) {
-      print('Error creating order: $e'); // Log error
-      Get.snackbar('Error', 'Gagal membuat pesanan: $e');
+      print('Error creating order: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal membuat pesanan',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     } finally {
-      isLoading.value = false;
+      isLoading(false);
     }
   }
 

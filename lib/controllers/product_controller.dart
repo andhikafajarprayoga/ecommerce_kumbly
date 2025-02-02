@@ -16,19 +16,16 @@ class ProductController extends GetxController {
 
   Future<void> fetchProducts() async {
     try {
-      isLoading.value = true;
       final response = await supabase
           .from('products')
-          .select()
-          // .eq('seller_id', supabase.auth.currentUser!.id)
+          .select('*') // Ambil semua data products tanpa join dulu
           .order('created_at', ascending: false);
-      products.value = response;
+
+      if (response != null) {
+        products.value = response;
+      }
     } catch (e) {
       print('Error fetching products: $e');
-    } finally {
-      Future.delayed(Duration.zero, () {
-        isLoading.value = false;
-      });
     }
   }
 
@@ -134,5 +131,23 @@ class ProductController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  // Filter berdasarkan penjualan terbanyak
+  void sortBySales() {
+    products.sort((a, b) => (b['sales'] ?? 0).compareTo(a['sales'] ?? 0));
+    products.refresh();
+  }
+
+  // Filter harga terendah ke tertinggi
+  void sortByPriceAsc() {
+    products.sort((a, b) => (a['price'] ?? 0).compareTo(b['price'] ?? 0));
+    products.refresh();
+  }
+
+  // Filter harga tertinggi ke terendah
+  void sortByPriceDesc() {
+    products.sort((a, b) => (b['price'] ?? 0).compareTo(a['price'] ?? 0));
+    products.refresh();
   }
 }

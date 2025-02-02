@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/cart_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
+import '../../../theme/app_theme.dart';
+import '../cart/cart_screen.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   final dynamic product;
@@ -15,7 +18,44 @@ class ProductDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detail Produk'),
+        backgroundColor: AppTheme.primary,
+        title:
+            const Text('Detail Produk', style: TextStyle(color: Colors.white)),
+        actions: [
+          Stack(
+            children: [
+              IconButton(
+                icon: Icon(Icons.shopping_cart, color: Colors.white),
+                onPressed: () => Get.to(() => CartScreen()),
+              ),
+              Obx(() => cartController.cartItems.isNotEmpty
+                  ? Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${cartController.cartItems.length}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  : SizedBox()),
+            ],
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -34,8 +74,8 @@ class ProductDetailScreen extends StatelessWidget {
             ),
 
             // Informasi Produk
-            Padding(
-              padding: const EdgeInsets.all(16.0),
+            Container(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -48,33 +88,56 @@ class ProductDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Rp ${product['price']}',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      color: Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Rp ${NumberFormat('#,###').format(product['price'])}',
+                        style: TextStyle(
+                          fontSize: 20,
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.shopping_bag_outlined, size: 16),
+                          SizedBox(width: 4),
+                          Text(
+                            'Terjual ${product['sales'] ?? 0}',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 16),
 
                   // Stok
-                  Row(
-                    children: [
-                      const Icon(Icons.inventory_2_outlined),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Stok: ${product['stock']}',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ],
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.inventory_2_outlined,
+                            color: AppTheme.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Stok: ${product['stock']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 24),
 
                   // Deskripsi
-                  const Text(
+                  Text(
                     'Deskripsi',
                     style: TextStyle(
                       fontSize: 18,
@@ -84,52 +147,85 @@ class ProductDetailScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     product['description'] ?? 'Tidak ada deskripsi',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       color: Colors.black87,
+                      height: 1.5,
                     ),
                   ),
 
                   const SizedBox(height: 24),
 
                   // Informasi Toko
-                  const Text(
-                    'Informasi Penjual',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  FutureBuilder(
-                    future: supabase
-                        .from('merchants')
-                        .select('store_name, store_address')
-                        .eq('id', product['seller_id'])
-                        .single(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        final merchant = snapshot.data as Map;
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              merchant['store_name'] ?? 'Nama Toko',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              merchant['store_address'] ?? 'Alamat Toko',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                      return const CircularProgressIndicator();
-                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Informasi Penjual',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        FutureBuilder(
+                          future: supabase
+                              .from('merchants')
+                              .select('store_name, store_address')
+                              .eq('id', product['seller_id'])
+                              .single(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              final merchant = snapshot.data as Map;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.store,
+                                          color: AppTheme.primary),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        merchant['store_name'] ?? 'Nama Toko',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.location_on,
+                                          color: AppTheme.primary),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          merchant['store_address'] ??
+                                              'Alamat Toko',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            }
+                            return CircularProgressIndicator();
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -162,7 +258,7 @@ class ProductDetailScreen extends StatelessWidget {
                 icon: const Icon(Icons.chat_bubble_outline),
                 label: const Text('Chat'),
                 style: TextButton.styleFrom(
-                  foregroundColor: Colors.blue,
+                  foregroundColor: AppTheme.primary,
                 ),
               ),
             ),
@@ -173,21 +269,33 @@ class ProductDetailScreen extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () {
                   cartController.addToCart(product);
+
+                  // Animasi dan feedback
                   Get.snackbar(
                     'Sukses',
                     'Produk ditambahkan ke keranjang',
                     snackPosition: SnackPosition.TOP,
+                    backgroundColor: Colors.green,
+                    colorText: Colors.white,
+                    duration: Duration(seconds: 2),
+                    animationDuration: Duration(milliseconds: 500),
+                    icon: Icon(Icons.check_circle, color: Colors.white),
+                    onTap: (_) => Get.to(() => CartScreen()),
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
+                  backgroundColor: AppTheme.primary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 child: const Text(
                   'Tambah ke Keranjang',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),

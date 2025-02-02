@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../theme/app_theme.dart';
+import 'package:geocoding/geocoding.dart';
 
 class EditAddressScreen extends StatefulWidget {
   final String initialAddress;
@@ -14,61 +17,203 @@ class EditAddressScreen extends StatefulWidget {
 }
 
 class _EditAddressScreenState extends State<EditAddressScreen> {
-  LatLng selectedLocation =
-      LatLng(-6.200000, 106.816666); // Default lokasi (Jakarta)
+  LatLng selectedLocation = LatLng(-6.200000, 106.816666);
+  final mapController = MapController();
+  String selectedAddress = '';
+  bool isLoading = false;
+  final supabase = Supabase.instance.client;
+  TextEditingController searchController = TextEditingController();
+
+  Future<void> getAddressFromLatLng(LatLng position) async {
+    setState(() => isLoading = true);
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        selectedAddress =
+            '${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}';
+      }
+    } catch (e) {
+      print('Error getting address: $e');
+      selectedAddress = 'Gagal mendapatkan alamat';
+    }
+    setState(() => isLoading = false);
+  }
+
+  Future<void> searchLocation(String query) async {
+    if (query.length > 2) {
+      try {
+        List<Location> locations = await locationFromAddress(query);
+        if (locations.isNotEmpty) {
+          Location location = locations.first;
+          LatLng newLocation = LatLng(location.latitude, location.longitude);
+          setState(() => selectedLocation = newLocation);
+          mapController.move(newLocation, 16.0);
+          getAddressFromLatLng(newLocation);
+        }
+      } catch (e) {
+        print('Error searching location: $e');
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    getAddressFromLatLng(selectedLocation);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pilih Lokasi Pengiriman'),
+        title: Text('Pilih Lokasi Alamat',
+            style: TextStyle(color: Colors.black, fontSize: 16)),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        iconTheme: IconThemeData(color: Colors.black),
       ),
       body: Column(
         children: [
-          Expanded(
-            child: FlutterMap(
-              options: MapOptions(
-                initialCenter: selectedLocation,
-                initialZoom: 15.0,
-                onTap: (tapPosition, latLng) {
-                  setState(() {
-                    selectedLocation = latLng;
-                  });
-                },
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  subdomains: ['a', 'b', 'c'],
+          // Search Bar
+          Container(
+            padding: EdgeInsets.all(16),
+            color: Colors.white,
+            child: TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText: 'Cari alamat...',
+                prefixIcon: Icon(Icons.search, color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      width: 50.0,
-                      height: 50.0,
-                      point: selectedLocation,
-                      child: const Icon(
-                        Icons.location_on,
-                        color: Colors.red,
-                        size: 40,
-                      ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                fillColor: Colors.grey[50],
+                filled: true,
+              ),
+              onSubmitted: (value) => searchLocation(value),
+            ),
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: mapController,
+                  options: MapOptions(
+                    initialCenter: selectedLocation,
+                    initialZoom: 16.0,
+                    onTap: (tapPosition, latLng) {
+                      setState(() => selectedLocation = latLng);
+                      getAddressFromLatLng(latLng);
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      subdomains: ['a', 'b', 'c'],
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          width: 40.0,
+                          height: 40.0,
+                          point: selectedLocation,
+                          child: Icon(Icons.location_pin,
+                              color: Colors.red, size: 40),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                // Zoom controls
+                Positioned(
+                  right: 16,
+                  bottom: 100,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black12, blurRadius: 8)
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.add),
+                          onPressed: () {
+                            double currentZoom = mapController.camera.zoom;
+                            mapController.move(
+                                selectedLocation, currentZoom + 1);
+                          },
+                        ),
+                        Divider(height: 1),
+                        IconButton(
+                          icon: Icon(Icons.remove),
+                          onPressed: () {
+                            double currentZoom = mapController.camera.zoom;
+                            mapController.move(
+                                selectedLocation, currentZoom - 1);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (isLoading)
+                  Container(
+                    color: Colors.black26,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: ElevatedButton(
-              onPressed: () {
-                // Simpan alamat yang baru dengan koordinat yang dipilih
-                widget.onSave(
-                    'Lokasi baru: Lat: ${selectedLocation.latitude}, Lon: ${selectedLocation.longitude}');
-                Get.back(); // Kembali ke halaman Checkout
-              },
-              child: const Text('Simpan Lokasi'),
+          Container(
+            color: Colors.white,
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Alamat Terpilih',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  selectedAddress.isEmpty
+                      ? 'Pilih lokasi di peta'
+                      : selectedAddress,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+                SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: selectedAddress.isEmpty
+                        ? null
+                        : () {
+                            widget.onSave(selectedAddress);
+                            Get.back();
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text('Simpan Alamat',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

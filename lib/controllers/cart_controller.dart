@@ -222,14 +222,21 @@ class CartController extends GetxController {
   Map<String, dynamic> prepareCheckoutData(
       String courierId, String shippingAddress) {
     final userId = supabase.auth.currentUser?.id;
-    final totalAmount = totalPrice; // Menggunakan getter totalPrice
+    double selectedTotal = cartItems
+        .where((item) => item['isSelected'] == true)
+        .fold(0.0, (sum, item) {
+      final price = (item['products']['price'] as num?)?.toDouble() ?? 0.0;
+      final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+      return sum + (price * quantity);
+    });
 
     return {
       'buyer_id': userId,
       'courier_id': courierId,
-      'total_amount': totalAmount,
+      'total_amount': selectedTotal,
       'shipping_address': shippingAddress,
-      'items': cartItems.map((item) {
+      'items':
+          cartItems.where((item) => item['isSelected'] == true).map((item) {
         return {
           'product_id': item['product_id'],
           'quantity': item['quantity'],

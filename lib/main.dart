@@ -6,7 +6,6 @@ import 'auth/register_page.dart';
 import 'pages/buyer/home_screen.dart';
 import 'controllers/auth_controller.dart';
 import 'screens/home_screen.dart';
-import 'controllers/cart_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
