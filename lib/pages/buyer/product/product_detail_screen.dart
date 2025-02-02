@@ -8,7 +8,7 @@ class ProductDetailScreen extends StatelessWidget {
   ProductDetailScreen({super.key, required this.product}) {
     Get.put(CartController());
   }
-  final CartController cartController = Get.find<CartController>();
+  final CartController cartController = Get.put(CartController());
   final supabase = Supabase.instance.client;
 
   @override

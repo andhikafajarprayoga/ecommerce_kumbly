@@ -18,7 +18,7 @@ void main() async {
   );
 
   Get.put(AuthController());
-  Get.put(CartController());
+  // Get.put(CartController());
 
   runApp(GetMaterialApp(
     title: 'E-Commerce App',

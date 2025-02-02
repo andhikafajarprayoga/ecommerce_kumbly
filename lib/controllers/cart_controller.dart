@@ -16,7 +16,9 @@ class CartController extends GetxController {
   Future<void> fetchCartItems() async {
     try {
       isLoading(true);
-      final userId = supabase.auth.currentUser!.id;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
       final response = await supabase
           .from('cart_items')
           .select('*, products(*)')
@@ -39,20 +41,17 @@ class CartController extends GetxController {
   Future<void> addToCart(Map<String, dynamic> product) async {
     try {
       isLoading(true);
-      final userId = supabase.auth.currentUser!.id;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
 
-      // Cek apakah produk sudah ada di keranjang
       final existingItem = cartItems
           .firstWhereOrNull((item) => item['product_id'] == product['id']);
 
       if (existingItem != null) {
-        // Update quantity jika produk sudah ada
-        await supabase
-            .from('cart_items')
-            .update({'quantity': existingItem['quantity'] + 1}).eq(
-                'id', existingItem['id']);
+        final currentQuantity = (existingItem['quantity'] as num).toInt();
+        await supabase.from('cart_items').update(
+            {'quantity': currentQuantity + 1}).eq('id', existingItem['id']);
       } else {
-        // Tambah produk baru ke keranjang
         await supabase.from('cart_items').insert({
           'user_id': userId,
           'product_id': product['id'],
@@ -60,7 +59,6 @@ class CartController extends GetxController {
         });
       }
 
-      // Refresh keranjang
       await fetchCartItems();
     } catch (e) {
       print('Error adding to cart: $e');
@@ -75,21 +73,30 @@ class CartController extends GetxController {
   }
 
   // Update quantity produk di keranjang
-  Future<void> updateQuantity(int cartItemId, int quantity) async {
+  Future<void> updateQuantity(String cartItemId, int newQuantity) async {
     try {
-      if (quantity < 1) return;
+      print("Update item dengan ID: $cartItemId ke jumlah: $newQuantity");
 
       isLoading(true);
+
+      // Pastikan jumlah tidak kurang dari 1
+      if (newQuantity < 1) {
+        print("Jumlah tidak boleh kurang dari 1");
+        return;
+      }
+
+      // Update jumlah di database
       await supabase
           .from('cart_items')
-          .update({'quantity': quantity}).eq('id', cartItemId);
+          .update({'quantity': newQuantity}).eq('id', cartItemId);
 
+      // Ambil ulang data cart
       await fetchCartItems();
     } catch (e) {
       print('Error updating quantity: $e');
       Get.snackbar(
         'Error',
-        'Gagal mengupdate jumlah produk',
+        'Gagal memperbarui jumlah produk',
         snackPosition: SnackPosition.TOP,
       );
     } finally {
@@ -98,9 +105,14 @@ class CartController extends GetxController {
   }
 
   // Menghapus produk dari keranjang
-  Future<void> removeFromCart(int cartItemId) async {
+  Future<void> removeFromCart(String cartItemId) async {
     try {
+      print(
+          "Menghapus item dengan ID: $cartItemId (Type: ${cartItemId.runtimeType})");
+
       isLoading(true);
+
+      // Hapus berdasarkan UUID
       await supabase.from('cart_items').delete().eq('id', cartItemId);
 
       await fetchCartItems();
@@ -122,23 +134,42 @@ class CartController extends GetxController {
     }
   }
 
+  Future<void> _deleteCartItem(int id) async {
+    isLoading(true);
+    await supabase.from('cart_items').delete().eq('id', id);
+    await fetchCartItems();
+    isLoading(false);
+
+    Get.snackbar(
+      'Sukses',
+      'Produk dihapus dari keranjang',
+      snackPosition: SnackPosition.TOP,
+    );
+  }
+
   // Menghitung total harga keranjang
   double get totalPrice {
-    return cartItems.fold(0, (sum, item) {
-      return sum + (item['products']['price'] * item['quantity']);
+    return cartItems.fold(0.0, (sum, item) {
+      final price = (item['products']['price'] as num?)?.toDouble() ?? 0.0;
+      final quantity = (item['quantity'] as num?)?.toInt() ?? 1;
+      return sum + (price * quantity);
     });
   }
 
   // Menghitung total item di keranjang
   int get totalItems {
-    return cartItems.fold(0, (sum, item) => sum + (item['quantity'] as int));
+    return cartItems.fold(0, (sum, item) {
+      final quantity = (item['quantity'] as num?)?.toInt() ?? 0;
+      return sum + quantity;
+    });
   }
 
   // Mengosongkan keranjang
   Future<void> clearCart() async {
     try {
       isLoading(true);
-      final userId = supabase.auth.currentUser!.id;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
 
       await supabase.from('cart_items').delete().eq('user_id', userId);
 
@@ -153,5 +184,57 @@ class CartController extends GetxController {
     } finally {
       isLoading(false);
     }
+  }
+
+  Future<void> checkout() async {
+    try {
+      isLoading(true);
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Ambil data keranjang
+      final cartItemsData = cartItems.map((item) {
+        return {
+          'product_id': item['product_id'],
+          'quantity': item['quantity'],
+        };
+      }).toList();
+
+      // Simpan pesanan ke database
+      final response = await supabase.from('orders').insert({
+        'user_id': userId,
+        'items':
+            cartItemsData, // Pastikan struktur data sesuai dengan yang diharapkan
+      });
+
+      // Kosongkan keranjang setelah checkout
+      await clearCart();
+
+      Get.snackbar('Sukses', 'Checkout berhasil!');
+    } catch (e) {
+      Get.snackbar('Error', 'Gagal melakukan checkout: $e');
+    } finally {
+      isLoading(false);
+    }
+  }
+
+  // Menambahkan metode untuk mendapatkan data checkout
+  Map<String, dynamic> prepareCheckoutData(
+      String courierId, String shippingAddress) {
+    final userId = supabase.auth.currentUser?.id;
+    final totalAmount = totalPrice; // Menggunakan getter totalPrice
+
+    return {
+      'buyer_id': userId,
+      'courier_id': courierId,
+      'total_amount': totalAmount,
+      'shipping_address': shippingAddress,
+      'items': cartItems.map((item) {
+        return {
+          'product_id': item['product_id'],
+          'quantity': item['quantity'],
+        };
+      }).toList(),
+    };
   }
 }

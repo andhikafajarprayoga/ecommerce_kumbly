@@ -20,13 +20,15 @@ class ProductController extends GetxController {
       final response = await supabase
           .from('products')
           .select()
-          .eq('seller_id', supabase.auth.currentUser!.id)
+          // .eq('seller_id', supabase.auth.currentUser!.id)
           .order('created_at', ascending: false);
       products.value = response;
     } catch (e) {
       print('Error fetching products: $e');
     } finally {
-      isLoading.value = false;
+      Future.delayed(Duration.zero, () {
+        isLoading.value = false;
+      });
     }
   }
 

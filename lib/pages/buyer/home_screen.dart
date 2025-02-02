@@ -6,11 +6,22 @@ import 'cart/cart_screen.dart';
 import 'profile/profile_screen.dart';
 import 'product/product_detail_screen.dart';
 
-class BuyerHomeScreen extends StatelessWidget {
+class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
 
+  @override
+  _BuyerHomeScreenState createState() => _BuyerHomeScreenState();
+}
+
+class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final ProductController productController = Get.put(ProductController());
   final AuthController authController = Get.find<AuthController>();
+
+  @override
+  void initState() {
+    super.initState();
+    productController.fetchProducts();
+  }
 
   @override
   Widget build(BuildContext context) {

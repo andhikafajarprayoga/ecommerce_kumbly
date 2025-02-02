@@ -132,7 +132,8 @@ class ProductCard extends StatelessWidget {
               width: double.infinity,
               decoration: BoxDecoration(
                 image: DecorationImage(
-                  image: NetworkImage(product['image_url']),
+                  image: NetworkImage(product['image_url'] ??
+                      'https://example.com/default_image.png'),
                   fit: BoxFit.cover,
                 ),
               ),

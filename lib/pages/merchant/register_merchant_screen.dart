@@ -74,6 +74,12 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 3,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Deskripsi toko wajib diisi';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(
