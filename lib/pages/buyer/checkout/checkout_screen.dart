@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kumbly_ecommerce/controllers/cart_controller.dart';
 import 'package:kumbly_ecommerce/controllers/order_controller.dart';
+import 'package:kumbly_ecommerce/pages/buyer/profile/alamat_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -17,6 +19,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final OrderController orderController = Get.put(OrderController());
+    final CartController cartController =
+        Get.put(CartController()); // Menambahkan CartController
 
     return Scaffold(
       appBar: AppBar(
@@ -38,8 +42,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              Text(
-                  'Alamat Pengiriman: ${widget.data['shipping_address']}'), // Tampilkan alamat
+              // Tampilkan alamat pengiriman dengan tombol untuk mengubahnya
+              GestureDetector(
+                onTap: () async {
+                  // Arahkan ke halaman EditAddressScreen untuk mengubah alamat
+                  final updatedAddress = await Get.to(() => EditAddressScreen(
+                        initialAddress: widget.data['shipping_address'],
+                        onSave: (newAddress) {
+                          setState(() {
+                            widget.data['shipping_address'] = newAddress;
+                          });
+                        },
+                      ));
+                  if (updatedAddress != null) {
+                    setState(() {
+                      widget.data['shipping_address'] = updatedAddress;
+                    });
+                  }
+                },
+                child: Text(
+                  'Alamat Pengiriman: ${widget.data['shipping_address']}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               const Text(
                 'Metode Pembayaran:',
@@ -88,10 +117,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   itemBuilder: (context, index) {
                     final item = widget.data['items'][index];
                     return ListTile(
-                      title:
-                          Text(item['product_id']), // Ganti dengan nama produk
+                      title: Text(item['product_id']),
                       subtitle: Text(
-                          'Jumlah: ${item['quantity']} - Rp ${item['price']}'), // Pastikan harga ada di data
+                          'Jumlah: ${item['quantity']} - Rp ${item['price']}'),
                     );
                   },
                 ),
@@ -108,9 +136,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   // Panggil fungsi untuk menyimpan pesanan
                   await orderController.createOrder({
                     ...widget.data,
-                    'payment_method':
-                        paymentMethod, // Tambahkan metode pembayaran
+                    'payment_method': paymentMethod,
                   });
+
+                  // Menghapus semua item dari cart setelah pesanan berhasil
+                  cartController.clearCart();
+
                   Get.back(); // Kembali ke halaman sebelumnya setelah checkout
                 },
                 child: const Text('Konfirmasi Pesanan'),

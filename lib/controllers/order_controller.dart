@@ -120,4 +120,19 @@ class OrderController extends GetxController {
       return 'Alamat tidak tersedia'; // Kembalikan pesan default jika terjadi kesalahan
     }
   }
+
+  Future<Map<String, dynamic>> getOrderDetails(String orderId) async {
+    try {
+      final response = await _supabase
+          .from('orders') // Ganti dengan nama tabel yang sesuai
+          .select()
+          .eq('id', orderId)
+          .single(); // Ambil satu data
+
+      return Map<String, dynamic>.from(response); // Kembalikan data sebagai Map
+    } catch (e) {
+      print('Error fetching order details: $e');
+      throw e; // Lempar kembali kesalahan untuk ditangani di tempat lain
+    }
+  }
 }

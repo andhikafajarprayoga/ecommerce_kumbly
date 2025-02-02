@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:kumbly_ecommerce/controllers/order_controller.dart'; // Pastikan untuk mengimpor OrderController
+import 'package:kumbly_ecommerce/controllers/order_controller.dart';
 
 class PesananSayaScreen extends StatefulWidget {
   const PesananSayaScreen({super.key});
@@ -61,12 +61,6 @@ class _PesananSayaScreenState extends State<PesananSayaScreen> {
                     Text('Alamat Pengiriman: ${order['shipping_address']}',
                         style: const TextStyle(fontSize: 14)),
                     const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        // Logika untuk melihat detail pesanan
-                      },
-                      child: const Text('Detail'),
-                    ),
                   ],
                 ),
               ),
