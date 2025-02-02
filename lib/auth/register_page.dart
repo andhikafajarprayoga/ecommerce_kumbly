@@ -10,7 +10,6 @@ class RegisterPage extends StatelessWidget {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController fullNameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
-  final RxString selectedRole = 'buyer'.obs;
 
   @override
   Widget build(BuildContext context) {
@@ -52,32 +51,17 @@ class RegisterPage extends StatelessWidget {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
-            Obx(() => DropdownButtonFormField<String>(
-                  value: selectedRole.value,
-                  decoration: const InputDecoration(
-                    labelText: 'Role',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'buyer', child: Text('Pembeli')),
-                    DropdownMenuItem(value: 'seller', child: Text('Penjual')),
-                    DropdownMenuItem(value: 'courier', child: Text('Kurir')),
-                  ],
-                  onChanged: (value) => selectedRole.value = value!,
-                )),
             const SizedBox(height: 24),
             Obx(
               () => authController.isLoading.value
                   ? const CircularProgressIndicator()
                   : ElevatedButton(
                       onPressed: () {
-                        authController.signUp(
-                          email: emailController.text,
-                          password: passwordController.text,
-                          role: selectedRole.value,
-                          fullName: fullNameController.text,
-                          phone: phoneController.text,
+                        authController.register(
+                          emailController.text,
+                          passwordController.text,
+                          fullNameController.text,
+                          phoneController.text,
                         );
                       },
                       child: const Text('Daftar'),

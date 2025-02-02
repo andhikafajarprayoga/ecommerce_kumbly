@@ -3,14 +3,18 @@ import 'package:get/get.dart';
 import '../../../controllers/product_controller.dart';
 import 'add_product_screen.dart';
 import 'edit_product_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProductListScreen extends StatelessWidget {
-  ProductListScreen({super.key});
-
-  final ProductController productController = Get.find<ProductController>();
+  ProductListScreen({super.key}) {
+    Get.put(ProductController());
+  }
 
   @override
   Widget build(BuildContext context) {
+    final ProductController productController = Get.find<ProductController>();
+    final supabase = Supabase.instance.client;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Daftar Produk'),
@@ -28,8 +32,30 @@ class ProductListScreen extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (productController.products.isEmpty) {
-          return const Center(child: Text('Tidak ada produk'));
+        // Filter produk berdasarkan seller_id yang sesuai dengan user login
+        final myProducts = productController.products
+            .where((product) =>
+                product['seller_id'] == supabase.auth.currentUser!.id)
+            .toList();
+
+        if (myProducts.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text(
+                  'Belum ada produk',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                Text(
+                  'Tambahkan produk pertama Anda',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
+            ),
+          );
         }
 
         return GridView.builder(
@@ -40,17 +66,38 @@ class ProductListScreen extends StatelessWidget {
             crossAxisSpacing: 10,
             mainAxisSpacing: 10,
           ),
-          itemCount: productController.products.length,
+          itemCount: myProducts.length,
           itemBuilder: (context, index) {
-            final product = productController.products[index];
+            final product = myProducts[index];
             return ProductCard(
               product: product,
               onEdit: () {
                 Get.to(() => EditProductScreen(product: product));
               },
-              onDelete: () {
-                productController.deleteProduct(product.id);
-                Get.snackbar('Sukses', 'Produk berhasil dihapus');
+              onDelete: () async {
+                final confirm = await Get.dialog<bool>(
+                  AlertDialog(
+                    title: const Text('Konfirmasi'),
+                    content: const Text(
+                        'Apakah Anda yakin ingin menghapus produk ini?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Get.back(result: false),
+                        child: const Text('Batal'),
+                      ),
+                      TextButton(
+                        onPressed: () => Get.back(result: true),
+                        child: const Text('Hapus',
+                            style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true) {
+                  await productController.deleteProduct(product['id']);
+                  Get.snackbar('Sukses', 'Produk berhasil dihapus');
+                }
               },
             );
           },
@@ -62,14 +109,14 @@ class ProductListScreen extends StatelessWidget {
 
 class ProductCard extends StatelessWidget {
   final dynamic product;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const ProductCard({
     super.key,
     required this.product,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -85,8 +132,7 @@ class ProductCard extends StatelessWidget {
               width: double.infinity,
               decoration: BoxDecoration(
                 image: DecorationImage(
-                  image: NetworkImage(
-                      product.imageUrl ?? 'https://via.placeholder.com/150'),
+                  image: NetworkImage(product['image_url']),
                   fit: BoxFit.cover,
                 ),
               ),
@@ -100,7 +146,7 @@ class ProductCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  product.name,
+                  product['name'],
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -110,7 +156,7 @@ class ProductCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Rp ${product.price.toStringAsFixed(0)}',
+                  'Rp ${product['price']}',
                   style: const TextStyle(
                     fontSize: 14,
                     color: Colors.green,
@@ -120,12 +166,12 @@ class ProductCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ElevatedButton(
+                    IconButton(
+                      icon: const Icon(Icons.edit),
                       onPressed: onEdit,
-                      child: const Text('Edit'),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete),
+                      icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: onDelete,
                     ),
                   ],

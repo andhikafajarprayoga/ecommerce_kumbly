@@ -32,11 +32,11 @@ class AuthController extends GetxController {
       if (userData != null) {
         userRole.value = userData['role'] as String;
       } else {
-        userRole.value = 'buyer';
+        userRole.value = 'seller';
       }
     } catch (e) {
       print('Error getting user role: $e');
-      userRole.value = 'buyer';
+      userRole.value = 'seller';
     }
   }
 
@@ -139,31 +139,18 @@ class AuthController extends GetxController {
           'created_at': DateTime.now().toIso8601String(),
         });
 
-        Get.back(); // Tutup loading
-
-        // Tampilkan snackbar dan langsung navigasi
+        Get.back();
         Get.snackbar(
           'Sukses',
           'Registrasi berhasil! Silakan login.',
           backgroundColor: Colors.green,
           colorText: Colors.white,
-          duration: const Duration(seconds: 2),
-          snackPosition: SnackPosition.TOP,
         );
-
-        // Langsung navigasi ke login page
         Get.offNamed('/login');
       }
     } catch (e) {
-      Get.back(); // Tutup loading
-      Get.snackbar(
-        'Error',
-        e.toString(),
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-      );
-      print('Error registrasi: $e'); // Tambahkan log untuk debugging
+      Get.back();
+      Get.snackbar('Error', e.toString());
     }
   }
 
@@ -180,14 +167,26 @@ class AuthController extends GetxController {
       );
 
       if (res.user != null && res.user!.confirmedAt != null) {
-        Get.back(); // Tutup loading
-        Get.offAllNamed('/buyer/home_screen');
-        Get.snackbar(
-          'Sukses',
-          'Login berhasil',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        final userData = await _supabase
+            .from('users')
+            .select('role')
+            .eq('id', res.user!.id)
+            .single();
+
+        Get.back();
+
+        switch (userData['role']) {
+          case 'buyer':
+            Get.offAllNamed('/buyer/home_screen');
+            break;
+          case 'buyer_seller':
+            Get.offAllNamed('/merchant/home_screen');
+            break;
+          default:
+            Get.offAllNamed('/buyer/home_screen');
+        }
+
+        Get.snackbar('Sukses', 'Login berhasil');
       } else {
         Get.back();
         Get.snackbar(
@@ -199,12 +198,7 @@ class AuthController extends GetxController {
       }
     } catch (e) {
       Get.back();
-      Get.snackbar(
-        'Error',
-        'Email atau password salah',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      Get.snackbar('Error', 'Email atau password salah');
     }
   }
 }

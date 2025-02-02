@@ -2,11 +2,11 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ProductController extends GetxController {
-  final SupabaseClient _supabase = Supabase.instance.client;
-  final RxBool isLoading = false.obs;
-  final RxList products = [].obs;
-  final RxString selectedCategory = ''.obs;
-  final RxString searchQuery = ''.obs;
+  final supabase = Supabase.instance.client;
+  final products = <dynamic>[].obs;
+  final isLoading = false.obs;
+  final searchQuery = ''.obs;
+  final selectedCategory = Rx<String?>(null);
 
   @override
   void onInit() {
@@ -17,79 +17,115 @@ class ProductController extends GetxController {
   Future<void> fetchProducts() async {
     try {
       isLoading.value = true;
-
-      var query =
-          _supabase.from('products').select('*, users!inner(full_name)');
-
-      if (selectedCategory.isNotEmpty) {
-        query = query.eq('category', selectedCategory.value);
-      }
-
-      if (searchQuery.isNotEmpty) {
-        query = query.ilike('name', '%${searchQuery.value}%');
-      }
-
-      final response = await query;
+      final response = await supabase
+          .from('products')
+          .select()
+          .eq('seller_id', supabase.auth.currentUser!.id)
+          .order('created_at', ascending: false);
       products.value = response;
     } catch (e) {
-      Get.snackbar('Error', 'Gagal memuat produk: $e');
+      print('Error fetching products: $e');
     } finally {
       isLoading.value = false;
     }
-  }
-
-  void filterByCategory(String? category) {
-    selectedCategory.value = category ?? '';
-    fetchProducts();
   }
 
   void searchProducts(String query) {
     searchQuery.value = query;
-    fetchProducts();
+    if (query.isEmpty && selectedCategory.value == null) {
+      fetchProducts();
+      return;
+    }
+
+    final filteredProducts = products.where((product) {
+      final matchesQuery = product['name']
+          .toString()
+          .toLowerCase()
+          .contains(query.toLowerCase());
+      final matchesCategory = selectedCategory.value == null ||
+          product['category'] == selectedCategory.value;
+      return matchesQuery && matchesCategory;
+    }).toList();
+
+    products.value = filteredProducts;
   }
 
-  Future<void> addProduct(String name, double price, String imageUrl) async {
-    try {
-      isLoading.value = true;
-      final product = {
-        'name': name,
-        'price': price,
-        'imageUrl': imageUrl,
-        // Tambahkan properti lain yang diperlukan
-      };
-      await _supabase.from('products').insert(product);
+  void filterByCategory(String? category) {
+    selectedCategory.value = category;
+    if (category == null && searchQuery.value.isEmpty) {
       fetchProducts();
+      return;
+    }
+
+    final filteredProducts = products.where((product) {
+      final matchesQuery = searchQuery.value.isEmpty ||
+          product['name']
+              .toString()
+              .toLowerCase()
+              .contains(searchQuery.value.toLowerCase());
+      final matchesCategory =
+          category == null || product['category'] == category;
+      return matchesQuery && matchesCategory;
+    }).toList();
+
+    products.value = filteredProducts;
+  }
+
+  Future<void> addProduct(
+    String name,
+    double price,
+    int stock,
+    String description,
+    String category,
+    String imageUrl,
+  ) async {
+    try {
+      final userId = supabase.auth.currentUser!.id;
+      await supabase.from('products').insert({
+        'seller_id': userId,
+        'name': name,
+        'description': description,
+        'price': price,
+        'stock': stock,
+        'category': category,
+        'image_url': imageUrl,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+      await fetchProducts();
     } catch (e) {
-      Get.snackbar('Error', 'Gagal menambahkan produk: $e');
-    } finally {
-      isLoading.value = false;
+      print('Error adding product: $e');
+      rethrow;
     }
   }
 
   Future<void> updateProduct(
-      int id, String name, double price, String imageUrl) async {
+    String id,
+    String name,
+    double price,
+    int stock,
+    String description,
+    String category,
+    String imageUrl,
+  ) async {
     try {
-      isLoading.value = true;
-      final product = {
-        'id': id,
+      await supabase.from('products').update({
         'name': name,
+        'description': description,
         'price': price,
-        'imageUrl': imageUrl,
-        // Tambahkan properti lain yang diperlukan
-      };
-      await _supabase.from('products').update(product).eq('id', id);
-      fetchProducts();
+        'stock': stock,
+        'category': category,
+        'image_url': imageUrl,
+      }).match({'id': id});
+      await fetchProducts();
     } catch (e) {
-      Get.snackbar('Error', 'Gagal memperbarui produk: $e');
-    } finally {
-      isLoading.value = false;
+      print('Error updating product: $e');
     }
   }
 
   Future<void> deleteProduct(int productId) async {
     try {
       isLoading.value = true;
-      await _supabase.from('products').delete().eq('id', productId);
+      await supabase.from('products').delete().eq('id', productId);
       fetchProducts();
     } catch (e) {
       Get.snackbar('Error', 'Gagal menghapus produk: $e');

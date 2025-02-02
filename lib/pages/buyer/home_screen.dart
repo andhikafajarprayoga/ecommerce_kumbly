@@ -103,7 +103,65 @@ class BuyerHomeScreen extends StatelessWidget {
                 itemCount: productController.products.length,
                 itemBuilder: (context, index) {
                   final product = productController.products[index];
-                  return ProductCard(product: product);
+                  return Card(
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Product Image
+                        Expanded(
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              image: DecorationImage(
+                                image: NetworkImage(
+                                  product['image_url'] ??
+                                      'https://via.placeholder.com/150',
+                                ),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Product Info
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product['name'] ?? '',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Rp ${product['price'].toString()}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.green,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () => Get.to(() =>
+                                      ProductDetailScreen(product: product)),
+                                  child: const Text('Detail'),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
                 },
               );
             }),
@@ -131,76 +189,6 @@ class CategoryChip extends StatelessWidget {
       child: ActionChip(
         label: Text(label),
         onPressed: onTap,
-      ),
-    );
-  }
-}
-
-class ProductCard extends StatelessWidget {
-  final dynamic product;
-
-  const ProductCard({
-    super.key,
-    required this.product,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Product Image
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: NetworkImage(
-                      product.imageUrl ?? 'https://via.placeholder.com/150'),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          ),
-
-          // Product Info
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Rp ${product.price.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.green,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () =>
-                        Get.to(() => ProductDetailScreen(product: product)),
-                    child: const Text('Detail'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

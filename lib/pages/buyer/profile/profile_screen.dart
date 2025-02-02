@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/pages/buyer/home_screen.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/alamat_screen.dart';
-import 'package:kumbly_ecommerce/pages/buyer/profile/merchant_screen.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/pesanan_saya.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/setting_screen.dart';
-import 'package:kumbly_ecommerce/pages/merchant/home_screen.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../screens/home_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:kumbly_ecommerce/pages/merchant/merchant_agreement_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/home_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   ProfileScreen({super.key});
 
   final AuthController authController = Get.find<AuthController>();
+  final SupabaseClient supabase = Supabase.instance.client;
 
   @override
   Widget build(BuildContext context) {
@@ -44,13 +46,25 @@ class ProfileScreen extends StatelessWidget {
                       const Text('Buyer'),
                       Switch(
                         value: authController.isMerchant.value,
-                        onChanged: (value) {
-                          authController.isMerchant.value = value;
+                        onChanged: (value) async {
                           if (value) {
-                            // Jika switch diubah ke Merchant, navigasi ke MerchantHomeScreen
-                            Get.offAll(() => MerchantHomeScreen());
+                            // Cek role user saat ini
+                            final userData = await supabase
+                                .from('users')
+                                .select('role')
+                                .eq('id', supabase.auth.currentUser!.id)
+                                .single();
+
+                            if (userData['role'] == 'seller') {
+                              // Jika sudah seller, langsung ke merchant home
+                              authController.isMerchant.value = value;
+                              Get.offAll(() => MerchantHomeScreen());
+                            } else {
+                              // Jika belum seller, ke halaman agreement
+                              Get.to(() => MerchantAgreementScreen());
+                            }
                           } else {
-                            // Jika switch diubah ke Buyer, navigasi ke BuyerHomeScreen
+                            authController.isMerchant.value = value;
                             Get.offAll(() => BuyerHomeScreen());
                           }
                         },
@@ -61,12 +75,26 @@ class ProfileScreen extends StatelessWidget {
 
           const SizedBox(height: 32),
 
+          // Menu Merchant
           ListTile(
             leading: const Icon(Icons.store),
             title: const Text('Merchant'),
-            onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (context) => MerchantScreen()));
+            onTap: () async {
+              // Cek role user saat ini
+              final userData = await supabase
+                  .from('users')
+                  .select('role')
+                  .eq('id', supabase.auth.currentUser!.id)
+                  .single();
+
+              if (userData['role'] == 'seller') {
+                // Jika sudah seller, langsung ke merchant home
+                authController.isMerchant.value = true;
+                Get.offAll(() => MerchantHomeScreen());
+              } else {
+                // Jika belum seller, ke halaman agreement
+                Get.to(() => MerchantAgreementScreen());
+              }
             },
           ),
 
