@@ -21,14 +21,16 @@ class OrderController extends GetxController {
 
       final response = await _supabase
           .from('orders')
-          .select(
-              '*, products(*)') // Ambil data dari tabel orders dan relasi ke products
-          .eq('user_id', userId); // Filter berdasarkan userId
+          .select('*') // Ambil semua kolom dari tabel orders
+          .eq('buyer_id', userId); // Filter berdasarkan userId
 
-      orders.value = List<Map<String, dynamic>>.from(
-          response); // Data langsung bisa digunakan
+      if (response != null) {
+        orders.value = response; // Simpan data pesanan
+      } else {
+        Get.snackbar('Error', 'Gagal memuat pesanan');
+      }
     } catch (e) {
-      // Get.snackbar('Error', 'Gagal memuat pesanan: $e');
+      Get.snackbar('Error', 'Gagal memuat pesanan: $e');
     } finally {
       isLoading.value = false;
     }
