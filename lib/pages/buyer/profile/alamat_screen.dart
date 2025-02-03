@@ -50,9 +50,20 @@ class _AlamatScreenState extends State<AlamatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Alamat Saya')),
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.blue,
+        title: const Text(
+          'Alamat Saya',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Center(
           child: isLoading
               ? const CircularProgressIndicator()
@@ -60,61 +71,145 @@ class _AlamatScreenState extends State<AlamatScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Alamat Anda:',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: TextEditingController(text: address),
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(),
-                        filled: true,
-                        fillColor: Colors.grey[200],
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 1,
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                       ),
-                      style: const TextStyle(fontSize: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.location_on,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                              const SizedBox(width: 15),
+                              const Text(
+                                'Alamat Pengiriman',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          TextField(
+                            controller: TextEditingController(text: address),
+                            readOnly: true,
+                            maxLines: 3,
+                            decoration: InputDecoration(
+                              filled: true,
+                              fillColor: Colors.grey[50],
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              hintText: 'Belum ada alamat',
+                              hintStyle: TextStyle(color: Colors.grey[400]),
+                            ),
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Jika alamat belum ada, tampilkan tombol Tambah Alamat
+                    const SizedBox(height: 20),
                     if (address == null || address!.isEmpty)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Get.to(() => EditAddressScreen(
-                                  initialAddress: '',
-                                  onSave: (newAddress) {
-                                    setState(() {
-                                      address = newAddress;
-                                    });
-                                  },
-                                ));
-                          },
-                          child: const Text('Tambah Alamat'),
-                        ),
+                      _buildButton(
+                        'Tambah Alamat',
+                        Icons.add_location_alt,
+                        () {
+                          Get.to(() => EditAddressScreen(
+                                initialAddress: '',
+                                onSave: (newAddress) {
+                                  setState(() {
+                                    address = newAddress;
+                                  });
+                                },
+                              ));
+                        },
                       )
                     else
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Get.to(() => EditAddressScreen(
-                                  initialAddress: address!,
-                                  onSave: (newAddress) {
-                                    setState(() {
-                                      address = newAddress;
-                                    });
-                                  },
-                                ));
-                          },
-                          child: const Text('Edit Alamat'),
-                        ),
+                      _buildButton(
+                        'Ubah Alamat',
+                        Icons.edit_location_alt,
+                        () {
+                          Get.to(() => EditAddressScreen(
+                                initialAddress: address!,
+                                onSave: (newAddress) {
+                                  setState(() {
+                                    address = newAddress;
+                                  });
+                                },
+                              ));
+                        },
                       ),
                   ],
                 ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildButton(String text, IconData icon, VoidCallback onPressed) {
+    return Container(
+      width: double.infinity,
+      height: 55,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue, Colors.blue.shade700],
+        ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(15),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(
+                  text,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -236,30 +331,65 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pilih Lokasi Alamat')),
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.blue,
+        title: const Text(
+          'Pilih Lokasi Alamat',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                ),
+              ],
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: searchController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: "Cari alamat...",
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                      prefixIcon: const Icon(Icons.search, color: Colors.blue),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16),
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {
-                    if (searchController.text.isNotEmpty) {
-                      searchAddress(searchController.text);
-                    }
-                  },
+                const SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.blue,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.search, color: Colors.white),
+                    onPressed: () {
+                      if (searchController.text.isNotEmpty) {
+                        searchAddress(searchController.text);
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
@@ -300,33 +430,19 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                     ),
                   ],
                 ),
-
-                // Tombol Zoom In & Out
                 Positioned(
                   bottom: 16,
                   right: 16,
                   child: Column(
                     children: [
-                      FloatingActionButton(
-                        mini: true,
-                        heroTag: "zoom_in",
-                        onPressed: () {
-                          setState(() {
-                            zoomLevel += 1;
-                          });
-                        },
-                        child: const Icon(Icons.zoom_in),
+                      _buildZoomButton(
+                        Icons.add,
+                        () => setState(() => zoomLevel += 1),
                       ),
                       const SizedBox(height: 8),
-                      FloatingActionButton(
-                        mini: true,
-                        heroTag: "zoom_out",
-                        onPressed: () {
-                          setState(() {
-                            zoomLevel -= 1;
-                          });
-                        },
-                        child: const Icon(Icons.zoom_out),
+                      _buildZoomButton(
+                        Icons.remove,
+                        () => setState(() => zoomLevel -= 1),
                       ),
                     ],
                   ),
@@ -334,37 +450,103 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                  offset: const Offset(0, -3),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 TextField(
                   controller: addressController,
                   readOnly: true,
+                  maxLines: 2,
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(),
                     labelText: 'Alamat Terpilih',
+                    labelStyle: const TextStyle(color: Colors.blue),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     suffixIcon: isLoading
                         ? const Padding(
                             padding: EdgeInsets.all(8.0),
                             child: CircularProgressIndicator(),
                           )
-                        : null,
+                        : const Icon(Icons.location_on, color: Colors.blue),
                   ),
-                  style: const TextStyle(fontSize: 16),
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: saveAddress,
-                    child: const Text('Simpan Alamat'),
-                  ),
-                ),
+                _buildSaveButton(),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildZoomButton(IconData icon, VoidCallback onPressed) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 3,
+          ),
+        ],
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: Colors.blue),
+        onPressed: onPressed,
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    return Container(
+      width: double.infinity,
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue, Colors.blue.shade700],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.3),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: saveAddress,
+          borderRadius: BorderRadius.circular(12),
+          child: const Center(
+            child: Text(
+              'Simpan Alamat',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
