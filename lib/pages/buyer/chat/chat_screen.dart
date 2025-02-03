@@ -28,20 +28,50 @@ class _ChatScreenState extends State<ChatScreen> {
         .from('chat_rooms')
         .stream(primaryKey: ['id'])
         .eq('buyer_id', userId)
+        // .neq('seller_id', null)
         .order('created_at', ascending: false)
         .execute()
         .asyncMap((rooms) async {
+          List<Map<String, dynamic>> validRooms = [];
+
           for (var room in rooms) {
-            final lastMessage = await supabase
-                .from('chat_messages')
-                .select('message')
-                .eq('room_id', room['id'])
-                .order('created_at', ascending: false)
-                .limit(1)
-                .single();
-            room['last_message'] = lastMessage['message'];
+            try {
+              // Ambil data merchant
+              final merchantData = await supabase
+                  .from('merchants')
+                  .select('store_name')
+                  .eq('id', room['seller_id'])
+                  .maybeSingle();
+
+              // Tambahkan store_name ke room data
+              room['store_name'] =
+                  merchantData?['store_name'] ?? 'Toko tidak ditemukan';
+
+              // Ambil pesan terakhir
+              final lastMessageResponse = await supabase
+                  .from('chat_messages')
+                  .select('message, created_at')
+                  .eq('room_id', room['id'])
+                  .order('created_at', ascending: false)
+                  .limit(1)
+                  .maybeSingle();
+
+              if (lastMessageResponse != null) {
+                room['last_message'] = lastMessageResponse['message'];
+                room['last_message_time'] = lastMessageResponse['created_at'];
+              } else {
+                room['last_message'] = 'Belum ada pesan';
+                room['last_message_time'] = room['created_at'];
+              }
+
+              room['unread_count'] = await _getUnreadCount(room['id']);
+
+              validRooms.add(room);
+            } catch (e) {
+              print('Error processing chat room: $e');
+            }
           }
-          return rooms;
+          return validRooms;
         });
   }
 
@@ -49,19 +79,46 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat', style: TextStyle(color: Colors.white)),
+        elevation: 0,
         backgroundColor: AppTheme.primary,
+        title: const Text(
+          'Pesan',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
       ),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _chatRoomsStream,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            print('Error: ${snapshot.error}');
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Terjadi kesalahan',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
 
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+              ),
+            );
           }
 
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -69,11 +126,33 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.chat_outlined, size: 44, color: AppTheme.textHint),
-                  SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.chat_bubble_outline,
+                      size: 64,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Belum ada percakapan',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Text(
-                    'Belum ada chat',
-                    style: TextStyle(color: AppTheme.textHint),
+                    'Mulai chat dengan penjual',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
                   ),
                 ],
               ),
@@ -81,19 +160,146 @@ class _ChatScreenState extends State<ChatScreen> {
           }
 
           return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             itemCount: snapshot.data!.length,
             itemBuilder: (context, index) {
               final room = snapshot.data![index];
-              // Load seller info
-              _loadSellerInfo(room['seller_id']);
-
-              return _buildChatItem(
-                chatRoom: room,
-                seller: sellers[room['seller_id']] ??
-                    {
-                      'name': 'Loading...',
-                      'image': 'https://via.placeholder.com/50'
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () async {
+                      await _markMessagesAsRead(room['id']);
+                      Get.to(() => ChatDetailScreen(
+                            chatRoom: room,
+                            seller: sellers[room['seller_id']] ??
+                                {
+                                  'name': 'Loading...',
+                                  'image': 'https://via.placeholder.com/50'
+                                },
+                          ));
                     },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  AppTheme.primary.withOpacity(0.8),
+                                  AppTheme.primary,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Center(
+                              child: Text(
+                                (room['buyer_id'] as String)
+                                    .substring(0, 1)
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        room['store_name'],
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Text(
+                                      _formatTimestamp(
+                                          room['last_message_time']),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        room['last_message'] ??
+                                            'Belum ada pesan',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 14,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (room['unread_count'] > 0)
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 8),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primary,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          room['unread_count'].toString(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               );
             },
           );
@@ -104,41 +310,67 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadSellerInfo(String sellerId) async {
     if (!sellers.containsKey(sellerId)) {
-      final seller = await _getUserInfo(sellerId);
-      setState(() {
-        sellers[sellerId] = seller;
-      });
+      try {
+        final seller = await _getUserInfo(sellerId);
+        if (mounted) {
+          setState(() {
+            sellers[sellerId] = seller;
+          });
+        }
+      } catch (e) {
+        print('Error loading seller info: $e');
+        if (mounted) {
+          setState(() {
+            sellers[sellerId] = {
+              'name': 'User tidak ditemukan',
+              'image': 'https://via.placeholder.com/50',
+              'is_merchant': false
+            };
+          });
+        }
+      }
     }
   }
 
   Future<Map<String, dynamic>> _getUserInfo(String userId) async {
-    // Cek dulu di merchants
-    final merchantResponse = await supabase
-        .from('merchants')
-        .select('id, store_name')
-        .eq('id', userId)
-        .maybeSingle();
+    try {
+      final merchantData = await supabase
+          .from('merchants')
+          .select('id, store_name')
+          .eq('id', userId)
+          .maybeSingle();
 
-    if (merchantResponse != null) {
+      if (merchantData != null) {
+        return {
+          'name': merchantData['store_name'],
+          'image': 'https://via.placeholder.com/50',
+          'is_merchant': true
+        };
+      }
+
+      final userData = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .eq('id', userId)
+          .maybeSingle();
+
+      if (userData != null) {
+        return {
+          'name': userData['full_name'],
+          'image': userData['avatar_url'] ?? 'https://via.placeholder.com/50',
+          'is_merchant': false
+        };
+      }
+
+      throw Exception('User not found');
+    } catch (e) {
+      print('Error getting user info: $e');
       return {
-        'name': merchantResponse['store_name'],
+        'name': 'User tidak ditemukan',
         'image': 'https://via.placeholder.com/50',
-        'is_merchant': true
+        'is_merchant': false
       };
     }
-
-    // Kalau bukan merchant, ambil dari profiles
-    final userResponse = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .eq('id', userId)
-        .single();
-
-    return {
-      'name': userResponse['full_name'],
-      'image': userResponse['avatar_url'],
-      'is_merchant': false
-    };
   }
 
   Widget _buildChatItem({
@@ -169,7 +401,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             Text(
-              _formatTime(chatRoom['last_message_time']),
+              _formatTimestamp(chatRoom['last_message_time']),
               style: TextStyle(
                 fontSize: 10,
                 color: AppTheme.textHint,
@@ -195,26 +427,50 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  String _formatTime(String? timestamp) {
+  String _formatTimestamp(String? timestamp) {
     if (timestamp == null) return '';
-    final date = DateTime.parse(timestamp).toLocal();
+    final DateTime dateTime = DateTime.parse(timestamp).toLocal();
     final now = DateTime.now();
-    if (date.day == now.day) {
-      return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+
+    if (dateTime.year == now.year &&
+        dateTime.month == now.month &&
+        dateTime.day == now.day) {
+      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     }
-    return '${date.day}/${date.month}';
+    return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}';
   }
 
   Future<int> _getUnreadCount(String roomId) async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return 0;
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return 0;
 
-    final response = await supabase.rpc('get_unread_count', params: {
-      'room_id': roomId,
-      'user_id': userId,
-    });
+      final response = await supabase
+          .from('chat_messages')
+          .select()
+          .eq('room_id', roomId)
+          .eq('is_read', false)
+          .neq('sender_id', userId);
 
-    final count = response as int? ?? 0;
-    return count;
+      return response.length;
+    } catch (e) {
+      print('Error getting unread count: $e');
+      return 0;
+    }
+  }
+
+  Future<void> _markMessagesAsRead(String roomId) async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      await supabase
+          .from('chat_messages')
+          .update({'is_read': true})
+          .eq('room_id', roomId)
+          .neq('sender_id', userId);
+    } catch (e) {
+      print('Error marking messages as read: $e');
+    }
   }
 }

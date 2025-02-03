@@ -264,10 +264,19 @@ class ProductDetailScreen extends StatelessWidget {
                     itemCount: relatedProducts.length,
                     itemBuilder: (context, index) {
                       final relatedProduct = relatedProducts[index];
-                      return InkWell(
+                      if (relatedProduct['id'] == product['id']) {
+                        return SizedBox.shrink(); // Skip produk yang sama
+                      }
+                      return GestureDetector(
                         onTap: () {
-                          Get.to(() =>
-                              ProductDetailScreen(product: relatedProduct));
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProductDetailScreen(
+                                product: relatedProduct,
+                              ),
+                            ),
+                          );
                         },
                         child: Container(
                           width: 160,
