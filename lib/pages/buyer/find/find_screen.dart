@@ -113,19 +113,28 @@ class FindScreen extends StatelessWidget {
               fillColor: Colors.white,
               hintText: 'Cari Produk...',
               hintStyle: TextStyle(fontSize: 13),
-              prefixIcon: Icon(Icons.search, color: AppTheme.textHint),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
                 borderSide: BorderSide.none,
               ),
               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+              suffixIcon: IconButton(
+                icon: Icon(Icons.search, color: AppTheme.textHint),
+                onPressed: () {
+                  productController
+                      .searchProducts(productController.searchQuery.value);
+                },
+              ),
             ),
             controller: TextEditingController(
                 text: productController.searchQuery.value),
             onChanged: (value) {
               productController.searchQuery.value = value;
+            },
+            onSubmitted: (value) {
               productController.searchProducts(value);
             },
+            textInputAction: TextInputAction.search,
           ),
         ),
       ),

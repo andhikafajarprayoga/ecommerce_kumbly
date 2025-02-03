@@ -21,6 +21,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final ProductController productController = Get.put(ProductController());
   final AuthController authController = Get.find<AuthController>();
   int _selectedIndex = 0;
+  final TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
@@ -57,16 +58,22 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
               title: Container(
                 height: 40,
                 child: TextField(
+                  controller: searchController,
+                  style: Theme.of(context).textTheme.bodyLarge,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
                     hintText: 'Cari di Saraja',
-                    hintStyle: TextStyle(fontSize: 13),
-                    prefixIcon: Icon(Icons.search, color: AppTheme.textHint),
+                    hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.textHint,
+                        ),
                     suffixIcon: IconButton(
                       icon: Icon(Icons.search, color: AppTheme.textHint),
                       onPressed: () {
+                        final searchValue = searchController.text;
                         setState(() => _selectedIndex = 1);
+                        productController.searchQuery.value = searchValue;
+                        productController.searchProducts(searchValue);
                       },
                     ),
                     border: OutlineInputBorder(
@@ -79,16 +86,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                   onSubmitted: (value) {
                     setState(() => _selectedIndex = 1);
                     productController.searchQuery.value = value;
+                    productController.searchProducts(value);
                   },
                 ),
               ),
               actions: [
                 IconButton(
-                  icon: Icon(Icons.notifications_none),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: Icon(Icons.shopping_cart),
+                  icon: Icon(Icons.shopping_cart_outlined),
                   onPressed: () => Get.to(() => CartScreen()),
                 ),
               ],
@@ -98,15 +102,15 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.home_outlined),
             label: 'Beranda',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
+            icon: Icon(Icons.explore_outlined),
             label: 'Menemukan',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
+            icon: Icon(Icons.person_outline),
             label: 'Profil',
           ),
         ],
@@ -195,26 +199,26 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       CategoryIcon(
-                        icon: Icons.checkroom,
+                        icon: Icons.checkroom_outlined,
                         label: 'Pakaian',
                         onTap: () =>
                             productController.filterByCategory('fashion'),
                       ),
                       CategoryIcon(
-                        icon: Icons.phone_android,
+                        icon: Icons.phone_android_outlined,
                         label: 'Elektronik',
                         onTap: () =>
                             productController.filterByCategory('elektronik'),
                       ),
                       CategoryIcon(
-                        icon: Icons.restaurant,
-                        label: 'Makanan',
+                        icon: Icons.watch_outlined,
+                        label: 'Aksesoris',
                         onTap: () =>
-                            productController.filterByCategory('makanan'),
+                            productController.filterByCategory('aksesoris'),
                       ),
                       CategoryIcon(
-                        icon: Icons.watch,
-                        label: 'Aksesoris',
+                        icon: Icons.more_horiz,
+                        label: 'lainnya',
                         onTap: () =>
                             productController.filterByCategory('aksesoris'),
                       ),
@@ -361,21 +365,15 @@ class ProductCard extends StatelessWidget {
                       SizedBox(width: 4),
                       Text(
                         'Terjual ${product['sales'] ?? 0}',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 11,
-                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
                   SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(
-                        Icons.location_on,
-                        size: 12,
-                        color: AppTheme.textHint,
-                      ),
+                      Icon(Icons.location_on_outlined,
+                          size: 12, color: AppTheme.textHint),
                       SizedBox(width: 4),
                       Expanded(
                         child: FutureBuilder(
@@ -390,19 +388,13 @@ class ProductCard extends StatelessWidget {
                               return Text(
                                 merchant['store_address'] ??
                                     'Alamat tidak tersedia',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontSize: 11,
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall,
                                 overflow: TextOverflow.ellipsis,
                               );
                             }
                             return Text(
                               'Memuat...',
-                              style: TextStyle(
-                                color: AppTheme.textSecondary,
-                                fontSize: 11,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall,
                             );
                           },
                         ),
