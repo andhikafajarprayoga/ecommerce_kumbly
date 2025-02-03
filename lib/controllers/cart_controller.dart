@@ -134,19 +134,6 @@ class CartController extends GetxController {
     }
   }
 
-  Future<void> _deleteCartItem(int id) async {
-    isLoading(true);
-    await supabase.from('cart_items').delete().eq('id', id);
-    await fetchCartItems();
-    isLoading(false);
-
-    Get.snackbar(
-      'Sukses',
-      'Produk dihapus dari keranjang',
-      snackPosition: SnackPosition.TOP,
-    );
-  }
-
   // Menghitung total harga keranjang
   double get totalPrice {
     return cartItems.fold(0.0, (sum, item) {
@@ -201,10 +188,9 @@ class CartController extends GetxController {
       }).toList();
 
       // Simpan pesanan ke database
-      final response = await supabase.from('orders').insert({
+      await supabase.from('orders').insert({
         'user_id': userId,
-        'items':
-            cartItemsData, // Pastikan struktur data sesuai dengan yang diharapkan
+        'items': cartItemsData,
       });
 
       // Kosongkan keranjang setelah checkout

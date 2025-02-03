@@ -5,6 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../theme/app_theme.dart';
 import '../cart/cart_screen.dart';
+import '../chat/chat_detail_screen.dart';
+import '../checkout/checkout_screen.dart';
+import '../checkout/edit_address_screen.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   final dynamic product;
@@ -83,7 +86,7 @@ class ProductDetailScreen extends StatelessWidget {
                   Text(
                     product['name'],
                     style: const TextStyle(
-                      fontSize: 24,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -94,7 +97,7 @@ class ProductDetailScreen extends StatelessWidget {
                       Text(
                         'Rp ${NumberFormat('#,###').format(product['price'])}',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 18,
                           color: AppTheme.primary,
                           fontWeight: FontWeight.bold,
                         ),
@@ -140,7 +143,7 @@ class ProductDetailScreen extends StatelessWidget {
                   Text(
                     'Deskripsi',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -148,7 +151,7 @@ class ProductDetailScreen extends StatelessWidget {
                   Text(
                     product['description'] ?? 'Tidak ada deskripsi',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 11,
                       color: Colors.black87,
                       height: 1.5,
                     ),
@@ -169,11 +172,11 @@ class ProductDetailScreen extends StatelessWidget {
                         Text(
                           'Informasi Penjual',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         FutureBuilder(
                           future: supabase
                               .from('merchants')
@@ -194,7 +197,7 @@ class ProductDetailScreen extends StatelessWidget {
                                       Text(
                                         merchant['store_name'] ?? 'Nama Toko',
                                         style: TextStyle(
-                                          fontSize: 16,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -211,7 +214,7 @@ class ProductDetailScreen extends StatelessWidget {
                                           merchant['store_address'] ??
                                               'Alamat Toko',
                                           style: TextStyle(
-                                            fontSize: 14,
+                                            fontSize: 12,
                                             color: Colors.grey[600],
                                           ),
                                         ),
@@ -230,73 +233,188 @@ class ProductDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
+
+            // Produk Referensi
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Produk Referensi',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: _fetchRelatedProducts(product['category']),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Center(child: Text('Tidak ada produk referensi'));
+                }
+
+                final relatedProducts = snapshot.data!;
+                return SizedBox(
+                  height: 220,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    itemCount: relatedProducts.length,
+                    itemBuilder: (context, index) {
+                      final relatedProduct = relatedProducts[index];
+                      return InkWell(
+                        onTap: () {
+                          Get.to(() =>
+                              ProductDetailScreen(product: relatedProduct));
+                        },
+                        child: Container(
+                          width: 160,
+                          margin: EdgeInsets.symmetric(horizontal: 4),
+                          child: Card(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Gambar Produk
+                                Container(
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    image: DecorationImage(
+                                      image: NetworkImage(
+                                          relatedProduct['image_url']),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                                // Info Produk
+                                Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        relatedProduct['name'],
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 12),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Rp ${NumberFormat('#,###').format(relatedProduct['price'])}',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.shopping_bag_outlined,
+                                              size: 12, color: Colors.grey),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Terjual ${relatedProduct['sales'] ?? 0}',
+                                            style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.3),
+              color: Colors.grey.withOpacity(0.2),
               spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, -3),
+              blurRadius: 3,
+              offset: const Offset(0, -2),
             ),
           ],
         ),
         child: Row(
           children: [
             // Tombol Chat
+            Container(
+              width: 35,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                constraints: BoxConstraints(),
+                icon: Icon(Icons.chat_bubble_outline, size: 28),
+                onPressed: _startChat,
+                color: AppTheme.primary,
+              ),
+            ),
+            const SizedBox(width: 14),
+            // Tombol Keranjang
             Expanded(
-              flex: 1,
-              child: TextButton.icon(
-                onPressed: () {
-                  // TODO: Implementasi chat dengan penjual
-                },
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: const Text('Chat'),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.primary,
+              child: SizedBox(
+                height: 32,
+                child: ElevatedButton(
+                  onPressed: () {
+                    cartController.addToCart(product);
+                    Get.snackbar(
+                      'Sukses',
+                      'Produk ditambahkan ke keranjang',
+                      snackPosition: SnackPosition.TOP,
+                      backgroundColor: Colors.green,
+                      colorText: Colors.white,
+                      duration: Duration(seconds: 2),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppTheme.primary,
+                    side: BorderSide(color: AppTheme.primary),
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: Text('Keranjang', style: TextStyle(fontSize: 11)),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
-            // Tombol Tambah ke Keranjang
+            const SizedBox(width: 4),
+            // Tombol Beli Langsung
             Expanded(
-              flex: 2,
-              child: ElevatedButton(
-                onPressed: () {
-                  cartController.addToCart(product);
-
-                  // Animasi dan feedback
-                  Get.snackbar(
-                    'Sukses',
-                    'Produk ditambahkan ke keranjang',
-                    snackPosition: SnackPosition.TOP,
-                    backgroundColor: Colors.green,
-                    colorText: Colors.white,
-                    duration: Duration(seconds: 2),
-                    animationDuration: Duration(milliseconds: 500),
-                    icon: Icon(Icons.check_circle, color: Colors.white),
-                    onTap: (_) => Get.to(() => CartScreen()),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 32,
+                child: ElevatedButton(
+                  onPressed: handleCheckout,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Tambah ke Keranjang',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  child: Text('Beli Langsung', style: TextStyle(fontSize: 11)),
                 ),
               ),
             ),
@@ -305,4 +423,125 @@ class ProductDetailScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<List<Map<String, dynamic>>> _fetchRelatedProducts(
+      String? category) async {
+    if (category == null) return [];
+
+    final response = await supabase
+        .from('products')
+        .select()
+        .eq('category', category) // Filter berdasarkan kolom category
+        .neq('id', product['id']) // Kecuali produk saat ini
+        .order('sales', ascending: false) // Urutkan berdasarkan penjualan
+        .limit(5);
+
+    return response;
+  }
+
+  Future<void> _startChat() async {
+    final buyerId = supabase.auth.currentUser?.id;
+    if (buyerId == null) {
+      Get.snackbar('Error', 'Silakan login terlebih dahulu');
+      return;
+    }
+
+    // Cek apakah chat room sudah ada
+    final existingRoom = await supabase
+        .from('chat_rooms')
+        .select()
+        .eq('buyer_id', buyerId)
+        .eq('seller_id', product['seller_id'])
+        .maybeSingle();
+
+    Map<String, dynamic> chatRoom;
+    Map<String, dynamic> seller;
+
+    if (existingRoom != null) {
+      chatRoom = existingRoom;
+    } else {
+      // Buat chat room baru
+      final response = await supabase
+          .from('chat_rooms')
+          .insert({
+            'buyer_id': buyerId,
+            'seller_id': product['seller_id'],
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .select()
+          .single();
+      chatRoom = response;
+    }
+
+    // Dapatkan info seller
+    seller = await supabase
+        .from('merchants')
+        .select()
+        .eq('id', product['seller_id'])
+        .single();
+
+    // Navigasi ke chat detail
+    Get.to(() => ChatDetailScreen(
+          chatRoom: chatRoom,
+          seller: seller,
+        ));
+  }
+
+  void handleCheckout() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      Get.snackbar('Error', 'Silakan login terlebih dahulu');
+      return;
+    }
+
+    try {
+      final userResponse = await supabase
+          .from('users')
+          .select('address')
+          .eq('id', userId)
+          .single();
+
+      String? address = userResponse['address'];
+
+      if (address == null || address.isEmpty) {
+        final newAddress = await Get.to(() => EditAddressScreen(
+              initialAddress: '',
+              onSave: (address) {},
+            ));
+
+        if (newAddress == null) return;
+        address = newAddress;
+      }
+
+      // Data untuk checkout tanpa seller_id
+      Get.to(() => CheckoutScreen(
+            data: {
+              'items': [
+                {
+                  'products': product, // Data produk lengkap
+                  'quantity': 1,
+                }
+              ],
+              'total_amount': product['price'] * 1,
+              'shipping_address': address,
+              'buyer_id': userId,
+              'status': 'pending',
+            },
+          ));
+    } catch (e) {
+      print('Error getting address: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mengambil data alamat. Silakan coba lagi.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+}
+
+String formatTimestamp(DateTime timestamp) {
+  final dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss',
+      'id_ID'); // Format waktu dengan zona waktu Indonesia
+  return dateFormat.format(timestamp);
 }
