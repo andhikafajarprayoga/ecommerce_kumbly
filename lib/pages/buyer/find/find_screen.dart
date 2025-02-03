@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/product_controller.dart';
 import '../../../theme/app_theme.dart';
-import '../product/product_detail_screen.dart';
-import 'package:supabase/supabase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../home_screen.dart';
 

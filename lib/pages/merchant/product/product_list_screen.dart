@@ -5,25 +5,49 @@ import 'add_product_screen.dart';
 import 'edit_product_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ProductListScreen extends StatelessWidget {
-  ProductListScreen({super.key}) {
-    Get.put(ProductController());
+class ProductListScreen extends StatefulWidget {
+  const ProductListScreen({super.key});
+
+  @override
+  State<ProductListScreen> createState() => _ProductListScreenState();
+}
+
+class _ProductListScreenState extends State<ProductListScreen> {
+  final ProductController productController = Get.put(ProductController());
+  final supabase = Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    productController.fetchProducts();
   }
 
   @override
   Widget build(BuildContext context) {
-    final ProductController productController = Get.find<ProductController>();
-    final supabase = Supabase.instance.client;
-
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Daftar Produk'),
+        elevation: 0,
+        backgroundColor: Colors.blue,
+        title: const Text(
+          'Daftar Produk',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              Get.to(() => AddProductScreen());
-            },
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              icon: const Icon(
+                Icons.add_circle_outline_rounded,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                Get.to(() => AddProductScreen());
+              },
+            ),
           ),
         ],
       ),
@@ -32,26 +56,54 @@ class ProductListScreen extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Filter produk berdasarkan seller_id yang sesuai dengan user login
         final myProducts = productController.products
             .where((product) =>
                 product['seller_id'] == supabase.auth.currentUser!.id)
             .toList();
 
         if (myProducts.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 80,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
                 Text(
                   'Belum ada produk',
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[600],
+                  ),
                 ),
+                const SizedBox(height: 8),
                 Text(
                   'Tambahkan produk pertama Anda',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Get.to(() => AddProductScreen());
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Tambah Produk'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -59,12 +111,12 @@ class ProductListScreen extends StatelessWidget {
         }
 
         return GridView.builder(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(16),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             childAspectRatio: 0.75,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
           ),
           itemCount: myProducts.length,
           itemBuilder: (context, index) {
@@ -72,14 +124,19 @@ class ProductListScreen extends StatelessWidget {
             return ProductCard(
               product: product,
               onEdit: () {
-                Get.to(() => EditProductScreen(product: product));
+                Get.to(() => EditProductScreen(product: product))?.then((_) {
+                  setState(() {
+                    productController.fetchProducts();
+                  });
+                });
               },
               onDelete: () async {
                 final confirm = await Get.dialog<bool>(
                   AlertDialog(
                     title: const Text('Konfirmasi'),
                     content: const Text(
-                        'Apakah Anda yakin ingin menghapus produk ini?'),
+                      'Apakah Anda yakin ingin menghapus produk ini?',
+                    ),
                     actions: [
                       TextButton(
                         onPressed: () => Get.back(result: false),
@@ -87,8 +144,10 @@ class ProductListScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () => Get.back(result: true),
-                        child: const Text('Hapus',
-                            style: TextStyle(color: Colors.red)),
+                        child: const Text(
+                          'Hapus',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
                     ],
                   ),
@@ -96,7 +155,15 @@ class ProductListScreen extends StatelessWidget {
 
                 if (confirm == true) {
                   await productController.deleteProduct(product['id']);
-                  Get.snackbar('Sukses', 'Produk berhasil dihapus');
+                  setState(() {
+                    productController.fetchProducts();
+                  });
+                  Get.snackbar(
+                    'Sukses',
+                    'Produk berhasil dihapus',
+                    backgroundColor: Colors.green,
+                    colorText: Colors.white,
+                  );
                 }
               },
             );
@@ -161,6 +228,7 @@ class ProductCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     color: Colors.green,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),

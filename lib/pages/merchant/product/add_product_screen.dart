@@ -15,7 +15,7 @@ class AddProductScreen extends StatelessWidget {
   final TextEditingController priceController = TextEditingController();
   final TextEditingController stockController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
-  final RxString imagePath = ''.obs; // Ubah ke RxString untuk reaktivitas
+  final RxString imagePath = ''.obs;
   final supabase = Supabase.instance.client;
 
   Future<void> pickImage() async {
@@ -94,111 +94,216 @@ class AddProductScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Tambah Produk'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Produk',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Nama produk tidak boleh kosong';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Deskripsi',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: priceController,
-                decoration: const InputDecoration(
-                  labelText: 'Harga',
-                  border: OutlineInputBorder(),
-                  prefixText: 'Rp ',
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Harga tidak boleh kosong';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: stockController,
-                decoration: const InputDecoration(
-                  labelText: 'Stok',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Stok tidak boleh kosong';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: categoryController,
-                decoration: const InputDecoration(
-                  labelText: 'Kategori',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Obx(() => imagePath.value.isNotEmpty
-                  ? Column(
-                      children: [
-                        Image.file(
-                          File(imagePath.value),
-                          height: 200,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton.icon(
-                          onPressed: pickImage,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Ganti Gambar'),
-                        ),
-                      ],
-                    )
-                  : ElevatedButton.icon(
-                      onPressed: pickImage,
-                      icon: const Icon(Icons.image),
-                      label: const Text('Pilih Gambar'),
-                    )),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: saveProduct,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text('Simpan Produk'),
-              ),
-            ],
+        elevation: 0,
+        backgroundColor: Colors.blue,
+        title: const Text(
+          'Tambah Produk',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.blue,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Obx(() => imagePath.value.isNotEmpty
+                      ? Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: Image.file(
+                                File(imagePath.value),
+                                height: 200,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: FloatingActionButton(
+                                mini: true,
+                                onPressed: pickImage,
+                                child: const Icon(Icons.edit),
+                              ),
+                            ),
+                          ],
+                        )
+                      : InkWell(
+                          onTap: pickImage,
+                          child: Container(
+                            height: 200,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_photo_alternate_outlined,
+                                    size: 60, color: Colors.grey[400]),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Tambah Foto Produk',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildTextField(
+                      controller: nameController,
+                      label: 'Nama Produk',
+                      hint: 'Masukkan nama produk',
+                      icon: Icons.shopping_bag_outlined,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Nama produk tidak boleh kosong';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTextField(
+                      controller: descriptionController,
+                      label: 'Deskripsi',
+                      hint: 'Masukkan deskripsi produk',
+                      icon: Icons.description_outlined,
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTextField(
+                      controller: priceController,
+                      label: 'Harga',
+                      hint: 'Masukkan harga produk',
+                      icon: Icons.attach_money_outlined,
+                      keyboardType: TextInputType.number,
+                      prefixText: 'Rp ',
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Harga tidak boleh kosong';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTextField(
+                      controller: stockController,
+                      label: 'Stok',
+                      hint: 'Masukkan jumlah stok',
+                      icon: Icons.inventory_2_outlined,
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Stok tidak boleh kosong';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    _buildTextField(
+                      controller: categoryController,
+                      label: 'Kategori',
+                      hint: 'Masukkan kategori produk',
+                      icon: Icons.category_outlined,
+                    ),
+                    const SizedBox(height: 30),
+                    ElevatedButton(
+                      onPressed: saveProduct,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Simpan Produk',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    String? prefixText,
+    String? Function(String?)? validator,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          prefixText: prefixText,
+          prefixIcon: Icon(icon),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+        validator: validator,
       ),
     );
   }

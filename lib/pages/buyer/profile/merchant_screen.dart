@@ -3,7 +3,9 @@ import 'package:get/get.dart';
 import '../../../controllers/auth_controller.dart';
 
 class MerchantScreen extends StatelessWidget {
-  MerchantScreen({super.key});
+  final String sellerId;
+
+  MerchantScreen({super.key, required this.sellerId});
 
   final AuthController authController = Get.find<AuthController>();
   final _formKey = GlobalKey<FormState>();
@@ -59,7 +61,7 @@ class MerchantScreen extends StatelessWidget {
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
-                    // Logika untuk menyimpan informasi merchant
+                    // Logic to save merchant information
                     Get.snackbar(
                         'Sukses', 'Informasi merchant berhasil disimpan');
                   }

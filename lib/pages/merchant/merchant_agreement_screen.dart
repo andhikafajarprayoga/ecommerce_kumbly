@@ -61,19 +61,24 @@ class MerchantAgreementScreen extends StatelessWidget {
                 ),
                 onPressed: () async {
                   try {
+                    final userId = supabase.auth.currentUser?.id;
+                    if (userId == null) {
+                      Get.snackbar('Error', 'User ID tidak ditemukan');
+                      return;
+                    }
+
                     // Cek role user saat ini
                     final userData = await supabase
                         .from('users')
                         .select('role')
-                        .eq('id', supabase.auth.currentUser!.id)
+                        .eq('id', userId)
                         .single();
 
                     if (userData['role'] == 'buyer') {
                       // Update role ke seller (sesuai constraint di database)
                       await supabase
                           .from('users')
-                          .update({'role': 'seller'}).eq(
-                              'id', supabase.auth.currentUser!.id);
+                          .update({'role': 'seller'}).eq('id', userId);
 
                       // Tunggu sebentar untuk memastikan update role selesai
                       await Future.delayed(const Duration(milliseconds: 500));
@@ -83,13 +88,13 @@ class MerchantAgreementScreen extends StatelessWidget {
                     final merchant = await supabase
                         .from('merchants')
                         .select()
-                        .eq('id', supabase.auth.currentUser!.id)
+                        .eq('id', userId)
                         .maybeSingle();
 
                     if (merchant == null) {
                       // Tambahkan data kosong ke tabel merchants terlebih dahulu
                       await supabase.from('merchants').insert({
-                        'id': supabase.auth.currentUser!.id,
+                        'id': userId,
                         'store_name':
                             '', // Akan diisi nanti di RegisterMerchantScreen
                         'store_description': '',
@@ -97,9 +102,9 @@ class MerchantAgreementScreen extends StatelessWidget {
                         'store_phone': '',
                       });
 
-                      Get.to(() => RegisterMerchantScreen());
+                      Get.to(() => RegisterMerchantScreen(sellerId: userId));
                     } else {
-                      Get.offAll(() => MerchantHomeScreen());
+                      Get.offAll(() => MerchantHomeScreen(sellerId: userId));
                     }
                   } catch (e) {
                     Get.snackbar(

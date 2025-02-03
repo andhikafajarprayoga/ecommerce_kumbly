@@ -4,6 +4,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/pages/merchant/home_screen.dart';
 
 class RegisterMerchantScreen extends StatefulWidget {
+  final String sellerId;
+
+  const RegisterMerchantScreen({super.key, required this.sellerId});
+
   @override
   _RegisterMerchantScreenState createState() => _RegisterMerchantScreenState();
 }
@@ -22,11 +26,11 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
         // Update role user menjadi buyer_seller terlebih dahulu
         await supabase
             .from('users')
-            .update({'role': 'seller'}).eq('id', supabase.auth.currentUser!.id);
+            .update({'role': 'seller'}).eq('id', widget.sellerId);
 
         // Kemudian daftar merchant
         await supabase.from('merchants').insert({
-          'id': supabase.auth.currentUser!.id,
+          'id': widget.sellerId,
           'store_name': _storeNameController.text,
           'store_description': _storeDescController.text,
           'store_address': _storeAddressController.text,
@@ -34,7 +38,7 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
         });
 
         Get.snackbar('Sukses', 'Pendaftaran merchant berhasil!');
-        Get.offAll(() => MerchantHomeScreen());
+        Get.offAll(() => MerchantHomeScreen(sellerId: widget.sellerId));
       } catch (e) {
         Get.snackbar('Error', 'Gagal mendaftar merchant: $e');
       }
