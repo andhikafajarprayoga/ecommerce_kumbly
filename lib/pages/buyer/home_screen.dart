@@ -33,6 +33,11 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
+      if (index == 0) {
+        searchController.clear();
+        productController.searchQuery.value = '';
+        productController.fetchProducts();
+      }
     });
   }
 
