@@ -7,6 +7,7 @@ import '../../../theme/app_theme.dart';
 import '../checkout/edit_address_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/pages/buyer/payment/payment_screen.dart';
+import 'package:kumbly_ecommerce/services/raja_ongkir_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -25,11 +26,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Map<String, dynamic>> paymentMethods = [];
   bool isLoadingPayments = false;
   double adminFee = 0;
+  String? selectedProvinceId;
+  String? selectedCityId;
+  List<dynamic> provinces = [];
+  List<dynamic> cities = [];
+  Map<String, dynamic>? shippingCost;
+  bool isLoading = false;
 
   @override
   void initState() {
     super.initState();
     fetchPaymentMethods();
+    _loadProvinces();
   }
 
   Future<void> fetchPaymentMethods() async {
@@ -50,15 +58,65 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => isLoadingPayments = false);
   }
 
+  Future<void> _loadProvinces() async {
+    try {
+      setState(() => isLoading = true);
+      final provinceList = await RajaOngkirService.getProvinces();
+      setState(() {
+        provinces = provinceList;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+      Get.snackbar('Error', 'Gagal memuat data provinsi');
+    }
+  }
+
+  Future<void> _loadCities(String provinceId) async {
+    try {
+      setState(() => isLoading = true);
+      final cityList = await RajaOngkirService.getCities(provinceId);
+      setState(() {
+        cities = cityList;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+      Get.snackbar('Error', 'Gagal memuat data kota');
+    }
+  }
+
+  Future<void> _checkShippingCost() async {
+    if (selectedCityId == null) return;
+
+    try {
+      setState(() => isLoading = true);
+      final cost = await RajaOngkirService.checkShippingCost(
+        origin: "153", // ID kota asal (contoh: Jakarta Pusat)
+        destination: selectedCityId!,
+        weight: 1000, // Berat dalam gram
+        courier: "jne", // Bisa diganti sesuai kebutuhan
+      );
+      setState(() {
+        shippingCost = cost;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+      Get.snackbar('Error', 'Gagal menghitung ongkos kirim');
+    }
+  }
+
   Future<void> handleConfirmOrder() async {
     if (paymentMethod != null) {
       try {
-        final totalWithAdmin = widget.data['total_amount'] + adminFee;
-        await orderController.createOrder({
-          ...widget.data,
-          'payment_method_id': paymentMethod,
-          'total_amount': totalWithAdmin,
-        });
+        await orderController.createSeparateOrders(
+          {
+            ...widget.data,
+            'payment_method_id': paymentMethod,
+          },
+          adminFee,
+        );
 
         await cartController.clearCart();
 
@@ -68,7 +126,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Get.off(() => PaymentScreen(
               orderData: {
                 ...widget.data,
-                'total_amount': totalWithAdmin,
+                'total_amount': widget.data['total_amount'] + adminFee,
               },
               paymentMethod: selectedPaymentMethod,
             ));
@@ -237,6 +295,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           itemCount: widget.data['items'].length,
                           itemBuilder: (context, index) {
                             final item = widget.data['items'][index];
+                            print('Debug item data:');
+                            print(item);
                             return ListTile(
                               contentPadding: EdgeInsets.zero,
                               leading: Container(
@@ -251,9 +311,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ),
                                 ),
                               ),
-                              title: Text(
-                                item['products']['name'],
-                                style: TextStyle(fontSize: 14),
+                              title: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item['products']?['merchant']
+                                            ?['store_name'] ??
+                                        'Nama Merchant',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  Text(
+                                    item['products']['name'],
+                                    style: TextStyle(fontSize: 14),
+                                  ),
+                                ],
                               ),
                               subtitle: Text(
                                 'Rp ${NumberFormat('#,###').format(item['products']['price'])}',
@@ -404,6 +478,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
       ),
-    ); // Menghapus tanda titik koma ganda
-  } // Menghapus tanda kurung yang tidak perlu
-} // Menghapus tanda kurung yang tidak perlu
+    );
+  }
+}

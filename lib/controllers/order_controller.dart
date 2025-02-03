@@ -148,4 +148,95 @@ class OrderController extends GetxController {
       throw e; // Lempar kembali kesalahan untuk ditangani di tempat lain
     }
   }
+
+  Future<void> createSeparateOrders(
+      Map<String, dynamic> cartData, double adminFee) async {
+    try {
+      isLoading(true);
+
+      // 1. Kelompokkan items berdasarkan merchant
+      Map<String, List<Map<String, dynamic>>> itemsByMerchant = {};
+      double totalAmount = 0;
+
+      for (var item in cartData['items']) {
+        String merchantId = item['products']['seller_id'];
+        if (!itemsByMerchant.containsKey(merchantId)) {
+          itemsByMerchant[merchantId] = [];
+        }
+        itemsByMerchant[merchantId]!.add(item);
+
+        // Hitung total amount
+        totalAmount += (item['products']['price'] * item['quantity']);
+      }
+
+      // 2. Buat payment group untuk menampung total pembayaran
+      final paymentGroupResponse = await _supabase
+          .from('payment_groups')
+          .insert({
+            'buyer_id': _supabase.auth.currentUser!.id,
+            'total_amount': totalAmount,
+            'admin_fee': adminFee,
+            'payment_method_id': cartData['payment_method_id'],
+            'payment_status': 'pending'
+          })
+          .select()
+          .single();
+
+      final paymentGroupId = paymentGroupResponse['id'];
+
+      // 3. Buat order untuk setiap merchant
+      for (var merchantId in itemsByMerchant.keys) {
+        var merchantItems = itemsByMerchant[merchantId]!;
+
+        // Hitung total untuk merchant ini
+        double merchantTotal = merchantItems.fold(
+            0.0,
+            (sum, item) =>
+                sum + (item['products']['price'] * item['quantity']));
+
+        // Buat order baru untuk merchant ini
+        final orderResponse = await _supabase
+            .from('orders')
+            .insert({
+              'buyer_id': _supabase.auth.currentUser!.id,
+              'merchant_id': merchantId,
+              'status': 'pending',
+              'total_amount': merchantTotal,
+              'shipping_address': cartData['shipping_address'],
+              'payment_method_id': cartData['payment_method_id'],
+              'payment_group_id': paymentGroupId
+            })
+            .select()
+            .single();
+
+        final orderId = orderResponse['id'];
+
+        // 4. Masukkan items ke order_items
+        for (var item in merchantItems) {
+          await _supabase.from('order_items').insert({
+            'order_id': orderId,
+            'product_id': item['product_id'],
+            'quantity': item['quantity'],
+            'price': item['products']['price']
+          });
+        }
+      }
+
+      Get.snackbar(
+        'Sukses',
+        'Pesanan berhasil dibuat',
+        snackPosition: SnackPosition.TOP,
+      );
+    } catch (e) {
+      print('Error creating orders: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal membuat pesanan',
+        snackPosition: SnackPosition.TOP,
+      );
+      throw e;
+    } finally {
+      isLoading(false);
+    }
+  }
 }
