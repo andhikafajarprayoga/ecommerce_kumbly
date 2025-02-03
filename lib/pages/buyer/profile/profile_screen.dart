@@ -5,6 +5,7 @@ import 'package:kumbly_ecommerce/pages/buyer/profile/pesanan_saya.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/setting_screen.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../screens/home_screen.dart';
+import '../../../theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/pages/merchant/merchant_agreement_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/home_screen.dart';
@@ -33,8 +34,8 @@ class ProfileScreen extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.blue.shade600,
-                    Colors.blue.shade400,
+                    AppTheme.primary,
+                    AppTheme.primary.withOpacity(0.8),
                   ],
                 ),
                 borderRadius: const BorderRadius.only(
@@ -43,7 +44,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withOpacity(0.2),
+                    color: AppTheme.primary.withOpacity(0.2),
                     blurRadius: 10,
                     offset: const Offset(0, 5),
                   ),
@@ -65,13 +66,13 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-                    child: const CircleAvatar(
+                    child: CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.white,
                       child: Icon(
                         Icons.person,
                         size: 50,
-                        color: Colors.blue,
+                        color: AppTheme.primary,
                       ),
                     ),
                   ),
@@ -160,9 +161,9 @@ class ProfileScreen extends StatelessWidget {
                           actions: [
                             TextButton(
                               onPressed: () => Get.back(),
-                              child: const Text(
+                              child: Text(
                                 'Batal',
-                                style: TextStyle(color: Colors.grey),
+                                style: TextStyle(color: Colors.grey[600]),
                               ),
                             ),
                             TextButton(
@@ -222,12 +223,12 @@ class ProfileScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isLogout
                         ? Colors.red.withOpacity(0.1)
-                        : Colors.blue.withOpacity(0.1),
+                        : AppTheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
-                    color: isLogout ? Colors.red : Colors.blue,
+                    color: isLogout ? Colors.red : AppTheme.primary,
                     size: 24,
                   ),
                 ),
@@ -241,7 +242,7 @@ class ProfileScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isLogout ? Colors.red : Colors.black87,
+                          color: isLogout ? Colors.red : AppTheme.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -249,7 +250,7 @@ class ProfileScreen extends StatelessWidget {
                         subtitle,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: AppTheme.textHint,
                         ),
                       ),
                     ],

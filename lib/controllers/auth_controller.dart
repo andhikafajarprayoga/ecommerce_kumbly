@@ -90,18 +90,22 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> signIn({required String email, required String password}) async {
     try {
       isLoading.value = true;
-      await _supabase.auth.signInWithPassword(
+      final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
+
+      if (response.user != null) {
+        currentUser.value = response.user;
+        return true;
+      }
+      return false;
     } catch (e) {
-      Get.snackbar('Error', e.toString());
+      print('Error signing in: $e');
+      return false;
     } finally {
       isLoading.value = false;
     }
