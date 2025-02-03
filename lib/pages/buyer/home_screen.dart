@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import 'find/find_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'chat/chat_screen.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -92,7 +93,11 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
               ),
               actions: [
                 IconButton(
-                  icon: Icon(Icons.shopping_cart_outlined),
+                  icon: Icon(Icons.chat_outlined, color: Colors.white),
+                  onPressed: () => Get.to(() => ChatScreen()),
+                ),
+                IconButton(
+                  icon: Icon(Icons.shopping_cart_outlined, color: Colors.white),
                   onPressed: () => Get.to(() => CartScreen()),
                 ),
               ],

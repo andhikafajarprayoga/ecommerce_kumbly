@@ -75,46 +75,44 @@ class OrderController extends GetxController {
   Future<void> createOrder(Map<String, dynamic> orderData) async {
     try {
       isLoading(true);
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not logged in');
 
-      // Buat order baru
+      // Siapkan data pesanan sesuai struktur tabel yang benar
+      final orderPayload = {
+        'buyer_id': userId,
+        'payment_method_id': orderData['payment_method_id'],
+        'shipping_address': orderData['shipping_address'],
+        'total_amount': orderData['total_amount'],
+        'status': 'pending',
+        'created_at': DateTime.now().toIso8601String(),
+      };
+
+      // Insert ke tabel orders
       final orderResponse = await _supabase
           .from('orders')
-          .insert({
-            'buyer_id': orderData['buyer_id'],
-            'total_amount': orderData['total_amount'],
-            'shipping_address': orderData['shipping_address'],
-            'payment_method_id':
-                int.parse(orderData['payment_method_id']), // Convert ke int
-            'status': 'pending'
-          })
-          .select()
+          .insert(orderPayload)
+          .select('id')
           .single();
 
-      // Masukkan semua item ke order_items
-      final items = orderData['items'] as List;
-      for (var item in items) {
-        await _supabase.from('order_items').insert({
-          'order_id': orderResponse['id'],
-          'product_id': item['product_id'],
-          'quantity': item['quantity'],
-          'price': item['products']['price'],
-        });
-      }
+      final orderId = orderResponse['id'];
 
-      Get.snackbar(
-        'Sukses',
-        'Pesanan berhasil dibuat',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
+      // Insert order items
+      final orderItems = orderData['items']
+          .map((item) => {
+                'order_id': orderId,
+                'product_id': item['products']['id'],
+                'quantity': item['quantity'],
+                'price': item['products']['price'],
+              })
+          .toList();
+
+      await _supabase.from('order_items').insert(orderItems);
+
+      print('Order created successfully with ID: $orderId');
     } catch (e) {
       print('Error creating order: $e');
-      Get.snackbar(
-        'Error',
-        'Gagal membuat pesanan',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      throw e;
     } finally {
       isLoading(false);
     }

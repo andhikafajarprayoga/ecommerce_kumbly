@@ -45,6 +45,7 @@ dependencies:
   intl: ^0.20.1
   geocoding: ^3.0.0
   google_fonts: ^6.2.1
+  timeago: ^3.2.2
 
 dev_dependencies:
   flutter_test:
