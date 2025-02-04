@@ -251,6 +251,11 @@ class EditAddressScreen extends StatefulWidget {
 class _EditAddressScreenState extends State<EditAddressScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   late TextEditingController addressController;
+  late TextEditingController detailAddressController;
+  late TextEditingController provinceController;
+  late TextEditingController cityController;
+  late TextEditingController districtController;
+  late TextEditingController postalCodeController;
   TextEditingController searchController = TextEditingController();
   MapController mapController = MapController();
   LatLng selectedLocation =
@@ -262,6 +267,11 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   void initState() {
     super.initState();
     addressController = TextEditingController(text: widget.initialAddress);
+    detailAddressController = TextEditingController();
+    provinceController = TextEditingController();
+    cityController = TextEditingController();
+    districtController = TextEditingController();
+    postalCodeController = TextEditingController();
     if (widget.initialAddress.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         searchAddress(widget.initialAddress, isInitial: true);
@@ -370,11 +380,26 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         isLoading = true;
       });
 
-      await supabase
-          .from('users')
-          .update({'address': addressController.text}).eq('id', userId);
+      // Gabungkan alamat manual jika menggunakan form manual
+      final currentTab = DefaultTabController.of(context)?.index ?? 0;
+      String finalAddress = addressController.text;
 
-      widget.onSave(addressController.text);
+      if (currentTab == 1) {
+        // Tab input manual
+        finalAddress = [
+          detailAddressController.text.trim(),
+          districtController.text.trim(),
+          cityController.text.trim(),
+          provinceController.text.trim(),
+          postalCodeController.text.trim(),
+        ].where((e) => e.isNotEmpty).join(', ');
+      }
+
+      await supabase.from('users').update({
+        'address': finalAddress,
+      }).eq('id', userId);
+
+      widget.onSave(finalAddress);
       Get.back();
       Get.snackbar(
         'Sukses',
@@ -393,6 +418,22 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  void _parseAndFillAddress(String fullAddress) {
+    try {
+      final parts = fullAddress.split(',').map((e) => e.trim()).toList();
+      if (parts.length >= 5) {
+        detailAddressController.text =
+            parts.sublist(0, parts.length - 4).join(', ');
+        districtController.text = parts[parts.length - 4];
+        cityController.text = parts[parts.length - 3];
+        provinceController.text = parts[parts.length - 2];
+        postalCodeController.text = parts[parts.length - 1];
+      }
+    } catch (e) {
+      print('Error parsing address: $e');
     }
   }
 
@@ -465,141 +506,245 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             ),
           ),
 
-          // Map
+          // Map and Manual Input Toggle
           Expanded(
-            child: Stack(
-              children: [
-                FlutterMap(
-                  mapController: mapController,
-                  options: MapOptions(
-                    initialCenter: selectedLocation,
-                    initialZoom: zoomLevel,
-                    onTap: (tapPosition, latLng) {
-                      fetchAddressFromCoordinates(latLng);
-                    },
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      subdomains: const ['a', 'b', 'c'],
+            child: DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.white,
+                    child: TabBar(
+                      tabs: const [
+                        Tab(text: 'Pilih di Peta'),
+                        Tab(text: 'Input Manual'),
+                      ],
+                      labelColor: AppTheme.primary,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: AppTheme.primary,
                     ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          width: 50.0,
-                          height: 50.0,
-                          point: selectedLocation,
-                          child: Icon(
-                            Icons.location_on,
-                            color: AppTheme.primary,
-                            size: 40,
-                          ),
-                        ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        // Peta View
+                        _buildMapView(),
+                        // Form Manual View
+                        _buildManualForm(),
                       ],
                     ),
-                  ],
-                ),
-                // Zoom Controls
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: Column(
-                    children: [
-                      _buildZoomButton(
-                        Icons.add,
-                        () {
-                          setState(
-                              () => zoomLevel = (zoomLevel + 1).clamp(4, 18));
-                          mapController.move(selectedLocation, zoomLevel);
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      _buildZoomButton(
-                        Icons.remove,
-                        () {
-                          setState(
-                              () => zoomLevel = (zoomLevel - 1).clamp(4, 18));
-                          mapController.move(selectedLocation, zoomLevel);
-                        },
-                      ),
-                    ],
                   ),
-                ),
-                if (isLoading)
-                  Container(
-                    color: Colors.black.withOpacity(0.3),
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
 
           // Address Display and Save Button
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                  offset: const Offset(0, -3),
+          _buildBottomSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildManualForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: detailAddressController,
+            decoration: InputDecoration(
+              labelText: 'Alamat Lengkap',
+              hintText: 'Contoh: Jl. Merdeka No. 123, RT 01/RW 02',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              prefixIcon: Icon(Icons.home, color: AppTheme.primary),
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: districtController,
+            decoration: InputDecoration(
+              labelText: 'Kecamatan',
+              hintText: 'Contoh: Sawah Besar',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              prefixIcon: Icon(Icons.location_on, color: AppTheme.primary),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: cityController,
+            decoration: InputDecoration(
+              labelText: 'Kota/Kabupaten',
+              hintText: 'Contoh: Jakarta Pusat',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              prefixIcon: Icon(Icons.location_city, color: AppTheme.primary),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: provinceController,
+            decoration: InputDecoration(
+              labelText: 'Provinsi',
+              hintText: 'Contoh: DKI Jakarta',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              prefixIcon: Icon(Icons.location_city, color: AppTheme.primary),
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: postalCodeController,
+            decoration: InputDecoration(
+              labelText: 'Kode Pos',
+              hintText: 'Contoh: 10110',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              prefixIcon:
+                  Icon(Icons.markunread_mailbox, color: AppTheme.primary),
+            ),
+            keyboardType: TextInputType.number,
+            maxLength: 5,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapView() {
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: mapController,
+          options: MapOptions(
+            initialCenter: selectedLocation,
+            initialZoom: zoomLevel,
+            onTap: (tapPosition, latLng) {
+              fetchAddressFromCoordinates(latLng);
+            },
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              subdomains: const ['a', 'b', 'c'],
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  width: 50.0,
+                  height: 50.0,
+                  point: selectedLocation,
+                  child: Icon(
+                    Icons.location_on,
+                    color: AppTheme.primary,
+                    size: 40,
+                  ),
                 ),
               ],
             ),
-            child: Column(
-              children: [
-                TextField(
-                  controller: addressController,
-                  readOnly: true,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: 'Alamat Terpilih',
-                    labelStyle: TextStyle(color: AppTheme.primary),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    suffixIcon: Icon(
-                      Icons.location_on,
-                      color: AppTheme.primary,
-                    ),
-                  ),
+          ],
+        ),
+        // Zoom Controls
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: Column(
+            children: [
+              _buildZoomButton(
+                Icons.add,
+                () {
+                  setState(() => zoomLevel = (zoomLevel + 1).clamp(4, 18));
+                  mapController.move(selectedLocation, zoomLevel);
+                },
+              ),
+              const SizedBox(height: 8),
+              _buildZoomButton(
+                Icons.remove,
+                () {
+                  setState(() => zoomLevel = (zoomLevel - 1).clamp(4, 18));
+                  mapController.move(selectedLocation, zoomLevel);
+                },
+              ),
+            ],
+          ),
+        ),
+        if (isLoading)
+          Container(
+            color: Colors.black.withOpacity(0.3),
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildBottomSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          TextField(
+            controller: addressController,
+            readOnly: true,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: 'Alamat Terpilih',
+              labelStyle: TextStyle(color: AppTheme.primary),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              suffixIcon: Icon(Icons.location_on, color: AppTheme.primary),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: isLoading ? null : saveAddress,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: isLoading ? null : saveAddress,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'Simpan Alamat',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    child: isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text(
-                            'Simpan Alamat',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                  ),
-                ),
-              ],
             ),
           ),
         ],
@@ -631,6 +776,11 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   void dispose() {
     addressController.dispose();
     searchController.dispose();
+    detailAddressController.dispose();
+    provinceController.dispose();
+    cityController.dispose();
+    districtController.dispose();
+    postalCodeController.dispose();
     super.dispose();
   }
 }

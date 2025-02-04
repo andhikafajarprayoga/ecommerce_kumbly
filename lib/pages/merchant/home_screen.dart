@@ -4,6 +4,14 @@ import 'package:kumbly_ecommerce/pages/merchant/chats/chat_list_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/product/product_list_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/profile/profile_screen.dart';
 import '../../controllers/product_controller.dart';
+import 'package:kumbly_ecommerce/theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:kumbly_ecommerce/pages/buyer/home_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/order/order_list_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/order/finance_summary_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/order/performance_screenn.dart';
+import 'package:kumbly_ecommerce/pages/merchant/order/shipping_management_screen.dart';
+
 
 class MerchantHomeScreen extends StatefulWidget {
   final String sellerId;
@@ -53,7 +61,7 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
             ),
           ],
           currentIndex: _selectedIndex,
-          selectedItemColor: Colors.blue,
+          selectedItemColor: Theme.of(context).primaryColor,
           unselectedItemColor: Colors.grey,
           showUnselectedLabels: true,
           type: BottomNavigationBarType.fixed,
@@ -70,102 +78,400 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
 }
 
 class _HomeMenu extends StatelessWidget {
+  final supabase = Supabase.instance.client;
+  final storeName = ''.obs;
+  final needToShip = '0'.obs;
+  final cancelled = '0'.obs;
+  final completed = '0'.obs;
+
   @override
   Widget build(BuildContext context) {
+    _fetchMerchantData();
+    _fetchOrdersCount();
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header Profile Section
               Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
+                padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    const Text(
-                      'Dashboard Merchant',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                    CircleAvatar(
+                      radius: 25,
+                      backgroundColor: Colors.grey[200],
+                      child: const Icon(Icons.store, color: Colors.grey),
                     ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Obx(() => Text(
+                                storeName.value.isEmpty
+                                    ? 'Memuat...'
+                                    : storeName.value,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )),
+                          Text(
+                            'sarajaonlineshop.com',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
-                      child: InkWell(
-                        onTap: () => Get.to(() => ProductListScreen()),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.inventory_2_rounded,
-                                color: Colors.blue,
-                                size: 30,
-                              ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Get.dialog(
+                          AlertDialog(
+                            title: const Text('Konfirmasi'),
+                            content: const Text(
+                                'Apakah Anda ingin beralih ke mode pembeli?'),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: const [
-                                  Text(
-                                    'Kelola Produk',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Get.back(),
+                                child: const Text('Batal'),
+                              ),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Get.back();
+                                  Get.offAll(() =>
+                                      BuyerHomeScreen()); // Pastikan import HomeScreen
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
                                   ),
-                                  SizedBox(height: 5),
-                                  Text(
-                                    'Tambah, edit, dan kelola produk Anda',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
+                                ),
+                                child: const Text('Ya, Lanjutkan'),
                               ),
-                            ),
-                            const Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              color: Colors.grey,
-                            ),
-                          ],
+                            ],
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                      ),
+                      child: const Text('Jadi Pembeli ?',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Banner Section
+              Container(
+                height: 120,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: PageView(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary,
+                        borderRadius: BorderRadius.circular(8),
+                        image: const DecorationImage(
+                          image: NetworkImage(
+                              'https://via.placeholder.com/350x150'),
+                          fit: BoxFit.cover,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              // Tambahkan widget lain di sini
+
+              // Order Status Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Status Pesanan',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Get.to(() => OrderListScreen(
+                              sellerId: Supabase
+                                  .instance.client.auth.currentUser!.id)),
+                          child: const Text('Lihat Semua'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildOrderStatusItem(
+                          icon: Icons.local_shipping,
+                          label: 'Perlu Dikirim',
+                          count: needToShip,
+                          onTap: () {},
+                        ),
+                        _buildOrderStatusItem(
+                          icon: Icons.cancel,
+                          label: 'Pembatalan',
+                          count: cancelled,
+                          onTap: () {},
+                        ),
+                        _buildOrderStatusItem(
+                          icon: Icons.check_circle,
+                          label: 'Selesai',
+                          count: completed,
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Menu Grid Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Menu Toko',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      children: [
+                        _buildMenuItem(
+                          context: context,
+                          icon: Icons.inventory_2,
+                          label: 'Produk',
+                          onTap: () => Get.to(() => ProductListScreen()),
+                        ),
+                        _buildMenuItem(
+                          context: context,
+                          icon: Icons.account_balance_wallet,
+                          label: 'Keuangan',
+                          onTap: () => Get.to(() => FinanceSummaryScreen()),
+                        ),
+                        _buildMenuItem(
+                          context: context,
+                          icon: Icons.analytics,
+                          label: 'Performa',
+                          onTap: () => Get.to(() => PerformanceScreen()),
+                        ),
+                        _buildMenuItem(
+                          context: context,
+                          icon: Icons.local_shipping,
+                          label: 'Pengiriman',
+                          onTap: () => Get.to(() => const ShippingManagementScreen()),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _fetchMerchantData() async {
+    try {
+      final response = await supabase
+          .from('merchants')
+          .select('store_name')
+          .eq('id', supabase.auth.currentUser!.id)
+          .single();
+
+      if (response != null) {
+        storeName.value = response['store_name'];
+      }
+    } catch (e) {
+      print('Error fetching merchant data: $e');
+    }
+  }
+
+  Future<void> _fetchOrdersCount() async {
+    try {
+      final currentUser = supabase.auth.currentUser;
+      if (currentUser == null) {
+        print('Error: User belum login atau ID tidak ditemukan.');
+        return;
+      }
+
+      final currentUserId = currentUser.id;
+      print('====== DEBUG ORDERS DATA ======');
+      print('Current User ID (Merchant ID): $currentUserId');
+      print('User Email: ${currentUser.email}');
+      print('User Phone: ${currentUser.phone}');
+
+      // Coba ambil semua orders terlebih dahulu
+      print('\nMengambil semua orders...');
+      final allOrders = await supabase.from('orders').select('*');
+      print('Total semua orders di database: ${allOrders.length}');
+
+      // Kemudian ambil orders untuk merchant specific
+      print('\nMengambil orders untuk merchant specific...');
+      final response = await supabase
+          .from('orders')
+          .select('*')
+          .eq('merchant_id', currentUserId)
+          .order('created_at', ascending: false);
+
+      print('\nQuery Response Details:');
+      print('Response Type: ${response.runtimeType}');
+      print('Response Length: ${response.length}');
+      print('Raw Response: $response');
+
+      if (response == null || response.isEmpty) {
+        print('Tidak ada data orders yang ditemukan untuk merchant ini.');
+        return;
+      }
+
+      int needToShipCount = 0;
+      int cancelledCount = 0;
+      int completedCount = 0;
+
+      print('\nDetail setiap order:');
+      for (var order in response) {
+        print('''
+Order Detail:
+  ID: ${order['id']}
+  Status: ${order['status']}
+  Merchant ID: ${order['merchant_id']}
+  Created At: ${order['created_at']}
+  Total Amount: ${order['total_amount']}
+''');
+
+        switch (order['status']) {
+          case 'pending':
+          case 'processing':
+          case 'shipping':
+            needToShipCount++;
+            break;
+          case 'cancelled':
+            cancelledCount++;
+            break;
+          case 'completed':
+            completedCount++;
+            break;
+        }
+      }
+
+      print('\nHasil Perhitungan:');
+      print('Need to Ship: $needToShipCount');
+      print('Cancelled: $cancelledCount');
+      print('Completed: $completedCount');
+      print('====== END DEBUG ======\n');
+
+      needToShip.value = needToShipCount.toString();
+      cancelled.value = cancelledCount.toString();
+      completed.value = completedCount.toString();
+    } catch (e, stackTrace) {
+      print('Error fetching orders count:');
+      print('Error: $e');
+      print('Stack Trace: $stackTrace');
+    }
+  }
+
+  Widget _buildOrderStatusItem({
+    required IconData icon,
+    required String label,
+    required RxString count,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Obx(() => Text(
+                count.value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              )),
+          const SizedBox(height: 8),
+          Icon(icon, color: Colors.grey),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: AppTheme.primary,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
