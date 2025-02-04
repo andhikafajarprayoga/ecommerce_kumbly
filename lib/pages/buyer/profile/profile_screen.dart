@@ -9,12 +9,138 @@ import '../../../theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/pages/merchant/merchant_agreement_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/home_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
-class ProfileScreen extends StatelessWidget {
-  ProfileScreen({super.key});
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
 
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   final AuthController authController = Get.find<AuthController>();
   final SupabaseClient supabase = Supabase.instance.client;
+
+  Future<void> _updateProfileImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) return;
+
+      Get.dialog(
+        const Center(child: CircularProgressIndicator()),
+        barrierDismissible: false,
+      );
+
+      final String fileName =
+          '${supabase.auth.currentUser!.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final file = File(image.path);
+
+      await supabase.storage.from('profile_images').upload(fileName, file);
+
+      final imageUrl =
+          supabase.storage.from('profile_images').getPublicUrl(fileName);
+
+      await supabase.from('users').update({'image_url': imageUrl}).eq(
+          'id', supabase.auth.currentUser!.id);
+
+      await authController.refreshUser();
+      setState(() {}); // Refresh UI
+
+      Get.back();
+      Get.snackbar(
+        'Sukses',
+        'Foto profil berhasil diperbarui',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      Get.back();
+      Get.snackbar(
+        'Error',
+        'Gagal memperbarui foto profil: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _deleteProfileImage() async {
+    try {
+      Get.dialog(
+        AlertDialog(
+          title: const Text('Hapus Foto Profil'),
+          content: const Text('Apakah Anda yakin ingin menghapus foto profil?'),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: Text(
+                'Batal',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                Get.back();
+                Get.dialog(
+                  const Center(child: CircularProgressIndicator()),
+                  barrierDismissible: false,
+                );
+
+                // Dapatkan current image_url
+                final userData = await supabase
+                    .from('users')
+                    .select('image_url')
+                    .eq('id', supabase.auth.currentUser!.id)
+                    .single();
+
+                if (userData['image_url'] != null) {
+                  // Extract filename dari URL
+                  final uri = Uri.parse(userData['image_url']);
+                  final fileName = uri.pathSegments.last;
+
+                  // Hapus file dari storage
+                  await supabase.storage
+                      .from('profile_images')
+                      .remove([fileName]);
+
+                  // Update users table
+                  await supabase.from('users').update({'image_url': null}).eq(
+                      'id', supabase.auth.currentUser!.id);
+
+                  await authController.refreshUser();
+                  setState(() {}); // Refresh UI
+
+                  Get.back();
+                  Get.snackbar(
+                    'Sukses',
+                    'Foto profil berhasil dihapus',
+                    backgroundColor: Colors.green,
+                    colorText: Colors.white,
+                  );
+                }
+              },
+              child: const Text(
+                'Hapus',
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      Get.back();
+      Get.snackbar(
+        'Error',
+        'Gagal menghapus foto profil: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +151,6 @@ class ProfileScreen extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Profile Header with Gradient
             Container(
               padding: const EdgeInsets.only(
                   top: 50, bottom: 20, left: 86, right: 86),
@@ -52,28 +177,115 @@ class ProfileScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  // Profile Image
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
+                  GestureDetector(
+                    onTap: () {
+                      Get.bottomSheet(
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(20),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 4,
+                                margin: const EdgeInsets.only(bottom: 20),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[300],
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.photo_library),
+                                title: const Text('Ubah Foto Profil'),
+                                onTap: () {
+                                  Get.back();
+                                  _updateProfileImage();
+                                },
+                              ),
+                              ListTile(
+                                leading:
+                                    const Icon(Icons.delete, color: Colors.red),
+                                title: const Text(
+                                  'Hapus Foto Profil',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                                onTap: () {
+                                  Get.back();
+                                  _deleteProfileImage();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        backgroundColor: Colors.transparent,
+                      );
+                    },
+                    child: Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: StreamBuilder(
+                            stream: supabase
+                                .from('users')
+                                .stream(primaryKey: ['id']).eq(
+                                    'id', supabase.auth.currentUser!.id),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData &&
+                                  snapshot.data!.isNotEmpty) {
+                                final imageUrl = snapshot.data![0]['image_url'];
+                                return CircleAvatar(
+                                  radius: 50,
+                                  backgroundColor: Colors.white,
+                                  backgroundImage: imageUrl != null
+                                      ? NetworkImage(imageUrl)
+                                      : null,
+                                  child: imageUrl == null
+                                      ? Icon(Icons.person,
+                                          size: 50, color: AppTheme.primary)
+                                      : null,
+                                );
+                              }
+                              return CircleAvatar(
+                                radius: 50,
+                                backgroundColor: Colors.white,
+                                child: Icon(Icons.person,
+                                    size: 50, color: AppTheme.primary),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.camera_alt,
+                                size: 20, color: Colors.white),
+                          ),
                         ),
                       ],
-                    ),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.white,
-                      child: Icon(
-                        Icons.person,
-                        size: 50,
-                        color: AppTheme.primary,
-                      ),
                     ),
                   ),
                   const SizedBox(height: 16),

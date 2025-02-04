@@ -15,25 +15,34 @@ class OrderController extends GetxController {
 
   Future<void> fetchOrders() async {
     try {
-      isLoading.value = true;
+      isLoading(true);
+      final userId = _supabase.auth.currentUser!.id;
 
-      final userId = _supabase.auth.currentUser?.id; // Ambil userId dari auth
-      if (userId == null) return; // Pastikan userId tidak null
+      final response = await _supabase.from('orders').select('''
+            id,
+            status,
+            total_amount,
+            shipping_address,
+            shipping_cost,
+            created_at,
+            items:order_items (
+              id,
+              quantity,
+              price,
+              product:products (
+                id,
+                name,
+                image_url
+              )
+            )
+          ''').eq('buyer_id', userId).order('created_at', ascending: false);
 
-      final response = await _supabase
-          .from('orders')
-          .select('*') // Ambil semua kolom dari tabel orders
-          .eq('buyer_id', userId); // Filter berdasarkan userId
-
-      if (response != null) {
-        orders.value = response; // Simpan data pesanan
-      } else {
-        Get.snackbar('Error', 'Gagal memuat pesanan');
-      }
+      print('Orders response: $response'); // Untuk debugging
+      orders.value = response;
     } catch (e) {
-      Get.snackbar('Error', 'Gagal memuat pesanan: $e');
+      print('Error fetching orders: $e');
     } finally {
-      isLoading.value = false;
+      isLoading(false);
     }
   }
 

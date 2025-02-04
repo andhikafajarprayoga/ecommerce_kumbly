@@ -205,4 +205,16 @@ class AuthController extends GetxController {
       Get.snackbar('Error', 'Email atau password salah');
     }
   }
+
+  Future<void> refreshUser() async {
+    final userData = await _supabase
+        .from('users')
+        .select('*')
+        .eq('id', _supabase.auth.currentUser!.id)
+        .single();
+
+    currentUser.value = _supabase.auth.currentUser;
+    userRole.value = userData['role'] ?? '';
+    isMerchant.value = userData['role'] == 'seller';
+  }
 }
