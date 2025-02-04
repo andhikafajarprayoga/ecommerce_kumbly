@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   // Warna Utama
   static const Color primaryLight = Color(0xFFFF758F); // Light Pink
-  static const Color primary = Color(0xFFFF4D6D); // Medium Pink
+  static const Color primary = Color.fromARGB(255, 255, 77, 109); // Medium Pink
   static const Color primaryDark = Color(0xFFC9184A); // Dark Pink
 
   // Warna Pendukung

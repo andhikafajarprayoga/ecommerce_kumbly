@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/auth_controller.dart';
+import '../../controllers/stats_controller.dart';
+import '../../pages/admin/feature/users_screen.dart';
+import '../../pages/admin/feature/stores_screen.dart';
+import '../../pages/admin/feature/shipments_screen.dart';
+import '../../pages/admin/feature/reports_screen.dart';
+import '../../pages/admin/feature/banners_screen.dart';
+import '../../pages/admin/feature/payment_methods_screen.dart';
+import '../../pages/admin/feature/shipping_rates_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
+  final StatsController statsController = Get.put(StatsController());
 
   AdminHomeScreen({super.key});
 
@@ -14,7 +23,7 @@ class AdminHomeScreen extends StatelessWidget {
         elevation: 0,
         backgroundColor: Colors.white,
         title: Text(
-          'Dashboard Admin',
+          'Saraja OnlineShop',
           style: TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.bold,
@@ -53,10 +62,17 @@ class AdminHomeScreen extends StatelessWidget {
                         children: [
                           _buildMenuListItem(
                             icon: Icons.people,
-                            title: 'Kelola Pengguna',
+                            title: 'Kelola Users',
                             subtitle: 'Atur pengguna & hak akses',
                             color: Colors.blue,
-                            onTap: () => Get.toNamed('/admin/users'),
+                            onTap: () => Get.to(() => UsersScreen()),
+                          ),
+                          _buildMenuListItem(
+                            icon: Icons.chat,
+                            title: 'Chat',
+                            subtitle: 'Buyer',
+                            color: Colors.blue,
+                            onTap: () => Get.to(() => UsersScreen()),
                           ),
                           _buildDivider(),
                           _buildMenuListItem(
@@ -64,7 +80,7 @@ class AdminHomeScreen extends StatelessWidget {
                             title: 'Kelola Toko',
                             subtitle: 'Kelola toko & produk',
                             color: Colors.green,
-                            onTap: () => Get.toNamed('/admin/stores'),
+                            onTap: () => Get.to(() => StoresScreen()),
                           ),
                           _buildDivider(),
                           _buildMenuListItem(
@@ -72,37 +88,43 @@ class AdminHomeScreen extends StatelessWidget {
                             title: 'Pengiriman',
                             subtitle: 'Atur pengiriman & logistik',
                             color: Colors.orange,
-                            onTap: () => Get.toNamed('/admin/shipments'),
+                            onTap: () => Get.to(() => ShipmentsScreen()),
                           ),
                           _buildDivider(),
                           _buildMenuListItem(
                             icon: Icons.assessment,
                             title: 'Laporan',
                             subtitle: 'Lihat statistik & analisis',
-                            color: Colors.purple,
-                            onTap: () => Get.toNamed('/admin/reports'),
+                            color: Colors.red,
+                            onTap: () => Get.to(() => ReportsScreen()),
                           ),
                           _buildDivider(),
                           _buildMenuListItem(
                             icon: Icons.campaign,
                             title: 'Promosi',
-                            subtitle: 'Atur voucher & diskon',
+                            subtitle: 'Banner',
                             color: Colors.red,
-                            onTap: () => Get.toNamed('/admin/promotions'),
+                            onTap: () => Get.to(() => BannersScreen()),
                           ),
                           _buildDivider(),
                           _buildMenuListItem(
-                            icon: Icons.support_agent,
-                            title: 'Layanan Pelanggan',
-                            subtitle: 'Kelola tiket bantuan',
+                            icon: Icons.payments,
+                            title: 'Pembayaran',
+                            subtitle: 'Atur pembayaran',
+                            color: Colors.red,
+                            onTap: () => Get.to(() => PaymentMethodsScreen()),
+                          ),
+                          _buildDivider(),
+                          _buildMenuListItem(
+                            icon: Icons.local_shipping_rounded,
+                            title: 'Ongkir',
+                            subtitle: 'Atur ongkir',
                             color: Colors.teal,
-                            onTap: () => Get.toNamed('/admin/support'),
+                            onTap: () => Get.to(() => ShippingRatesScreen()),
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(height: 24),
-                    _buildRecentActivities(),
                   ],
                 ),
               ),
@@ -131,21 +153,21 @@ class AdminHomeScreen extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _buildStatCard(
-                  'Total Pengguna',
-                  '12,345',
-                  Icons.people,
-                  Colors.blue,
-                ),
+                child: Obx(() => _buildStatCard(
+                      'Total Pengguna',
+                      '${statsController.totalUsers}',
+                      Icons.people,
+                      Colors.blue,
+                    )),
               ),
               SizedBox(width: 16),
               Expanded(
-                child: _buildStatCard(
-                  'Total Toko',
-                  '1,234',
-                  Icons.store,
-                  Colors.green,
-                ),
+                child: Obx(() => _buildStatCard(
+                      'Total Toko',
+                      '${statsController.totalStores}',
+                      Icons.store,
+                      Colors.green,
+                    )),
               ),
               SizedBox(width: 16),
               Expanded(
@@ -320,54 +342,6 @@ class AdminHomeScreen extends StatelessWidget {
             await authController.signOut();
             Get.offAllNamed('/login');
           },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentActivities() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Aktivitas Terbaru',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
-        SizedBox(height: 16),
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            itemCount: 5,
-            separatorBuilder: (context, index) => Divider(),
-            itemBuilder: (context, index) {
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors
-                      .primaries[index % Colors.primaries.length]
-                      .withOpacity(0.2),
-                  child: Icon(
-                    Icons.notification_important,
-                    color: Colors.primaries[index % Colors.primaries.length],
-                  ),
-                ),
-                title: Text('Aktivitas ${5 - index}'),
-                subtitle: Text('Deskripsi aktivitas terbaru ${5 - index}'),
-                trailing: Text(
-                  '${index + 1}m yang lalu',
-                  style: TextStyle(color: Colors.black54),
-                ),
-              );
-            },
-          ),
         ),
       ],
     );

@@ -21,6 +21,9 @@ class BuyerHomeScreen extends StatefulWidget {
 class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final ProductController productController = Get.put(ProductController());
   final AuthController authController = Get.find<AuthController>();
+  final supabase = Supabase.instance.client;
+  List<Map<String, dynamic>> banners = [];
+  bool isLoadingBanners = true;
   int _selectedIndex = 0;
   final TextEditingController searchController = TextEditingController();
 
@@ -28,6 +31,27 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   void initState() {
     super.initState();
     productController.fetchProducts();
+    fetchBanners();
+  }
+
+  Future<void> fetchBanners() async {
+    try {
+      final response = await supabase
+          .from('banners')
+          .select()
+          .eq('is_active', true)
+          .order('created_at');
+
+      setState(() {
+        banners = (response as List<dynamic>).cast<Map<String, dynamic>>();
+        isLoadingBanners = false;
+      });
+    } catch (e) {
+      print('Error fetching banners: $e');
+      setState(() {
+        isLoadingBanners = false;
+      });
+    }
   }
 
   void _onItemTapped(int index) {
@@ -131,65 +155,56 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     );
   }
 
+  Widget _buildBannerCarousel() {
+    if (isLoadingBanners) {
+      return Container(
+        height: 210,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (banners.isEmpty) {
+      return Container(
+        height: 210,
+        child: Center(child: Text('Tidak ada banner tersedia')),
+      );
+    }
+
+    return Container(
+      height: 210,
+      child: PageView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: banners.length,
+        itemBuilder: (context, index) {
+          final banner = banners[index];
+          return Container(
+            width: MediaQuery.of(context).size.width * 0.90,
+            margin: EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2),
+              image: DecorationImage(
+                image: NetworkImage(banner['image_url']),
+                fit: BoxFit.cover,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildHomeContent() {
     return RefreshIndicator(
       onRefresh: () async {
-        await productController.fetchProducts();
+        await Future.wait([
+          productController.fetchProducts(),
+          fetchBanners(),
+        ]);
       },
       child: SingleChildScrollView(
         child: Column(
           children: [
-            // Banner Carousel
-            Container(
-              height: 210,
-              child: PageView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  Container(
-                    width: MediaQuery.of(context).size.width *
-                        0.90, // Adjusted width
-                    margin:
-                        EdgeInsets.symmetric(horizontal: 8), // Adjusted margin
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(2), // Adjusted border radius
-                      image: DecorationImage(
-                        image: AssetImage('images/1.png'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: MediaQuery.of(context).size.width *
-                        0.90, // Adjusted width
-                    margin:
-                        EdgeInsets.symmetric(horizontal: 8), // Adjusted margin
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(2), // Adjusted border radius
-                      image: DecorationImage(
-                        image: AssetImage('images/2.png'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: MediaQuery.of(context).size.width *
-                        0.90, // Adjusted width
-                    margin:
-                        EdgeInsets.symmetric(horizontal: 8), // Adjusted margin
-                    decoration: BoxDecoration(
-                      borderRadius:
-                          BorderRadius.circular(2), // Adjusted border radius
-                      image: DecorationImage(
-                        image: AssetImage('images/3.png'),
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildBannerCarousel(),
 
             // Menu Categories
             Container(
