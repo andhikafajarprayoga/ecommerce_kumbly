@@ -23,6 +23,133 @@ class _PaymentScreenState extends State<PaymentScreen> {
   final supabase = Supabase.instance.client;
   String? paymentProofUrl;
   bool isUploading = false;
+  List<Map<String, dynamic>> orderItems = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrderDetails();
+  }
+
+  Future<void> _fetchOrderDetails() async {
+    try {
+      // Ambil order items berdasarkan payment_group_id
+      final response = await supabase
+        .from('orders')
+        .select('''
+          *,
+          order_items!inner (
+            id,
+            quantity,
+            price,
+            product:products (
+              id,
+              name,
+              image_url,
+              description
+            )
+          )
+        ''')
+        .eq('payment_group_id', widget.orderData['payment_group_id']);
+
+      setState(() {
+        orderItems = List<Map<String, dynamic>>.from(response);
+      });
+      
+      print('Debug: Order items fetched: $orderItems');
+    } catch (e) {
+      print('Error fetching order details: $e');
+    }
+  }
+
+  // Widget untuk menampilkan daftar produk
+  Widget _buildOrderItems() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Detail Pesanan',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 12),
+            ...orderItems.expand((order) {
+              final items = List<Map<String, dynamic>>.from(order['order_items']);
+              return items.map((item) {
+                final product = item['product'];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Foto Produk
+                      if (product['image_url'] != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            product['image_url'],
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                width: 60,
+                                height: 60,
+                                color: Colors.grey[200],
+                                child: Icon(Icons.image_not_supported, 
+                                  color: Colors.grey[400]),
+                              );
+                            },
+                          ),
+                        ),
+                      SizedBox(width: 12),
+                      
+                      // Detail Produk
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              product['name'] ?? 'Produk',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              '${item['quantity']} x Rp${NumberFormat('#,###').format(item['price'])}',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              'Total: Rp${NumberFormat('#,###').format(item['quantity'] * item['price'])}',
+                              style: TextStyle(
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              });
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _uploadPaymentProof() async {
     try {
@@ -112,6 +239,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   ),
                 ),
               ),
+              SizedBox(height: 12),
+
+              // Detail Pesanan
+              _buildOrderItems(),
               SizedBox(height: 12),
 
               // Instruksi Pembayaran
