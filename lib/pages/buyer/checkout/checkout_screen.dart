@@ -7,6 +7,7 @@ import '../../../theme/app_theme.dart';
 import '../checkout/edit_address_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/pages/buyer/payment/payment_screen.dart';
+import 'package:kumbly_ecommerce/pages/buyer/chat/chat_detail_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -29,8 +30,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? selectedDistrict;
   String? shippingType;
   List<Map<String, dynamic>> shippingRates = [];
+  Map<String, dynamic>? specialRate; // Untuk menyimpan tarif khusus
   bool isLoadingRates = false;
   Map<String, double> merchantShippingCosts = {};
+  final TextEditingController _voucherController = TextEditingController();
 
   @override
   void initState() {
@@ -60,8 +63,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> fetchShippingRates() async {
     setState(() => isLoadingRates = true);
     try {
-      final response =
-          await supabase.from('shipping_rates').select().order('type');
+      final response = await supabase.from('shipping_rates').select().filter(
+              'type', 'in', ['within', 'between']) // Hanya ambil tarif regular
+          .order('type');
 
       setState(() {
         shippingRates = List<Map<String, dynamic>>.from(response);
@@ -173,16 +177,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (shippingType == null) return;
 
     try {
-      final rateResponse = await supabase
-          .from('shipping_rates')
-          .select()
-          .eq('type', shippingType!)
-          .single();
+      final selectedRate = shippingRates.firstWhere(
+        (rate) => rate['type'] == shippingType,
+        orElse: () => throw Exception('Rate not found'),
+      );
 
-      final baseRate = double.parse(rateResponse['base_rate'].toString());
+      if (shippingType == 'special') {
+        // Untuk tarif khusus, langsung set total shipping cost tanpa kalkulasi
+        setState(() {
+          shippingCost = double.parse(selectedRate['base_rate'].toString());
+          merchantShippingCosts.clear();
+          // Simpan total ke merchant pertama saja
+          if (widget.data['items'].isNotEmpty) {
+            final firstItem = widget.data['items'][0];
+            merchantShippingCosts[firstItem['products']['seller_id']] =
+                shippingCost;
+          }
+        });
+        return;
+      }
+
+      // Kalkulasi normal untuk tarif regular (within/between)
+      double baseRate = double.parse(selectedRate['base_rate'].toString());
       Map<String, double> merchantWeights = {};
 
-      // Mengelompokkan dan menghitung total berat per merchant
+      // Hitung berat per merchant
       for (var item in widget.data['items']) {
         final product = item['products'];
         final merchantId = product['seller_id'];
@@ -204,31 +223,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             merchantWeights[merchantId]! + (itemWeight * item['quantity']);
       }
 
-      // Menghitung ongkir per merchant
+      // Hitung ongkir per merchant untuk tarif regular
       double totalShippingCost = 0;
       merchantShippingCosts.clear();
 
       merchantWeights.forEach((merchantId, totalWeight) {
-        print('Final calculation for Merchant $merchantId:');
-        print('Total accumulated weight: $totalWeight kg');
-
-        // Gunakan minimum 1 kg atau pembulatan matematika yang tepat
-        double chargeableWeight;
-        if (totalWeight < 1.0) {
-          chargeableWeight = 1.0;
-        } else {
-          // Pembulatan ke atas jika desimal >= 0.5, ke bawah jika < 0.5
-          chargeableWeight = (totalWeight - totalWeight.floor() >= 0.5)
-              ? totalWeight.ceil().toDouble()
-              : totalWeight.floor().toDouble();
-        }
+        double chargeableWeight = totalWeight < 1.0
+            ? 1.0
+            : (totalWeight - totalWeight.floor() >= 0.5)
+                ? totalWeight.ceil().toDouble()
+                : totalWeight.floor().toDouble();
 
         final merchantShippingCost = baseRate * chargeableWeight;
         merchantShippingCosts[merchantId] = merchantShippingCost;
         totalShippingCost += merchantShippingCost;
-
-        print('Chargeable weight: $chargeableWeight kg');
-        print('Shipping cost: Rp $merchantShippingCost');
       });
 
       setState(() {
@@ -239,8 +247,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> validateVoucherCode(String code) async {
+    try {
+      final response = await supabase
+          .from('shipping_vouchers')
+          .select()
+          .eq('code', code)
+          .single();
+
+      if (response != null) {
+        setState(() {
+          specialRate = {
+            'type': 'special',
+            'base_rate': response['rate'],
+          };
+          shippingRates.add(specialRate!);
+        });
+        Get.snackbar(
+          'Sukses',
+          'Kode tarif khusus berhasil digunakan',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Kode tarif khusus tidak valid',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
   Widget _buildShippingOptions() {
     return Card(
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -248,106 +293,119 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.local_shipping, color: AppTheme.primary),
+                Icon(Icons.local_shipping, color: AppTheme.primary, size: 20),
                 SizedBox(width: 8),
                 Text(
                   'Pilih Pengiriman',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 16),
+            SizedBox(height: 12),
+            // Input kode tarif khusus
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _voucherController,
+                      decoration: InputDecoration(
+                        hintText: 'Punya kode tarif khusus?',
+                        isDense: true,
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      final code = _voucherController.text.trim();
+                      if (code.isNotEmpty) {
+                        if (specialRate != null) {
+                          setState(() {
+                            shippingRates.remove(specialRate);
+                            specialRate = null;
+                          });
+                        }
+                        validateVoucherCode(code);
+                      }
+                    },
+                    child: Text(
+                      'Cek Voucher',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                      minimumSize: Size(0, 32),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 12),
+            // Opsi pengiriman
             if (isLoadingRates)
               Center(child: CircularProgressIndicator())
             else
-              ...shippingRates
-                  .map((rate) => RadioListTile<String>(
-                        title: Text(rate['type'] == 'within'
-                            ? 'Dalam Kabupaten'
-                            : 'Antar Kabupaten'),
-                        subtitle: Text(
-                            'Rp ${NumberFormat('#,###').format(rate['base_rate'])}/kg'),
-                        value: rate['type'],
-                        groupValue: shippingType,
-                        onChanged: (value) async {
-                          setState(() => shippingType = value);
-                          await calculateShippingCost();
-                        },
-                      ))
-                  .toList(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentSummary() {
-    final totalAmount = widget.data['total_amount'];
-    final totalPayment = totalAmount + adminFee + shippingCost;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ringkasan Pembayaran',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Total Harga'),
-                Text(
-                  'Rp ${NumberFormat('#,###').format(totalAmount)}',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Biaya Penanganan'),
-                Text(
-                  'Rp ${NumberFormat('#,###').format(adminFee)}',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Ongkos Kirim'),
-                Text(
-                  'Rp ${NumberFormat('#,###').format(shippingCost)}',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Total Pembayaran',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'Rp ${NumberFormat('#,###').format(totalPayment)}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primary,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
+              ...shippingRates.map((rate) => RadioListTile<String>(
+                    contentPadding: EdgeInsets.symmetric(horizontal: 4),
+                    visualDensity: VisualDensity.compact,
+                    title: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          rate['type'] == 'within'
+                              ? 'Dalam Kabupaten'
+                              : rate['type'] == 'between'
+                                  ? 'Antar Kabupaten'
+                                  : 'Tarif Khusus',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                        Text(
+                          'Rp ${NumberFormat('#,###').format(rate['base_rate'])}${rate['type'] != 'special' ? '/kg' : ''}',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                    value: rate['type'],
+                    groupValue: shippingType,
+                    onChanged: (value) async {
+                      setState(() => shippingType = value);
+                      await calculateShippingCost();
+                    },
+                  )),
+            // Tombol Chat Admin
+            TextButton.icon(
+              onPressed: createOrOpenChatRoom,
+              icon: Icon(Icons.chat_bubble_outline, size: 16),
+              label: Text(
+                'Butuh tarif khusus? Chat Admin',
+                style: TextStyle(fontSize: 12),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primary,
+                padding: EdgeInsets.symmetric(vertical: 0),
+                minimumSize: Size(double.infinity, 32),
+              ),
             ),
           ],
         ),
@@ -528,6 +586,54 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Future<void> createOrOpenChatRoom() async {
+    try {
+      // Cek apakah sudah ada room chat dengan admin (seller_id is null)
+      final existingRoom = await supabase
+          .from('chat_rooms')
+          .select()
+          .eq('buyer_id', supabase.auth.currentUser!.id)
+          .filter('seller_id', 'is', null)
+          .single();
+
+      Map<String, dynamic> chatRoom;
+
+      if (existingRoom == null) {
+        // Buat room chat baru
+        final response = await supabase
+            .from('chat_rooms')
+            .insert({
+              'buyer_id': supabase.auth.currentUser!.id,
+              'seller_id': null, // Ini aman karena dalam insert
+              'created_at': DateTime.now().toUtc().toIso8601String(),
+            })
+            .select()
+            .single();
+
+        chatRoom = response;
+      } else {
+        chatRoom = existingRoom;
+      }
+
+      // Navigasi ke halaman chat detail
+      Get.to(() => ChatDetailScreen(
+            chatRoom: chatRoom,
+            seller: {
+              'store_name': 'Admin Kumbly',
+              'image': 'https://via.placeholder.com/50'
+            },
+          ));
+    } catch (e) {
+      print('Error creating/opening chat room: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal membuka ruang chat',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -542,39 +648,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         return SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(12.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Alamat Pengiriman
                 Card(
+                  elevation: 0.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(12.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.location_on, color: AppTheme.primary),
+                            Icon(Icons.location_on,
+                                color: AppTheme.primary, size: 18),
                             SizedBox(width: 8),
                             Text(
                               'Alamat Pengiriman',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                                  fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Apakah Anda ingin menambahkan alamat lain?',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                        SizedBox(height: 8),
+                        Divider(height: 16),
                         GestureDetector(
                           onTap: () async {
                             final updatedAddress =
@@ -600,11 +700,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               Expanded(
                                 child: Text(
                                   widget.data['shipping_address'],
-                                  style: TextStyle(fontSize: 14),
+                                  style: TextStyle(fontSize: 13),
                                 ),
                               ),
                               Icon(Icons.edit,
-                                  color: AppTheme.primary, size: 18),
+                                  color: AppTheme.primary, size: 16),
                             ],
                           ),
                         ),
@@ -612,80 +712,136 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ),
                 ),
-                SizedBox(height: 16),
+                SizedBox(height: 8),
+
+                // Opsi Pengiriman
+                _buildShippingOptions(),
+                SizedBox(height: 8),
 
                 // Metode Pembayaran
                 Card(
+                  elevation: 0.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.all(12.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.payment, color: AppTheme.primary),
+                            Icon(Icons.payment,
+                                color: AppTheme.primary, size: 18),
                             SizedBox(width: 8),
                             Text(
                               'Metode Pembayaran',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                                  fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
+                        SizedBox(height: 12),
                         if (isLoadingPayments)
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Center(child: CircularProgressIndicator()),
-                          )
+                          Center(child: CircularProgressIndicator())
                         else
-                          ...paymentMethods.map((method) {
-                            return RadioListTile<String>(
-                              title: Text(method['name']),
-                              subtitle: method['account_number'] != null
-                                  ? Text(
-                                      '${method['account_number']} (${method['account_name']})')
-                                  : null,
-                              value: method['id'].toString(),
-                              groupValue: paymentMethod,
-                              onChanged: (value) {
-                                setState(() {
-                                  paymentMethod = value!;
-                                  // Update admin fee berdasarkan metode pembayaran yang dipilih
-                                  final selectedMethod =
-                                      paymentMethods.firstWhere(
-                                    (m) => m['id'].toString() == value,
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                value: paymentMethod,
+                                hint: Text('Pilih metode pembayaran'),
+                                items: paymentMethods.map((method) {
+                                  return DropdownMenuItem(
+                                    value: method['id'].toString(),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(method['name'],
+                                            style: TextStyle(fontSize: 13)),
+                                        if (method['account_number'] != null)
+                                          Text(
+                                            '${method['account_number']} (${method['account_name']})',
+                                            style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey),
+                                          ),
+                                      ],
+                                    ),
                                   );
-                                  adminFee = double.parse(
-                                      selectedMethod['admin'].toString());
-                                });
-                              },
-                            );
-                          }).toList(),
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    paymentMethod = value!;
+                                    final method = paymentMethods.firstWhere(
+                                        (m) => m['id'].toString() == value);
+                                    adminFee = double.parse(
+                                        method['admin'].toString());
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ),
-                SizedBox(height: 16),
+                SizedBox(height: 8),
 
+                // Daftar Produk
                 _buildProductList(),
-                SizedBox(height: 16),
-                _buildPaymentSummary(),
-                SizedBox(height: 16),
-                _buildShippingOptions(),
+                SizedBox(height: 8),
+
+                // Ringkasan Pembayaran
+                Card(
+                  elevation: 0.5,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Ringkasan Pembayaran',
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 12),
+                        _buildPaymentDetail(
+                            'Total Harga', widget.data['total_amount']),
+                        _buildPaymentDetail('Biaya Penanganan', adminFee),
+                        _buildPaymentDetail('Ongkos Kirim', shippingCost),
+                        Divider(height: 16),
+                        _buildPaymentDetail(
+                          'Total Pembayaran',
+                          widget.data['total_amount'] + adminFee + shippingCost,
+                          isTotal: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         );
       }),
       bottomNavigationBar: Container(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.3),
+              color: Colors.grey.withOpacity(0.2),
               spreadRadius: 1,
               blurRadius: 5,
               offset: Offset(0, -3),
@@ -703,16 +859,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       'Apakah Anda yakin ingin mengonfirmasi pesanan ini?'),
                   actions: [
                     TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop(); // Tutup dialog
-                      },
+                      onPressed: () => Navigator.of(context).pop(),
                       child: Text('Batal'),
                     ),
                     TextButton(
                       onPressed: () {
-                        handleConfirmOrder(); // Panggil fungsi konfirmasi pesanan
-                        Navigator.of(context)
-                            .pop(); // Tutup dialog setelah konfirmasi
+                        Navigator.of(context).pop();
+                        handleConfirmOrder();
                       },
                       child: Text('Ya'),
                     ),
@@ -723,20 +876,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.primary,
-            padding: EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          child: Text(
-            'Konfirmasi Pesanan',
+          child:
+              Text('Konfirmasi Pesanan', style: TextStyle(color: Colors.white)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentDetail(String label, double amount,
+      {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 13)),
+          Text(
+            'Rp ${NumberFormat('#,###').format(amount)}',
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              fontSize: isTotal ? 14 : 13,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isTotal ? AppTheme.primary : null,
             ),
           ),
-        ),
+        ],
       ),
     );
   }
