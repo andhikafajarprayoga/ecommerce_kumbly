@@ -80,6 +80,7 @@ class _HomeMenu extends StatelessWidget {
   final supabase = Supabase.instance.client;
   final storeName = ''.obs;
   final needToShip = '0'.obs;
+  final shipping = '0'.obs;
   final cancelled = '0'.obs;
   final completed = '0'.obs;
 
@@ -150,8 +151,6 @@ class _HomeMenu extends StatelessWidget {
                       label: const Text('Jadi Pembeli'),
                       onPressed: () {
                         Get.dialog(
-
-
                           AlertDialog(
                             title: const Text('Konfirmasi'),
                             content: const Text(
@@ -289,7 +288,7 @@ class _HomeMenu extends StatelessWidget {
                               sellerId: Supabase
                                   .instance.client.auth.currentUser!.id)),
                           icon: const Icon(Icons.arrow_forward,
-                              size: 18, color: AppTheme.primary),
+                              size: 13, color: AppTheme.primary),
                           label: const Text('Lihat Semua'),
                           style: TextButton.styleFrom(
                             foregroundColor:
@@ -298,27 +297,37 @@ class _HomeMenu extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildOrderStatusItem(
-                          icon: Icons.local_shipping,
-                          label: 'Perlu Dikirim',
+                          icon: Icons.inventory_2,
+                          label: 'Belum Dikirim',
                           count: needToShip,
                           onTap: () {},
+                          color: Colors.orange,
+                        ),
+                        _buildOrderStatusItem(
+                          icon: Icons.local_shipping,
+                          label: 'Sedang Dikirim',
+                          count: shipping,
+                          onTap: () {},
+                          color: Colors.blue,
                         ),
                         _buildOrderStatusItem(
                           icon: Icons.cancel,
                           label: 'Pembatalan',
                           count: cancelled,
                           onTap: () {},
+                          color: Colors.red,
                         ),
                         _buildOrderStatusItem(
                           icon: Icons.check_circle,
                           label: 'Selesai',
                           count: completed,
                           onTap: () {},
+                          color: Colors.green,
                         ),
                       ],
                     ),
@@ -348,8 +357,8 @@ class _HomeMenu extends StatelessWidget {
                     const Text(
                       'Menu Toko',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -451,6 +460,7 @@ class _HomeMenu extends StatelessWidget {
       }
 
       int needToShipCount = 0;
+      int shippingCount = 0;
       int cancelledCount = 0;
       int completedCount = 0;
 
@@ -468,8 +478,10 @@ Order Detail:
         switch (order['status']) {
           case 'pending':
           case 'processing':
-          case 'shipping':
             needToShipCount++;
+            break;
+          case 'shipping':
+            shippingCount++;
             break;
           case 'cancelled':
             cancelledCount++;
@@ -482,11 +494,13 @@ Order Detail:
 
       print('\nHasil Perhitungan:');
       print('Need to Ship: $needToShipCount');
+      print('Shipping: $shippingCount');
       print('Cancelled: $cancelledCount');
       print('Completed: $completedCount');
       print('====== END DEBUG ======\n');
 
       needToShip.value = needToShipCount.toString();
+      shipping.value = shippingCount.toString();
       cancelled.value = cancelledCount.toString();
       completed.value = completedCount.toString();
     } catch (e, stackTrace) {
@@ -501,32 +515,33 @@ Order Detail:
     required String label,
     required RxString count,
     required VoidCallback onTap,
+    required Color color,
   }) {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: AppTheme.primary.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
+          color: color.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           children: [
             Obx(() => Text(
                   count.value,
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.primary,
+                    color: color,
                   ),
                 )),
-            const SizedBox(height: 8),
-            Icon(icon, color: AppTheme.primary),
             const SizedBox(height: 4),
+            Icon(icon, color: color, size: 18),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 color: Colors.grey[800],
                 fontWeight: FontWeight.w500,
               ),
