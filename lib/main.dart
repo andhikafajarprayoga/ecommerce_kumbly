@@ -6,6 +6,9 @@ import 'auth/register_page.dart';
 import 'pages/buyer/home_screen.dart';
 import 'controllers/auth_controller.dart';
 import 'screens/home_screen.dart';
+import 'pages/admin/home_screen.dart';
+import 'pages/courier/home_screen.dart';
+import 'pages/branch/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +33,9 @@ void main() async {
       GetPage(name: '/login', page: () => LoginPage()),
       GetPage(name: '/register', page: () => RegisterPage()),
       GetPage(name: '/buyer/home_screen', page: () => BuyerHomeScreen()),
+      GetPage(name: '/admin/home_screen', page: () => AdminHomeScreen()),
+      GetPage(name: '/courier/home_screen', page: () => CourierHomeScreen()),
+      GetPage(name: '/branch/home_screen', page: () => BranchHomeScreen()),
     ],
   ));
 }

@@ -182,10 +182,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final baseRate = double.parse(rateResponse['base_rate'].toString());
       Map<String, double> merchantWeights = {};
 
-      // Menghitung berat total per merchant
+      // Mengelompokkan dan menghitung total berat per merchant
       for (var item in widget.data['items']) {
         final product = item['products'];
         final merchantId = product['seller_id'];
+
+        if (!merchantWeights.containsKey(merchantId)) {
+          merchantWeights[merchantId] = 0.0;
+        }
 
         final actualWeight = (product['weight'] ?? 1000) / 1000.0;
         final volumetricWeight = calculateVolumetricWeight(
@@ -194,22 +198,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           product['height'] ?? 0,
         );
 
-        final chargeableWeight =
+        final itemWeight =
             actualWeight > volumetricWeight ? actualWeight : volumetricWeight;
-
-        merchantWeights[merchantId] = (merchantWeights[merchantId] ?? 0) +
-            (chargeableWeight * item['quantity']);
+        merchantWeights[merchantId] =
+            merchantWeights[merchantId]! + (itemWeight * item['quantity']);
       }
 
       // Menghitung ongkir per merchant
       double totalShippingCost = 0;
       merchantShippingCosts.clear();
 
-      merchantWeights.forEach((merchantId, weight) {
-        final roundedWeight = weight.round();
-        final merchantShippingCost = baseRate * roundedWeight;
+      merchantWeights.forEach((merchantId, totalWeight) {
+        print('Final calculation for Merchant $merchantId:');
+        print('Total accumulated weight: $totalWeight kg');
+
+        // Gunakan minimum 1 kg atau pembulatan matematika yang tepat
+        double chargeableWeight;
+        if (totalWeight < 1.0) {
+          chargeableWeight = 1.0;
+        } else {
+          // Pembulatan ke atas jika desimal >= 0.5, ke bawah jika < 0.5
+          chargeableWeight = (totalWeight - totalWeight.floor() >= 0.5)
+              ? totalWeight.ceil().toDouble()
+              : totalWeight.floor().toDouble();
+        }
+
+        final merchantShippingCost = baseRate * chargeableWeight;
         merchantShippingCosts[merchantId] = merchantShippingCost;
         totalShippingCost += merchantShippingCost;
+
+        print('Chargeable weight: $chargeableWeight kg');
+        print('Shipping cost: Rp $merchantShippingCost');
       });
 
       setState(() {

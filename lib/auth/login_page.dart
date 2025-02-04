@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../controllers/auth_controller.dart';
 import 'register_page.dart';
 import '../theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -28,7 +29,31 @@ class _LoginPageState extends State<LoginPage> {
       );
 
       if (result == true) {
-        Get.offAllNamed('/buyer/home_screen');
+        // Cek role user setelah login berhasil
+        final userData = await Supabase.instance.client
+            .from('users')
+            .select('role')
+            .eq('id', authController.currentUser.value!.id)
+            .single();
+
+        switch (userData['role']) {
+          case 'admin':
+            Get.offAllNamed('/admin/home_screen');
+            break;
+          case 'courier':
+            Get.offAllNamed('/courier/home_screen');
+            break;
+          case 'branch':
+            Get.offAllNamed('/branch/home_screen');
+            break;
+          case 'buyer_seller':
+            Get.offAllNamed('/merchant/home_screen');
+            break;
+          case 'buyer':
+          default:
+            Get.offAllNamed('/buyer/home_screen');
+            break;
+        }
       } else {
         Get.snackbar(
           'Error',

@@ -186,11 +186,25 @@ class AuthController extends GetxController {
           case 'buyer_seller':
             Get.offAllNamed('/merchant/home_screen');
             break;
+          case 'admin':
+            Get.offAllNamed('/admin/home_screen');
+            break;
+          case 'courier':
+            Get.offAllNamed('/courier/home_screen');
+            break;
+          case 'branch':
+            Get.offAllNamed('/branch/home_screen');
+            break;
           default:
             Get.offAllNamed('/buyer/home_screen');
         }
 
-        Get.snackbar('Sukses', 'Login berhasil');
+        Get.snackbar(
+          'Sukses',
+          'Login berhasil',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
       } else {
         Get.back();
         Get.snackbar(
@@ -202,7 +216,12 @@ class AuthController extends GetxController {
       }
     } catch (e) {
       Get.back();
-      Get.snackbar('Error', 'Email atau password salah');
+      Get.snackbar(
+        'Error',
+        'Email atau password salah',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 
