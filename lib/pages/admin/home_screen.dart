@@ -9,6 +9,8 @@ import '../../pages/admin/feature/reports_screen.dart';
 import '../../pages/admin/feature/banners_screen.dart';
 import '../../pages/admin/feature/payment_methods_screen.dart';
 import '../../pages/admin/feature/shipping_rates_screen.dart';
+import '../../pages/admin/feature/voucher_screen.dart';
+import '../../pages/admin/feature/admin_chat_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -72,7 +74,7 @@ class AdminHomeScreen extends StatelessWidget {
                             title: 'Chat',
                             subtitle: 'Buyer',
                             color: Colors.blue,
-                            onTap: () => Get.to(() => UsersScreen()),
+                            onTap: () => Get.to(() => AdminChatScreen()),
                           ),
                           _buildDivider(),
                           _buildMenuListItem(
@@ -111,15 +113,22 @@ class AdminHomeScreen extends StatelessWidget {
                             icon: Icons.payments,
                             title: 'Pembayaran',
                             subtitle: 'Atur pembayaran',
-                            color: Colors.red,
+                            color: const Color.fromARGB(255, 247, 0, 255),
                             onTap: () => Get.to(() => PaymentMethodsScreen()),
+                          ),
+                          _buildMenuListItem(
+                            icon: Icons.discount,
+                            title: 'Voucher',
+                            subtitle: 'Atur voucher',
+                            color: Colors.teal,
+                            onTap: () => Get.to(() => VoucherScreen()),
                           ),
                           _buildDivider(),
                           _buildMenuListItem(
                             icon: Icons.local_shipping_rounded,
                             title: 'Ongkir',
                             subtitle: 'Atur ongkir',
-                            color: Colors.teal,
+                            color: Colors.cyan,
                             onTap: () => Get.to(() => ShippingRatesScreen()),
                           ),
                         ],

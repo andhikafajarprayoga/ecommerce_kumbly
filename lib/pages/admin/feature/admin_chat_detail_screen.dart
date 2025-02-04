@@ -1,23 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 
-class ChatDetailScreen extends StatefulWidget {
+class AdminChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> chatRoom;
-  final Map<String, dynamic> seller;
-  final bool isAdminRoom;
+  final Map<String, dynamic> buyer;
 
-  ChatDetailScreen({
+  AdminChatDetailScreen({
     required this.chatRoom,
-    required this.seller,
-    this.isAdminRoom = false,
+    required this.buyer,
   });
 
   @override
-  _ChatDetailScreenState createState() => _ChatDetailScreenState();
+  _AdminChatDetailScreenState createState() => _AdminChatDetailScreenState();
 }
 
-class _ChatDetailScreenState extends State<ChatDetailScreen> {
+class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
   final supabase = Supabase.instance.client;
   final TextEditingController _messageController = TextEditingController();
   late Stream<List<Map<String, dynamic>>> _messagesStream;
@@ -32,47 +31,30 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   @override
   void dispose() {
+    _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   void _initializeMessages() {
-    if (widget.isAdminRoom) {
-      _messagesStream = supabase
-          .from('admin_messages')
-          .stream(primaryKey: ['id'])
-          .eq('chat_room_id', widget.chatRoom['id'])
-          .order('created_at', ascending: true)
-          .map((List<Map<String, dynamic>> data) => data);
-    } else {
-      _messagesStream = supabase
-          .from('chat_messages')
-          .stream(primaryKey: ['id'])
-          .eq('room_id', widget.chatRoom['id'])
-          .order('created_at', ascending: true)
-          .map((List<Map<String, dynamic>> data) => data);
-    }
+    _messagesStream = supabase
+        .from('admin_messages')
+        .stream(primaryKey: ['id'])
+        .eq('chat_room_id', widget.chatRoom['id'])
+        .order('created_at', ascending: true)
+        .map((List<Map<String, dynamic>> data) => data);
   }
 
   Future<void> _markMessagesAsRead() async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
 
-    if (widget.isAdminRoom) {
-      await supabase
-          .from('admin_messages')
-          .update({'is_read': true})
-          .eq('chat_room_id', widget.chatRoom['id'])
-          .neq('sender_id', userId)
-          .eq('is_read', false);
-    } else {
-      await supabase
-          .from('chat_messages')
-          .update({'is_read': true})
-          .eq('room_id', widget.chatRoom['id'])
-          .neq('sender_id', userId)
-          .eq('is_read', false);
-    }
+    await supabase
+        .from('admin_messages')
+        .update({'is_read': true})
+        .eq('chat_room_id', widget.chatRoom['id'])
+        .neq('sender_id', userId)
+        .eq('is_read', false);
   }
 
   Future<void> _sendMessage() async {
@@ -82,30 +64,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (userId == null) return;
 
     try {
-      if (widget.isAdminRoom) {
-        await supabase.from('admin_messages').insert({
-          'chat_room_id': widget.chatRoom['id'],
-          'sender_id': userId,
-          'content': _messageController.text,
-          'created_at':
-              DateTime.now().toUtc().add(Duration(hours: 7)).toIso8601String(),
-        });
-      } else {
-        await supabase.from('chat_messages').insert({
-          'room_id': widget.chatRoom['id'],
-          'sender_id': userId,
-          'message': _messageController.text,
-          'created_at':
-              DateTime.now().toUtc().add(Duration(hours: 7)).toIso8601String(),
-        });
-      }
-
-      FocusScope.of(context).unfocus();
-      setState(() {
-        _messageController.clear();
+      // Kirim pesan
+      await supabase.from('admin_messages').insert({
+        'chat_room_id': widget.chatRoom['id'],
+        'sender_id': userId,
+        'content': _messageController.text.trim(),
+        'created_at': DateTime.now().toUtc().toIso8601String(),
       });
+
+      // Update waktu terakhir chat room
+      await supabase
+          .from('admin_chat_rooms')
+          .update({'updated_at': DateTime.now().toUtc().toIso8601String()}).eq(
+              'id', widget.chatRoom['id']);
+
+      _messageController.clear();
+      _scrollController.animateTo(
+        0,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     } catch (e) {
       print('Error sending message: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mengirim pesan',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 
@@ -113,7 +99,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.seller['store_name'] ?? 'Chat'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.buyer['buyer_name'] ?? 'Chat'),
+            Text(
+              'Online',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+            ),
+          ],
+        ),
         backgroundColor: AppTheme.primary,
       ),
       body: Column(
@@ -133,6 +128,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 final messages = snapshot.data!;
                 return ListView.builder(
                   reverse: true,
+                  controller: _scrollController,
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[messages.length - 1 - index];
@@ -140,15 +136,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         message['sender_id'] == supabase.auth.currentUser?.id;
 
                     return _buildMessageBubble(
-                      message: widget.isAdminRoom
-                          ? message['content']
-                          : message['message'],
+                      message: message['content'],
                       isMine: isMine,
                       time: _formatTime(message['created_at']),
                       isRead: message['is_read'] ?? false,
                     );
                   },
-                  controller: _scrollController,
                 );
               },
             ),
@@ -178,10 +171,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              message ?? '',
+              message,
               style: TextStyle(
                 color: isMine ? Colors.white : Colors.black,
-                fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
               ),
             ),
             SizedBox(height: 4),
@@ -239,6 +231,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   vertical: 8,
                 ),
               ),
+              maxLines: null,
+              textCapitalization: TextCapitalization.sentences,
             ),
           ),
           SizedBox(width: 8),
@@ -252,7 +246,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   String _formatTime(String timestamp) {
-    final date = DateTime.parse(timestamp);
+    final date = DateTime.parse(timestamp).toLocal();
     return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

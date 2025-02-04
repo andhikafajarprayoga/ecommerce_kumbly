@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'chat_detail_screen.dart';
+import 'package:rxdart/rxdart.dart' as rx;
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -24,55 +25,99 @@ class _ChatScreenState extends State<ChatScreen> {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
 
-    _chatRoomsStream = supabase
-        .from('chat_rooms')
-        .stream(primaryKey: ['id'])
-        .eq('buyer_id', userId)
-        // .neq('seller_id', null)
-        .order('created_at', ascending: false)
-        .execute()
-        .asyncMap((rooms) async {
-          List<Map<String, dynamic>> validRooms = [];
+    _chatRoomsStream = rx.Rx.combineLatest2(
+      // Stream untuk chat dengan seller
+      supabase
+          .from('chat_rooms')
+          .stream(primaryKey: ['id'])
+          .eq('buyer_id', userId)
+          .order('created_at', ascending: false)
+          .execute()
+          .asyncMap((rooms) async {
+            List<Map<String, dynamic>> validRooms = [];
+            for (var room in rooms) {
+              try {
+                final merchantData = await supabase
+                    .from('merchants')
+                    .select('store_name')
+                    .eq('id', room['seller_id'])
+                    .maybeSingle();
 
-          for (var room in rooms) {
-            try {
-              // Ambil data merchant
-              final merchantData = await supabase
-                  .from('merchants')
-                  .select('store_name')
-                  .eq('id', room['seller_id'])
-                  .maybeSingle();
+                room['store_name'] =
+                    merchantData?['store_name'] ?? 'Toko tidak ditemukan';
+                room['is_admin_room'] = false;
 
-              // Tambahkan store_name ke room data
-              room['store_name'] =
-                  merchantData?['store_name'] ?? 'Toko tidak ditemukan';
+                final lastMessageResponse = await supabase
+                    .from('chat_messages')
+                    .select('message, created_at')
+                    .eq('room_id', room['id'])
+                    .order('created_at', ascending: false)
+                    .limit(1)
+                    .maybeSingle();
 
-              // Ambil pesan terakhir
-              final lastMessageResponse = await supabase
-                  .from('chat_messages')
-                  .select('message, created_at')
-                  .eq('room_id', room['id'])
-                  .order('created_at', ascending: false)
-                  .limit(1)
-                  .maybeSingle();
+                if (lastMessageResponse != null) {
+                  room['last_message'] = lastMessageResponse['message'];
+                  room['last_message_time'] = lastMessageResponse['created_at'];
+                } else {
+                  room['last_message'] = 'Belum ada pesan';
+                  room['last_message_time'] = room['created_at'];
+                }
 
-              if (lastMessageResponse != null) {
-                room['last_message'] = lastMessageResponse['message'];
-                room['last_message_time'] = lastMessageResponse['created_at'];
-              } else {
-                room['last_message'] = 'Belum ada pesan';
-                room['last_message_time'] = room['created_at'];
+                room['unread_count'] = await _getUnreadCount(room['id']);
+                validRooms.add(room);
+              } catch (e) {
+                print('Error processing seller chat room: $e');
               }
-
-              room['unread_count'] = await _getUnreadCount(room['id']);
-
-              validRooms.add(room);
-            } catch (e) {
-              print('Error processing chat room: $e');
             }
-          }
-          return validRooms;
-        });
+            return validRooms;
+          }),
+
+      // Stream untuk chat admin
+      supabase
+          .from('admin_chat_rooms')
+          .stream(primaryKey: ['id'])
+          .eq('buyer_id', userId)
+          .order('created_at', ascending: false)
+          .execute()
+          .asyncMap((rooms) async {
+            List<Map<String, dynamic>> validRooms = [];
+            for (var room in rooms) {
+              try {
+                room['store_name'] = 'Admin Kumbly';
+                room['is_admin_room'] = true;
+
+                final lastMessageResponse = await supabase
+                    .from('admin_messages')
+                    .select('content, created_at')
+                    .eq('chat_room_id', room['id'])
+                    .order('created_at', ascending: false)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (lastMessageResponse != null) {
+                  room['last_message'] = lastMessageResponse['content'];
+                  room['last_message_time'] = lastMessageResponse['created_at'];
+                } else {
+                  room['last_message'] = 'Belum ada pesan';
+                  room['last_message_time'] = room['created_at'];
+                }
+
+                validRooms.add(room);
+              } catch (e) {
+                print('Error processing admin chat room: $e');
+              }
+            }
+            return validRooms;
+          }),
+
+      // Gabungkan hasil kedua stream
+      (sellerRooms, adminRooms) {
+        List<Map<String, dynamic>> allRooms = [...sellerRooms, ...adminRooms];
+        allRooms.sort((a, b) => (b['last_message_time'] ?? b['created_at'])
+            .compareTo(a['last_message_time'] ?? a['created_at']));
+        return allRooms;
+      },
+    ).asyncMap((event) => event);
   }
 
   @override
@@ -186,11 +231,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       await _markMessagesAsRead(room['id']);
                       Get.to(() => ChatDetailScreen(
                             chatRoom: room,
-                            seller: sellers[room['seller_id']] ??
-                                {
-                                  'name': 'Loading...',
-                                  'image': 'https://via.placeholder.com/50'
-                                },
+                            seller: {
+                              'store_name': room['is_admin_room']
+                                  ? 'Admin Kumbly'
+                                  : room['store_name'],
+                              'image': 'https://via.placeholder.com/50'
+                            },
+                            isAdminRoom: room['is_admin_room'] ?? false,
                           ));
                     },
                     child: Padding(
@@ -269,7 +316,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    if (room['unread_count'] > 0)
+                                    if ((room['unread_count'] ?? 0) > 0)
                                       Container(
                                         margin: const EdgeInsets.only(left: 8),
                                         padding: const EdgeInsets.symmetric(
@@ -282,7 +329,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                               BorderRadius.circular(12),
                                         ),
                                         child: Text(
-                                          room['unread_count'].toString(),
+                                          (room['unread_count'] ?? 0)
+                                              .toString(),
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 12,

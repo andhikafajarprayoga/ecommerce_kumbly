@@ -588,23 +588,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> createOrOpenChatRoom() async {
     try {
-      // Cek apakah sudah ada room chat dengan admin (seller_id is null)
-      final existingRoom = await supabase
-          .from('chat_rooms')
+      // Cek apakah sudah ada room chat admin
+      final existingRooms = await supabase
+          .from('admin_chat_rooms')
           .select()
           .eq('buyer_id', supabase.auth.currentUser!.id)
-          .filter('seller_id', 'is', null)
-          .single();
+          .order('created_at', ascending: false);
 
       Map<String, dynamic> chatRoom;
 
-      if (existingRoom == null) {
-        // Buat room chat baru
+      if (existingRooms.isEmpty) {
+        // Buat room chat admin baru
         final response = await supabase
-            .from('chat_rooms')
+            .from('admin_chat_rooms')
             .insert({
               'buyer_id': supabase.auth.currentUser!.id,
-              'seller_id': null, // Ini aman karena dalam insert
               'created_at': DateTime.now().toUtc().toIso8601String(),
             })
             .select()
@@ -612,7 +610,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         chatRoom = response;
       } else {
-        chatRoom = existingRoom;
+        chatRoom = existingRooms[0];
       }
 
       // Navigasi ke halaman chat detail
@@ -622,6 +620,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               'store_name': 'Admin Kumbly',
               'image': 'https://via.placeholder.com/50'
             },
+            isAdminRoom: true,
           ));
     } catch (e) {
       print('Error creating/opening chat room: $e');
