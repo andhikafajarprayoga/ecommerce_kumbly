@@ -34,9 +34,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   Future<void> _fetchOrderDetails() async {
     try {
       // Ambil order items berdasarkan payment_group_id
-      final response = await supabase
-        .from('orders')
-        .select('''
+      final response = await supabase.from('orders').select('''
           *,
           order_items!inner (
             id,
@@ -49,13 +47,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
               description
             )
           )
-        ''')
-        .eq('payment_group_id', widget.orderData['payment_group_id']);
+        ''').eq('payment_group_id', widget.orderData['payment_group_id']);
 
       setState(() {
         orderItems = List<Map<String, dynamic>>.from(response);
       });
-      
+
       print('Debug: Order items fetched: $orderItems');
     } catch (e) {
       print('Error fetching order details: $e');
@@ -79,7 +76,8 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ),
             SizedBox(height: 12),
             ...orderItems.expand((order) {
-              final items = List<Map<String, dynamic>>.from(order['order_items']);
+              final items =
+                  List<Map<String, dynamic>>.from(order['order_items']);
               return items.map((item) {
                 final product = item['product'];
                 return Padding(
@@ -101,14 +99,14 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 width: 60,
                                 height: 60,
                                 color: Colors.grey[200],
-                                child: Icon(Icons.image_not_supported, 
-                                  color: Colors.grey[400]),
+                                child: Icon(Icons.image_not_supported,
+                                    color: Colors.grey[400]),
                               );
                             },
                           ),
                         ),
                       SizedBox(width: 12),
-                      
+
                       // Detail Produk
                       Expanded(
                         child: Column(
@@ -172,17 +170,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
         setState(() => paymentProofUrl = publicUrl);
 
-        // Insert ke tabel payment_groups
-        final response = await supabase.from('payment_groups').insert({
-          'buyer_id': supabase.auth.currentUser!.id,
-          'total_amount': widget.orderData['total_amount'],
-          'payment_method_id': widget.paymentMethod['id'],
-          'payment_status': 'pending',
-          'payment_proof': paymentProofUrl,
-          'admin_fee': 0,
-        }).select();
+        // Update payment_groups dan orders dalam satu transaksi
+        await supabase.rpc('update_payment_proof', params: {
+          'p_payment_group_id': widget.orderData['payment_group_id'],
+          'p_payment_proof': paymentProofUrl,
+          'p_total_amount': widget.orderData['total_amount'],
+          'p_admin_fee': widget.orderData['admin_fee'] ?? 0,
+          'p_total_shipping_cost': widget.orderData['total_shipping_cost'] ?? 0,
+        });
 
-        print('Payment group created: $response'); // Untuk debugging
+        print('Payment proof updated successfully');
 
         Get.snackbar(
           'Sukses',

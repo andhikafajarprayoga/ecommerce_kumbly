@@ -80,7 +80,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Debug print data yang akan dikirim
         final params = {
           'p_buyer_id': supabase.auth.currentUser!.id,
-          'p_payment_method_id': paymentMethod,
+          'p_payment_method_id': int.parse(paymentMethod!),
           'p_shipping_address': widget.data['shipping_address'],
           'p_items': widget.data['items']
               .map((item) => {
@@ -91,44 +91,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   })
               .toList(),
           'p_shipping_costs': merchantShippingCosts,
+          'p_admin_fee': adminFee,
+          'p_total_amount':
+              widget.data['total_amount'] + adminFee + shippingCost,
+          'p_total_shipping_cost': shippingCost,
         };
 
         print('Debug: Parameters being sent:');
         print(params);
 
-        // Coba panggil RPC dengan error handling yang lebih detail
-        try {
-          final response = await supabase.rpc(
-            'create_order_with_items',
-            params: params,
-          );
+        final response = await supabase.rpc(
+          'create_order_with_items',
+          params: params,
+        );
 
-          print('Debug: RPC Response:');
-          print(response);
+        print('Debug: RPC Response:');
+        print(response);
 
-          if (response == null || response['success'] == false) {
-            throw Exception(response?['message'] ?? 'Unknown error occurred');
-          }
-
-          await cartController.clearCart();
-
-          final selectedPaymentMethod = paymentMethods
-              .firstWhere((method) => method['id'].toString() == paymentMethod);
-
-          Get.off(() => PaymentScreen(
-                orderData: {
-                  ...widget.data,
-                  'total_amount':
-                      widget.data['total_amount'] + adminFee + shippingCost,
-                  'total_shipping_cost': shippingCost,
-                },
-                paymentMethod: selectedPaymentMethod,
-              ));
-        } catch (rpcError) {
-          print('Debug: RPC Error:');
-          print(rpcError);
-          throw rpcError;
+        if (response == null || response['success'] == false) {
+          throw Exception(response?['message'] ?? 'Unknown error occurred');
         }
+
+        // Ambil payment_group_id dari response
+        final paymentGroupId = response['payment_group_id'];
+
+        await cartController.clearCart();
+
+        final selectedPaymentMethod = paymentMethods
+            .firstWhere((method) => method['id'].toString() == paymentMethod);
+
+        Get.off(() => PaymentScreen(
+              orderData: {
+                ...widget.data,
+                'payment_group_id':
+                    paymentGroupId, // Tambahkan payment_group_id
+                'total_amount':
+                    widget.data['total_amount'] + adminFee + shippingCost,
+                'total_shipping_cost': shippingCost,
+                'admin_fee': adminFee,
+              },
+              paymentMethod: selectedPaymentMethod,
+            ));
       } catch (e) {
         print('Error creating order: $e');
         Get.snackbar(
@@ -628,7 +631,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               value: method['id'].toString(),
                               groupValue: paymentMethod,
                               onChanged: (value) {
-                                setState(() => paymentMethod = value!);
+                                setState(() {
+                                  paymentMethod = value!;
+                                  // Update admin fee berdasarkan metode pembayaran yang dipilih
+                                  final selectedMethod =
+                                      paymentMethods.firstWhere(
+                                    (m) => m['id'].toString() == value,
+                                  );
+                                  adminFee = double.parse(
+                                      selectedMethod['admin'].toString());
+                                });
                               },
                             );
                           }).toList(),

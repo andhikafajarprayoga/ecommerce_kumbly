@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 class ShippingManagementScreen extends StatefulWidget {
   const ShippingManagementScreen({Key? key}) : super(key: key);
@@ -113,28 +114,31 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
 
       if (image == null) return null;
 
+      // Ubah format nama file untuk membedakan dengan bukti pembayaran
       final String fileName =
-          'handover_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          'handover_courier_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final File file = File(image.path);
 
-      // Upload ke bucket yang sudah ada
-      await supabase.storage
-          .from('courier-handover-photos')
-          .upload(fileName, file);
+      print('Debug: Uploading to bucket: payment-proofs');
+      print('Debug: File name: $fileName');
+
+      // Upload ke bucket payment-proofs
+      await supabase.storage.from('payment-proofs').upload(fileName, file);
 
       // Dapatkan URL publik
-      final String photoUrl = supabase.storage
-          .from('courier-handover-photos')
-          .getPublicUrl(fileName);
+      final String photoUrl =
+          supabase.storage.from('payment-proofs').getPublicUrl(fileName);
 
+      print('Debug: Upload successful. URL: $photoUrl');
       return photoUrl;
     } catch (e) {
       print('Error uploading photo: $e');
       Get.snackbar(
         'Error',
-        'Gagal mengupload foto',
+        'Gagal mengupload foto serah terima',
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        duration: const Duration(seconds: 5),
       );
       return null;
     }
@@ -145,10 +149,30 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manajemen Pengiriman'),
+        elevation: 0,
+        backgroundColor: AppTheme.primary,
+        foregroundColor: Colors.white,
       ),
       body: Obx(
         () => orders.isEmpty
-            ? const Center(child: Text('Tidak ada pesanan'))
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.local_shipping_outlined,
+                        size: 80, color: Colors.grey[400]),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Belum ada pesanan',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              )
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: orders.length,
@@ -157,35 +181,42 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                   final orderItems = List<Map<String, dynamic>>.from(
                       order['order_items'] ?? []);
 
-                  return Container(
+                  return Card(
+                    elevation: 3,
                     margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          spreadRadius: 1,
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header dengan ID dan Status
-                        Padding(
+                        Container(
                           padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(12),
+                            ),
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'Order #${order['id'].toString().substring(0, 8)}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.receipt_long_outlined,
+                                    color: AppTheme.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Order #${order['id'].toString().substring(0, 8)}',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                               _buildStatusChip(order['status']),
                             ],
@@ -196,16 +227,23 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                         // Daftar Produk yang Dipesan
                         _buildProductList(orderItems),
 
-                        // Alamat
-                        Padding(
+                        // Alamat dan Total
+                        Container(
                           padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            border: Border(
+                              top: BorderSide(color: Colors.grey[200]!),
+                            ),
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Icon(Icons.location_on_outlined,
-                                      size: 20, color: Colors.grey),
+                                  Icon(Icons.location_on_outlined,
+                                      size: 20, color: AppTheme.primary),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -218,14 +256,15 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                               const SizedBox(height: 12),
                               Row(
                                 children: [
-                                  const Icon(Icons.payment_outlined,
-                                      size: 20, color: Colors.grey),
+                                  Icon(Icons.payments_outlined,
+                                      size: 20, color: AppTheme.primary),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'Rp${order['total_amount'].toStringAsFixed(0)}',
+                                    'Total: Rp${NumberFormat('#,###').format(order['total_amount'])}',
                                     style: const TextStyle(
-                                      fontSize: 14,
+                                      fontSize: 16,
                                       fontWeight: FontWeight.bold,
+                                      color: Colors.green,
                                     ),
                                   ),
                                 ],
@@ -251,23 +290,28 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
   Widget _buildStatusChip(String status) {
     Color chipColor;
     String statusText;
+    IconData statusIcon;
 
     switch (status) {
       case 'pending':
         chipColor = Colors.orange;
         statusText = 'Belum Siap';
+        statusIcon = Icons.pending_outlined;
         break;
       case 'processing':
         chipColor = Colors.blue;
         statusText = 'Menunggu Kurir';
+        statusIcon = Icons.local_shipping_outlined;
         break;
       case 'shipping':
         chipColor = Colors.green;
         statusText = 'Sedang Dikirim';
+        statusIcon = Icons.delivery_dining;
         break;
       default:
         chipColor = Colors.grey;
         statusText = status;
+        statusIcon = Icons.help_outline;
     }
 
     return Container(
@@ -277,13 +321,20 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: chipColor),
       ),
-      child: Text(
-        statusText,
-        style: TextStyle(
-          color: chipColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(statusIcon, size: 16, color: chipColor),
+          const SizedBox(width: 4),
+          Text(
+            statusText,
+            style: TextStyle(
+              color: chipColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -298,7 +349,10 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                 onPressed: () =>
                     _showConfirmationDialog(order['id'], order['status']),
                 icon: const Icon(Icons.local_shipping, size: 18),
-                label: const Text('Siapkan Pesanan'),
+                label: const Text(
+                  'Siapkan Pesanan',
+                  style: TextStyle(color: Colors.white),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -326,8 +380,10 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: null,
-                icon: const Icon(Icons.local_shipping, size: 18),
-                label: const Text('Siapkan Pesanan'),
+                icon: const Icon(Icons.local_shipping,
+                    size: 18, color: Colors.white),
+                label: const Text('Siapkan Pesanan',
+                    style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey,
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -338,8 +394,10 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () => _uploadHandoverPhoto(order['id']),
-                icon: const Icon(Icons.camera_alt, size: 18),
-                label: const Text('Foto Serah Terima'),
+                icon:
+                    const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                label: const Text('Foto Serah Terima',
+                    style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -477,14 +535,21 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text(
-            'Produk yang Dipesan:',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Row(
+            children: [
+              Icon(Icons.shopping_bag_outlined,
+                  size: 20, color: AppTheme.primary),
+              const SizedBox(width: 8),
+              const Text(
+                'Produk yang Dipesan',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ),
         ListView.builder(
@@ -508,31 +573,21 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Foto Produk
-                  if (product['image_url'] != null)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        product['image_url'],
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: product['image_url'] != null
+                        ? Image.network(
+                            product['image_url'],
                             width: 80,
                             height: 80,
-                            color: Colors.grey[200],
-                            child: const Icon(
-                              Icons.image_not_supported,
-                              color: Colors.grey,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return _buildImagePlaceholder();
+                            },
+                          )
+                        : _buildImagePlaceholder(),
+                  ),
                   const SizedBox(width: 12),
-
-                  // Informasi Produk
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,24 +601,26 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Jumlah: ${item['quantity']}',
+                          'Jumlah: ${item['quantity']} pcs',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 14,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          'Harga: Rp${item['price']}',
+                          '@Rp${NumberFormat('#,###').format(item['price'])}',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontSize: 14,
                           ),
                         ),
+                        const SizedBox(height: 4),
                         Text(
-                          'Total: Rp${item['price'] * item['quantity']}',
-                          style: const TextStyle(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w500,
+                          'Total: Rp${NumberFormat('#,###').format(item['price'] * item['quantity'])}',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
                         ),
@@ -576,6 +633,22 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(
+        Icons.image_not_supported,
+        color: Colors.grey,
+        size: 30,
+      ),
     );
   }
 }

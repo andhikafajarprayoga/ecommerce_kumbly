@@ -11,6 +11,7 @@ import 'package:kumbly_ecommerce/pages/merchant/order/order_list_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/order/finance_summary_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/order/performance_screenn.dart';
 import 'package:kumbly_ecommerce/pages/merchant/order/shipping_management_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/order/cancellation_requests_screen.dart';
 
 class MerchantHomeScreen extends StatefulWidget {
   final String sellerId;
@@ -393,6 +394,13 @@ class _HomeMenu extends StatelessWidget {
                           label: 'Pengiriman',
                           onTap: () =>
                               Get.to(() => const ShippingManagementScreen()),
+                        ),
+                        _buildMenuItem(
+                          context: context,
+                          icon: Icons.cancel_outlined,
+                          label: 'Pembatalan',
+                          onTap: () =>
+                              Get.to(() => const CancellationRequestsScreen()),
                         ),
                       ],
                     ),
