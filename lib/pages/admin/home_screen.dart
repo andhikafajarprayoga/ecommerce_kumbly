@@ -119,7 +119,7 @@ class AdminHomeScreen extends StatelessWidget {
                           _buildMenuListItem(
                             icon: Icons.discount,
                             title: 'Voucher',
-                            subtitle: 'Atur voucher',
+                            subtitle: 'Atur Voucher dan Diskon',
                             color: Colors.teal,
                             onTap: () => Get.to(() => VoucherScreen()),
                           ),
