@@ -4,6 +4,7 @@ import '../../../theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'hotel_booking_detail_screen.dart';
 
 class HotelBookingScreen extends StatefulWidget {
   final Map<String, dynamic> hotel;
@@ -27,12 +28,16 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
   DateTime? _selectedCheckOut;
   int _totalNights = 0;
   double _totalPrice = 0;
+  double _adminFee = 0;
+  double _totalWithAdmin = 0;
 
   final _guestNameController = TextEditingController();
   final _guestPhoneController = TextEditingController();
   final _specialRequestController = TextEditingController();
 
   bool _isLoading = false;
+  int? selectedPaymentMethodId;
+  List<Map<String, dynamic>> paymentMethods = [];
 
   @override
   void initState() {
@@ -40,6 +45,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
     _selectedCheckIn = DateTime.now();
     _selectedCheckOut = DateTime.now().add(Duration(days: 1));
     _calculateTotal();
+    fetchPaymentMethods();
   }
 
   void _calculateTotal() {
@@ -47,7 +53,86 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
       _totalNights = _selectedCheckOut!.difference(_selectedCheckIn!).inDays;
       _totalPrice =
           (_totalNights * widget.roomType['price_per_night']).toDouble();
+      _calculateTotalWithAdmin();
     }
+  }
+
+  void _calculateTotalWithAdmin() {
+    _totalWithAdmin = _totalPrice + _adminFee;
+  }
+
+  Future<void> fetchPaymentMethods() async {
+    try {
+      final response = await supabase
+          .from('payment_methods')
+          .select()
+          .eq('is_active', true)
+          .order('name');
+
+      setState(() {
+        paymentMethods =
+            (response as List<dynamic>).cast<Map<String, dynamic>>();
+      });
+    } catch (e) {
+      print('Error fetching payment methods: $e');
+    }
+  }
+
+  void _updateSelectedPaymentMethod(int? value) {
+    setState(() {
+      selectedPaymentMethodId = value;
+      _adminFee = paymentMethods
+          .firstWhere((method) => method['id'] == value)['admin']
+          .toDouble();
+      _calculateTotalWithAdmin();
+    });
+  }
+
+  void _showConfirmationDialog() {
+    if (selectedPaymentMethodId == null) {
+      Get.snackbar(
+        'Error',
+        'Silakan pilih metode pembayaran',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    Get.dialog(
+      AlertDialog(
+        title: Text('Konfirmasi Booking'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Apakah Anda yakin ingin melakukan booking?'),
+            SizedBox(height: 8),
+            Text('Total pembayaran: ${NumberFormat.currency(
+              locale: 'id',
+              symbol: 'Rp ',
+              decimalDigits: 0,
+            ).format(_totalWithAdmin)}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              await _submitBooking();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+            ),
+            child: Text('Ya, Booking Sekarang'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _submitBooking() async {
@@ -56,39 +141,26 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
     try {
       setState(() => _isLoading = true);
 
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) {
-        Get.snackbar(
-          'Error',
-          'Silakan login terlebih dahulu',
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
-        return;
-      }
+      final response = await supabase
+          .from('hotel_bookings')
+          .insert({
+            'hotel_id': widget.hotel['id'],
+            'user_id': supabase.auth.currentUser!.id,
+            'room_type': widget.roomType['type'],
+            'check_in': _selectedCheckIn!.toIso8601String(),
+            'check_out': _selectedCheckOut!.toIso8601String(),
+            'total_nights': _totalNights,
+            'total_price': _totalPrice,
+            'guest_name': _guestNameController.text,
+            'guest_phone': _guestPhoneController.text,
+            'special_requests': _specialRequestController.text,
+            'payment_method_id': selectedPaymentMethodId,
+            'status': 'pending'
+          })
+          .select()
+          .single();
 
-      await supabase.from('hotel_bookings').insert({
-        'hotel_id': widget.hotel['id'],
-        'user_id': userId,
-        'room_type': widget.roomType['type'],
-        'check_in': _selectedCheckIn!.toIso8601String(),
-        'check_out': _selectedCheckOut!.toIso8601String(),
-        'total_nights': _totalNights,
-        'total_price': _totalPrice,
-        'guest_name': _guestNameController.text,
-        'guest_phone': _guestPhoneController.text,
-        'special_requests': _specialRequestController.text,
-        'status': 'pending'
-      });
-
-      Get.snackbar(
-        'Sukses',
-        'Booking berhasil dibuat',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
-
-      Get.back();
+      Get.to(() => HotelBookingDetailScreen(booking: response));
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -249,7 +321,71 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
             ),
             SizedBox(height: 16),
 
-            // Total
+            // Payment Method Selection
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Metode Pembayaran',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    ...paymentMethods
+                        .map((method) => Column(
+                              children: [
+                                RadioListTile<int>(
+                                  value: method['id'],
+                                  groupValue: selectedPaymentMethodId,
+                                  title: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(method['name']),
+                                      Text(
+                                        '+ ${NumberFormat.currency(
+                                          locale: 'id',
+                                          symbol: 'Rp ',
+                                          decimalDigits: 0,
+                                        ).format(method['admin'])}',
+                                        style: TextStyle(
+                                          color: AppTheme.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (method['description'] != null)
+                                        Text(method['description']),
+                                      if (method['account_number'] != null)
+                                        Text(
+                                            'No. Rekening: ${method['account_number']}'),
+                                      if (method['account_name'] != null)
+                                        Text('A.N: ${method['account_name']}'),
+                                    ],
+                                  ),
+                                  onChanged: _updateSelectedPaymentMethod,
+                                ),
+                                Divider(),
+                              ],
+                            ))
+                        .toList(),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+
+            // Total Payment Details
             Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
@@ -275,15 +411,47 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Total Pembayaran'),
+                        Text('Harga Kamar'),
                         Text(
                           NumberFormat.currency(
                             locale: 'id',
                             symbol: 'Rp ',
                             decimalDigits: 0,
                           ).format(_totalPrice),
+                        ),
+                      ],
+                    ),
+                    if (selectedPaymentMethodId != null) ...[
+                      SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Biaya Admin'),
+                          Text(
+                            NumberFormat.currency(
+                              locale: 'id',
+                              symbol: 'Rp ',
+                              decimalDigits: 0,
+                            ).format(_adminFee),
+                          ),
+                        ],
+                      ),
+                    ],
+                    Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Total Pembayaran',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          NumberFormat.currency(
+                            locale: 'id',
+                            symbol: 'Rp ',
+                            decimalDigits: 0,
+                          ).format(_totalWithAdmin),
                           style: TextStyle(
-                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.primary,
                           ),
@@ -301,7 +469,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _submitBooking,
+                onPressed: _isLoading ? null : _showConfirmationDialog,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                 ),

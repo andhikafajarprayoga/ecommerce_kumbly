@@ -5,6 +5,10 @@ import 'package:intl/intl.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'dart:convert';
 import '../hotel/hotel_booking_screen.dart';
+import 'chat/chat_room_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final supabase = Supabase.instance.client;
 
 class HotelDetailScreen extends StatefulWidget {
   final Map<String, dynamic> hotel;
@@ -84,6 +88,81 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
               icon: Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Get.back(),
             ),
+            actions: [
+              // Add chat button
+              IconButton(
+                icon: Icon(Icons.chat, color: Colors.white),
+                onPressed: () async {
+                  final currentUser = supabase.auth.currentUser;
+                  final merchantId = widget.hotel['merchant_id'];
+
+                  if (currentUser == null || merchantId == null) {
+                    Get.snackbar(
+                      'Error',
+                      'Tidak dapat memulai chat',
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                    );
+                    return;
+                  }
+
+                  try {
+                    // Debug print untuk memeriksa nilai
+                    print('Current User: ${currentUser.id}');
+                    print('Merchant ID: $merchantId');
+                    print('Hotel Name: ${widget.hotel['name']}');
+
+                    // Cek apakah chat room sudah ada
+                    final existingRoom = await supabase
+                        .from('chat_rooms')
+                        .select('id')
+                        .eq('buyer_id', currentUser.id)
+                        .eq('seller_id', merchantId)
+                        .maybeSingle();
+
+                    final String roomId;
+
+                    if (existingRoom == null) {
+                      // Buat chat room baru
+                      final newRoom = await supabase
+                          .from('chat_rooms')
+                          .insert({
+                            'buyer_id': currentUser.id,
+                            'seller_id': merchantId,
+                          })
+                          .select('id')
+                          .single();
+                      roomId = newRoom['id'];
+
+                      // Tambahkan pesan awal otomatis
+                      await supabase.from('chat_messages').insert({
+                        'room_id': roomId,
+                        'sender_id': currentUser.id,
+                        'message':
+                            'Halo, saya tertarik dengan ${widget.hotel['name']}',
+                      });
+                    } else {
+                      roomId = existingRoom['id'];
+                    }
+
+                    // Navigate to chat room
+                    Get.to(() => ChatRoomScreen(
+                          roomId: roomId,
+                          otherUserId: merchantId,
+                          hotelName: widget.hotel['name'] ?? 'Hotel',
+                        ));
+                  } catch (e) {
+                    print('Error creating/getting chat room: $e');
+                    Get.snackbar(
+                      'Error',
+                      'Gagal membuka chat: $e',
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                    );
+                  }
+                },
+              ),
+            ],
           ),
 
           // Hotel Details

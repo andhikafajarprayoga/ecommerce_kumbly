@@ -87,16 +87,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           'chat_room_id': widget.chatRoom['id'],
           'sender_id': userId,
           'content': _messageController.text,
-          'created_at':
-              DateTime.now().toUtc().add(Duration(hours: 7)).toIso8601String(),
         });
       } else {
         await supabase.from('chat_messages').insert({
           'room_id': widget.chatRoom['id'],
           'sender_id': userId,
           'message': _messageController.text,
-          'created_at':
-              DateTime.now().toUtc().add(Duration(hours: 7)).toIso8601String(),
         });
       }
 
