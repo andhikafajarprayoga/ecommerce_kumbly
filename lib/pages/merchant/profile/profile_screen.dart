@@ -105,13 +105,6 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   _buildMenuCard(
-                    icon: Icons.store_outlined,
-                    title: 'Alamat Toko',
-                    subtitle: 'Kelola alamat toko Anda',
-                    onTap: () {},
-                  ),
-                  const SizedBox(height: 16),
-                  _buildMenuCard(
                     icon: Icons.logout_rounded,
                     title: 'Keluar',
                     subtitle: 'Keluar dari akun Anda',

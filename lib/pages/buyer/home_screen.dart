@@ -10,6 +10,8 @@ import 'find/find_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'chat/chat_screen.dart';
+import 'dart:convert';
+import 'hotel/hotel_screen.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -72,6 +74,8 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       case 1:
         return FindScreen();
       case 2:
+        return HotelScreen(); // Tambahkan screen hotel
+      case 3:
         return ProfileScreen();
       default:
         return _buildHomeContent();
@@ -121,19 +125,36 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                 ),
               ),
               actions: [
-                IconButton(
-                  icon: Icon(Icons.chat_outlined, color: Colors.white),
-                  onPressed: () => Get.to(() => ChatScreen()),
+                Padding(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 0.1), // Kurangi jaraknya
+                  child: IconButton(
+                    icon:
+                        Icon(Icons.notifications_outlined, color: Colors.white),
+                    onPressed: () => Get.to(() => CartScreen()),
+                  ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.shopping_cart_outlined, color: Colors.white),
-                  onPressed: () => Get.to(() => CartScreen()),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 0.2),
+                  child: IconButton(
+                    icon:
+                        Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                    onPressed: () => Get.to(() => CartScreen()),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 0.2),
+                  child: IconButton(
+                    icon: Icon(Icons.chat_outlined, color: Colors.white),
+                    onPressed: () => Get.to(() => ChatScreen()),
+                  ),
                 ),
               ],
             )
           : null,
       body: _getScreen(),
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -142,6 +163,10 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined),
             label: 'Menemukan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.hotel_outlined),
+            label: 'Hotel',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -410,12 +435,22 @@ class ProductCard extends StatelessWidget {
                           builder: (context, snapshot) {
                             if (snapshot.hasData) {
                               final merchant = snapshot.data as Map;
-                              return Text(
-                                merchant['store_address'] ??
-                                    'Alamat tidak tersedia',
-                                style: Theme.of(context).textTheme.bodySmall,
-                                overflow: TextOverflow.ellipsis,
-                              );
+                              try {
+                                // Parse JSON string ke Map
+                                final addressData = jsonDecode(
+                                    merchant['store_address'] ?? '{}');
+                                return Text(
+                                  addressData['city'] ??
+                                      'Alamat tidak tersedia',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              } catch (e) {
+                                return Text(
+                                  'Alamat tidak valid',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                );
+                              }
                             }
                             return Text(
                               'Memuat...',

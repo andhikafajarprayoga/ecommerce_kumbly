@@ -4,6 +4,10 @@ import '../../../controllers/product_controller.dart';
 import '../../../theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../home_screen.dart';
+import 'package:geolocator/geolocator.dart';
+import 'dart:math';
+import 'dart:convert';
+import 'package:geocoding/geocoding.dart';
 
 class FindScreen extends StatelessWidget {
   final ProductController productController = Get.find<ProductController>();
@@ -86,6 +90,21 @@ class FindScreen extends StatelessWidget {
                 Get.back();
               },
             ),
+            ListTile(
+              leading: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryLight.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.location_on, color: AppTheme.primary),
+              ),
+              title: Text('Terdekat'),
+              onTap: () {
+                _sortByDistance();
+                Get.back();
+              },
+            ),
             SizedBox(height: 16),
           ],
         ),
@@ -95,6 +114,144 @@ class FindScreen extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
     );
+  }
+
+  Future<void> _sortByDistance() async {
+    try {
+      // Get current user's address
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final userResponse = await supabase
+          .from('users')
+          .select('address')
+          .eq('id', userId)
+          .single();
+
+      final userAddress = userResponse['address'];
+      if (userAddress == null) {
+        Get.snackbar(
+          'Error',
+          'Harap atur alamat pengiriman Anda terlebih dahulu',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Convert user address to coordinates
+      final userAddressStr = '${userAddress['street']}, '
+          '${userAddress['village']}, '
+          '${userAddress['district']}, '
+          '${userAddress['city']}, '
+          '${userAddress['province']} '
+          '${userAddress['postal_code']}';
+
+      final userLocation = await _getCoordinatesFromAddress(userAddressStr);
+      if (userLocation == null) {
+        Get.snackbar(
+          'Error',
+          'Gagal mendapatkan koordinat alamat Anda',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Get all products with merchant locations
+      final products =
+          List<Map<String, dynamic>>.from(productController.products);
+
+      // Get merchant locations
+      for (var product in products) {
+        final merchant = await supabase
+            .from('merchants')
+            .select('store_address')
+            .eq('id', product['seller_id'])
+            .single();
+
+        try {
+          final storeAddress = merchant['store_address'];
+          if (storeAddress != null) {
+            // Parse JSON string ke Map
+            final merchantAddress = jsonDecode(storeAddress);
+
+            final addressStr = '${merchantAddress['street']}, '
+                '${merchantAddress['village']}, '
+                '${merchantAddress['district']}, '
+                '${merchantAddress['city']}, '
+                '${merchantAddress['province']} '
+                '${merchantAddress['postal_code']}';
+
+            product['merchant_location'] =
+                await _getCoordinatesFromAddress(addressStr);
+          }
+        } catch (e) {
+          print('Error parsing address: $e');
+          product['merchant_location'] = null;
+        }
+      }
+
+      // Sort products by distance from user's address
+      products.sort((a, b) {
+        if (a['merchant_location'] == null) return 1;
+        if (b['merchant_location'] == null) return -1;
+
+        double distanceA = _calculateDistance(
+          userLocation['lat']?.toDouble() ?? 0.0,
+          userLocation['lng']?.toDouble() ?? 0.0,
+          a['merchant_location']['lat']?.toDouble() ?? 0.0,
+          a['merchant_location']['lng']?.toDouble() ?? 0.0,
+        );
+
+        double distanceB = _calculateDistance(
+          userLocation['lat']?.toDouble() ?? 0.0,
+          userLocation['lng']?.toDouble() ?? 0.0,
+          b['merchant_location']['lat']?.toDouble() ?? 0.0,
+          b['merchant_location']['lng']?.toDouble() ?? 0.0,
+        );
+
+        return distanceA.compareTo(distanceB);
+      });
+
+      // Update products list
+      productController.products.value = products;
+    } catch (e) {
+      print('Error sorting by distance: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mengurutkan berdasarkan jarak',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<Map<String, double>?> _getCoordinatesFromAddress(
+      String address) async {
+    try {
+      List<Location> locations = await locationFromAddress(address);
+      if (locations.isNotEmpty) {
+        return {
+          'lat': locations.first.latitude,
+          'lng': locations.first.longitude,
+        };
+      }
+    } catch (e) {
+      print('Error getting coordinates: $e');
+    }
+    return null;
+  }
+
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    var p = 0.017453292519943295; // Math.PI / 180
+    var c = cos;
+    var a = 0.5 -
+        c((lat2 - lat1) * p) / 2 +
+        c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p)) / 2;
+
+    return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
   }
 
   @override
