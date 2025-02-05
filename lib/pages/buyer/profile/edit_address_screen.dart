@@ -47,9 +47,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     districtController = TextEditingController();
     postalCodeController = TextEditingController();
 
-    if (widget.initialAddress.isNotEmpty) {
+    if (widget.initialAddress['address'].isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        searchAddress(widget.initialAddress['address'] ?? '', isInitial: true);
+        searchAddress(widget.initialAddress['address'], isInitial: true);
       });
     } else {
       fetchAddressFromCoordinates(selectedLocation);
@@ -212,13 +212,16 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
+      initialIndex: 0,
       length: 2,
       child: Scaffold(
         appBar: AppBar(
           elevation: 0,
           backgroundColor: AppTheme.primary,
           title: Text(
-            widget.initialAddress.isEmpty ? 'Tambah Alamat' : 'Ubah Alamat',
+            widget.initialAddress['address'].isEmpty
+                ? 'Tambah Alamat'
+                : 'Ubah Alamat',
             style: TextStyle(color: Colors.white),
           ),
           leading: IconButton(
@@ -230,15 +233,15 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.white,
             tabs: [
-              Tab(text: 'Peta'),
               Tab(text: 'Manual'),
+              Tab(text: 'Cari di Peta'),
             ],
           ),
         ),
         body: TabBarView(
           children: [
-            _buildMapTab(),
             _buildManualTab(),
+            _buildMapTab(),
           ],
         ),
       ),
@@ -345,12 +348,23 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text(
+            'Alamat Pengiriman',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          SizedBox(height: 16),
           TextField(
             controller: detailAddressController,
             decoration: InputDecoration(
-              labelText: 'Alamat Lengkap',
-              hintText: 'Masukkan nama jalan, nomor rumah, dll',
+              labelText: 'Alamat Lengkap *',
+              hintText: 'Contoh: Jl. Sudirman No. 123, RT 01/RW 02',
               border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             ),
             maxLines: 2,
           ),
@@ -358,34 +372,55 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
           TextField(
             controller: districtController,
             decoration: InputDecoration(
-              labelText: 'Kecamatan',
+              labelText: 'Kecamatan *',
+              hintText: 'Masukkan nama kecamatan',
               border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             ),
           ),
           SizedBox(height: 16),
           TextField(
             controller: cityController,
             decoration: InputDecoration(
-              labelText: 'Kota/Kabupaten',
+              labelText: 'Kota/Kabupaten *',
+              hintText: 'Masukkan nama kota/kabupaten',
               border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             ),
           ),
           SizedBox(height: 16),
           TextField(
             controller: provinceController,
             decoration: InputDecoration(
-              labelText: 'Provinsi',
+              labelText: 'Provinsi *',
+              hintText: 'Masukkan nama provinsi',
               border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             ),
           ),
           SizedBox(height: 16),
           TextField(
             controller: postalCodeController,
             decoration: InputDecoration(
-              labelText: 'Kode Pos',
+              labelText: 'Kode Pos *',
+              hintText: 'Masukkan kode pos',
               border: OutlineInputBorder(),
+              contentPadding:
+                  EdgeInsets.symmetric(vertical: 16, horizontal: 12),
             ),
             keyboardType: TextInputType.number,
+          ),
+          SizedBox(height: 8),
+          Text(
+            '* Wajib diisi',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.red,
+              fontStyle: FontStyle.italic,
+            ),
           ),
           SizedBox(height: 24),
           ElevatedButton(
@@ -393,10 +428,17 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
               padding: EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: Text(
               isLoading ? 'Menyimpan...' : 'Simpan Alamat',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
