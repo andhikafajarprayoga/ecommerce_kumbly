@@ -9,6 +9,7 @@ import 'dart:math';
 import 'dart:convert';
 import 'package:geocoding/geocoding.dart';
 import '../product/product_detail_screen.dart';
+import 'package:intl/intl.dart';
 
 class FindScreen extends StatelessWidget {
   final ProductController productController = Get.find<ProductController>();
@@ -397,7 +398,6 @@ class ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Gambar Produk
             AspectRatio(
               aspectRatio: 1,
               child: Container(
@@ -409,7 +409,85 @@ class ProductCard extends StatelessWidget {
                 ),
               ),
             ),
-            // ... kode lain tetap sama ...
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['name'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Rp ${NumberFormat('#,###').format(product['price'])}',
+                    style: TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.shopping_bag_outlined,
+                          size: 12, color: AppTheme.textHint),
+                      SizedBox(width: 4),
+                      Text(
+                        'Terjual ${product['sales'] ?? 0}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_outlined,
+                          size: 12, color: AppTheme.textHint),
+                      SizedBox(width: 4),
+                      Expanded(
+                        child: FutureBuilder(
+                          future: Supabase.instance.client
+                              .from('merchants')
+                              .select('store_address')
+                              .eq('id', product['seller_id'])
+                              .single(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              final merchant = snapshot.data as Map;
+                              try {
+                                final addressData = jsonDecode(
+                                    merchant['store_address'] ?? '{}');
+                                return Text(
+                                  addressData['city'] ??
+                                      'Alamat tidak tersedia',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              } catch (e) {
+                                return Text(
+                                  'Alamat tidak valid',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                );
+                              }
+                            }
+                            return Text(
+                              'Memuat...',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
