@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kumbly_ecommerce/pages/admin/kelola-toko/store_products_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
-import 'edit_store_screen.dart';
+import '../feature/edit_store_screen.dart';
 
 class StoresScreen extends StatefulWidget {
   @override
@@ -275,6 +276,9 @@ class _StoresScreenState extends State<StoresScreen> {
                                   }
                                 },
                               ),
+                              onTap: () {
+                                Get.to(() => StoreProductsScreen(store: store));
+                              },
                               isThreeLine: true,
                             ),
                           );

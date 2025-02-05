@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/stats_controller.dart';
 import '../../pages/admin/feature/users_screen.dart';
-import '../../pages/admin/feature/stores_screen.dart';
+import 'kelola-toko/stores_screen.dart';
 import 'pengiriman/shipments_screen.dart';
 import 'laporan-pembayaran/reports_screen.dart';
 import '../../pages/admin/feature/banners_screen.dart';
