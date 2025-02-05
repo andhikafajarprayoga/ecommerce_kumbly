@@ -8,6 +8,7 @@ import '../checkout/edit_address_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/pages/buyer/payment/payment_screen.dart';
 import 'package:kumbly_ecommerce/pages/buyer/chat/chat_detail_screen.dart';
+import 'dart:convert';
 
 class CheckoutScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -512,6 +513,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       itemsByMerchant[merchantId]!.add(item);
     }
 
+    String _getFirstImageUrl(Map<String, dynamic> product) {
+      List<String> imageUrls = [];
+      if (product['image_url'] != null) {
+        try {
+          if (product['image_url'] is List) {
+            imageUrls = List<String>.from(product['image_url']);
+          } else if (product['image_url'] is String) {
+            final List<dynamic> urls = json.decode(product['image_url']);
+            imageUrls = List<String>.from(urls);
+          }
+        } catch (e) {
+          print('Error parsing image URLs: $e');
+        }
+      }
+      return imageUrls.isNotEmpty
+          ? imageUrls.first
+          : 'https://via.placeholder.com/150';
+    }
+
     return Card(
       elevation: 0.5,
       shape: RoundedRectangleBorder(
@@ -605,11 +625,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Gambar produk
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
                                     child: Image.network(
-                                      item['products']['image_url'],
+                                      _getFirstImageUrl(item['products']),
                                       width: 70,
                                       height: 70,
                                       fit: BoxFit.cover,

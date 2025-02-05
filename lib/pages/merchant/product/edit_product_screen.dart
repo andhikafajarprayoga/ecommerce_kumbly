@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../controllers/product_controller.dart';
+import 'dart:io';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
 class EditProductScreen extends StatefulWidget {
   final dynamic product;
@@ -20,7 +23,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController stockController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
-  String? imagePath;
+  final TextEditingController weightController = TextEditingController();
+  final TextEditingController lengthController = TextEditingController();
+  final TextEditingController widthController = TextEditingController();
+  final TextEditingController heightController = TextEditingController();
+  final RxList<String> imagePaths = <String>[].obs;
+  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
@@ -30,16 +38,60 @@ class _EditProductScreenState extends State<EditProductScreen> {
     descriptionController.text = widget.product['description'] ?? '';
     stockController.text = widget.product['stock'].toString();
     categoryController.text = widget.product['category'] ?? '';
-    imagePath = widget.product['image_url'];
+    weightController.text = (widget.product['weight'] ?? 1000).toString();
+    lengthController.text = (widget.product['length'] ?? 0).toString();
+    widthController.text = (widget.product['width'] ?? 0).toString();
+    heightController.text = (widget.product['height'] ?? 0).toString();
+
+    // Handle existing images
+    if (widget.product['image_url'] != null) {
+      try {
+        if (widget.product['image_url'] is List) {
+          imagePaths.addAll(List<String>.from(widget.product['image_url']));
+        } else if (widget.product['image_url'] is String) {
+          // Parse string JSON ke List
+          final List<dynamic> urls = json.decode(widget.product['image_url']);
+          imagePaths.addAll(List<String>.from(urls));
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
   }
 
   Future<void> pickImage() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        imagePath = image.path;
-      });
+    final List<XFile> images = await picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      imagePaths.addAll(images.map((image) => image.path));
+    }
+  }
+
+  Future<List<String>> uploadImages(List<String> paths) async {
+    List<String> imageUrls = [];
+    try {
+      for (String path in paths) {
+        // Skip jika path adalah URL (gambar yang sudah ada)
+        if (path.startsWith('http')) {
+          imageUrls.add(path);
+          continue;
+        }
+
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
+        final file = File(path);
+
+        await supabase.storage.from('products').upload(fileName, file);
+
+        final imageUrl =
+            supabase.storage.from('products').getPublicUrl(fileName);
+
+        imageUrls.add(imageUrl);
+      }
+      return imageUrls;
+    } catch (e) {
+      print('Error uploading images: $e');
+      return [];
     }
   }
 
@@ -73,29 +125,103 @@ class _EditProductScreenState extends State<EditProductScreen> {
               ),
               child: Column(
                 children: [
-                  if (imagePath != null)
-                    Stack(
-                      alignment: Alignment.bottomRight,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: Image.network(
-                            imagePath!,
+                  Obx(() => imagePaths.isNotEmpty
+                      ? Column(
+                          children: [
+                            Container(
+                              height: 200,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: imagePaths.length + 1,
+                                itemBuilder: (context, index) {
+                                  if (index == imagePaths.length) {
+                                    return Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: InkWell(
+                                        onTap: pickImage,
+                                        child: Container(
+                                          width: 150,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(15),
+                                            border: Border.all(
+                                                color: Colors.grey[300]!),
+                                          ),
+                                          child: Icon(Icons.add_photo_alternate,
+                                              size: 40,
+                                              color: Colors.grey[400]),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return Stack(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(15),
+                                          child: imagePaths[index]
+                                                  .startsWith('http')
+                                              ? Image.network(
+                                                  imagePaths[index],
+                                                  height: 200,
+                                                  width: 150,
+                                                  fit: BoxFit.cover,
+                                                )
+                                              : Image.file(
+                                                  File(imagePaths[index]),
+                                                  height: 200,
+                                                  width: 150,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 0,
+                                        right: 0,
+                                        child: IconButton(
+                                          icon: Icon(Icons.remove_circle,
+                                              color: Colors.red),
+                                          onPressed: () {
+                                            imagePaths.removeAt(index);
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        )
+                      : InkWell(
+                          onTap: pickImage,
+                          child: Container(
                             height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_photo_alternate_outlined,
+                                    size: 60, color: Colors.grey[400]),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Tambah Foto Produk',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: FloatingActionButton(
-                            mini: true,
-                            onPressed: pickImage,
-                            child: const Icon(Icons.edit),
-                          ),
-                        ),
-                      ],
-                    ),
+                        )),
                 ],
               ),
             ),
@@ -162,28 +288,71 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       hint: 'Masukkan kategori produk',
                       icon: Icons.category_outlined,
                     ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Dimensi & Berat',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: weightController,
+                            label: 'Berat (gram)',
+                            hint: 'Masukkan berat',
+                            icon: Icons.scale,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Berat tidak boleh kosong';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: lengthController,
+                            label: 'Panjang (cm)',
+                            hint: '0',
+                            icon: Icons.straighten,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: widthController,
+                            label: 'Lebar (cm)',
+                            hint: '0',
+                            icon: Icons.straighten,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: heightController,
+                            label: 'Tinggi (cm)',
+                            hint: '0',
+                            icon: Icons.height,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 30),
                     ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState!.validate()) {
-                          productController.updateProduct(
-                            widget.product['id'],
-                            nameController.text,
-                            double.parse(priceController.text),
-                            int.parse(stockController.text),
-                            descriptionController.text,
-                            categoryController.text,
-                            imagePath ?? '',
-                          );
-                          Get.back();
-                          Get.snackbar(
-                            'Sukses',
-                            'Produk berhasil diperbarui',
-                            backgroundColor: Colors.green,
-                            colorText: Colors.white,
-                          );
-                        }
-                      },
+                      onPressed: updateProduct,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         padding: const EdgeInsets.symmetric(vertical: 15),
@@ -251,5 +420,42 @@ class _EditProductScreenState extends State<EditProductScreen> {
         validator: validator,
       ),
     );
+  }
+
+  void updateProduct() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        List<String> imageUrls = await uploadImages(imagePaths);
+
+        await productController.updateProduct(
+          widget.product['id'],
+          nameController.text,
+          double.parse(priceController.text),
+          int.parse(stockController.text),
+          descriptionController.text,
+          categoryController.text,
+          imageUrls,
+          int.parse(weightController.text),
+          int.parse(lengthController.text),
+          int.parse(widthController.text),
+          int.parse(heightController.text),
+        );
+
+        Get.back();
+        Get.snackbar(
+          'Sukses',
+          'Produk berhasil diperbarui',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      } catch (e) {
+        Get.snackbar(
+          'Error',
+          'Gagal memperbarui produk: $e',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    }
   }
 }

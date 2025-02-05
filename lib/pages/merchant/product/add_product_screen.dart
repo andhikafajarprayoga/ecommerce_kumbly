@@ -15,35 +15,44 @@ class AddProductScreen extends StatelessWidget {
   final TextEditingController priceController = TextEditingController();
   final TextEditingController stockController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
-  final RxString imagePath = ''.obs;
+  final TextEditingController weightController =
+      TextEditingController(text: '1000');
+  final TextEditingController lengthController =
+      TextEditingController(text: '0');
+  final TextEditingController widthController =
+      TextEditingController(text: '0');
+  final TextEditingController heightController =
+      TextEditingController(text: '0');
+  final RxList<String> imagePaths = <String>[].obs;
   final supabase = Supabase.instance.client;
 
   Future<void> pickImage() async {
     final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      imagePath.value = image.path;
+    final List<XFile> images = await picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      imagePaths.addAll(images.map((image) => image.path));
     }
   }
 
-  Future<String?> uploadImage(String path) async {
+  Future<List<String>> uploadImages(List<String> paths) async {
+    List<String> imageUrls = [];
     try {
-      final fileName =
-          '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
-      final file = File(path);
+      for (String path in paths) {
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
+        final file = File(path);
 
-      // Upload ke storage Supabase
-      final response = await supabase.storage
-          .from('products') // Nama bucket di Supabase storage
-          .upload(fileName, file);
+        await supabase.storage.from('products').upload(fileName, file);
 
-      // Dapatkan public URL
-      final imageUrl = supabase.storage.from('products').getPublicUrl(fileName);
+        final imageUrl =
+            supabase.storage.from('products').getPublicUrl(fileName);
 
-      return imageUrl;
+        imageUrls.add(imageUrl);
+      }
+      return imageUrls;
     } catch (e) {
-      print('Error uploading image: $e');
-      return null;
+      print('Error uploading images: $e');
+      return [];
     }
   }
 
@@ -55,9 +64,9 @@ class AddProductScreen extends StatelessWidget {
           barrierDismissible: false,
         );
 
-        String? imageUrl;
-        if (imagePath.value.isNotEmpty) {
-          imageUrl = await uploadImage(imagePath.value);
+        List<String> imageUrls = [];
+        if (imagePaths.isNotEmpty) {
+          imageUrls = await uploadImages(imagePaths);
         }
 
         await supabase.from('products').insert({
@@ -67,7 +76,11 @@ class AddProductScreen extends StatelessWidget {
           'price': double.parse(priceController.text),
           'stock': int.parse(stockController.text),
           'category': categoryController.text,
-          'image_url': imageUrl,
+          'image_url': imageUrls,
+          'weight': int.parse(weightController.text),
+          'length': int.parse(lengthController.text),
+          'width': int.parse(widthController.text),
+          'height': int.parse(heightController.text),
           'created_at': DateTime.now().toIso8601String(),
         });
 
@@ -121,25 +134,68 @@ class AddProductScreen extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  Obx(() => imagePath.value.isNotEmpty
-                      ? Stack(
-                          alignment: Alignment.bottomRight,
+                  Obx(() => imagePaths.isNotEmpty
+                      ? Column(
                           children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(15),
-                              child: Image.file(
-                                File(imagePath.value),
-                                height: 200,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: FloatingActionButton(
-                                mini: true,
-                                onPressed: pickImage,
-                                child: const Icon(Icons.edit),
+                            Container(
+                              height: 200,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: imagePaths.length +
+                                    1, // +1 untuk tombol tambah
+                                itemBuilder: (context, index) {
+                                  if (index == imagePaths.length) {
+                                    // Tombol tambah foto
+                                    return Padding(
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: InkWell(
+                                        onTap: pickImage,
+                                        child: Container(
+                                          width: 150,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(15),
+                                            border: Border.all(
+                                                color: Colors.grey[300]!),
+                                          ),
+                                          child: Icon(Icons.add_photo_alternate,
+                                              size: 40,
+                                              color: Colors.grey[400]),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  // Tampilan foto yang sudah dipilih
+                                  return Stack(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: ClipRRect(
+                                          borderRadius:
+                                              BorderRadius.circular(15),
+                                          child: Image.file(
+                                            File(imagePaths[index]),
+                                            height: 200,
+                                            width: 150,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        top: 0,
+                                        right: 0,
+                                        child: IconButton(
+                                          icon: Icon(Icons.remove_circle,
+                                              color: Colors.red),
+                                          onPressed: () {
+                                            imagePaths.removeAt(index);
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ),
                           ],
@@ -235,6 +291,68 @@ class AddProductScreen extends StatelessWidget {
                       label: 'Kategori',
                       hint: 'Masukkan kategori produk',
                       icon: Icons.category_outlined,
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Dimensi & Berat',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: weightController,
+                            label: 'Berat (gram)',
+                            hint: 'Masukkan berat',
+                            icon: Icons.scale,
+                            keyboardType: TextInputType.number,
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Berat tidak boleh kosong';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: lengthController,
+                            label: 'Panjang (cm)',
+                            hint: '0',
+                            icon: Icons.straighten,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: widthController,
+                            label: 'Lebar (cm)',
+                            hint: '0',
+                            icon: Icons.straighten,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: heightController,
+                            label: 'Tinggi (cm)',
+                            hint: '0',
+                            icon: Icons.height,
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 30),
                     ElevatedButton(

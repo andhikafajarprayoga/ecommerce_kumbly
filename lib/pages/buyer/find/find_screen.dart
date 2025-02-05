@@ -8,6 +8,8 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'package:geocoding/geocoding.dart';
+import '../product/product_detail_screen.dart';
+import 'package:intl/intl.dart';
 
 class FindScreen extends StatelessWidget {
   final ProductController productController = Get.find<ProductController>();
@@ -355,6 +357,139 @@ class FindScreen extends StatelessWidget {
             }),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ProductCard extends StatelessWidget {
+  final Map<String, dynamic> product;
+
+  const ProductCard({super.key, required this.product});
+
+  String _getFirstImageUrl(Map<String, dynamic> product) {
+    List<String> imageUrls = [];
+    if (product['image_url'] != null) {
+      try {
+        if (product['image_url'] is List) {
+          imageUrls = List<String>.from(product['image_url']);
+        } else if (product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(product['image_url']);
+          imageUrls = List<String>.from(urls);
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
+    return imageUrls.isNotEmpty
+        ? imageUrls.first
+        : 'https://via.placeholder.com/150';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Get.to(() => ProductDetailScreen(product: product)),
+      child: Card(
+        elevation: 0.5,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 1,
+              child: Container(
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(_getFirstImageUrl(product)),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product['name'],
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Rp ${NumberFormat('#,###').format(product['price'])}',
+                    style: TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.shopping_bag_outlined,
+                          size: 12, color: AppTheme.textHint),
+                      SizedBox(width: 4),
+                      Text(
+                        'Terjual ${product['sales'] ?? 0}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_outlined,
+                          size: 12, color: AppTheme.textHint),
+                      SizedBox(width: 4),
+                      Expanded(
+                        child: FutureBuilder(
+                          future: Supabase.instance.client
+                              .from('merchants')
+                              .select('store_address')
+                              .eq('id', product['seller_id'])
+                              .single(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              final merchant = snapshot.data as Map;
+                              try {
+                                final addressData = jsonDecode(
+                                    merchant['store_address'] ?? '{}');
+                                return Text(
+                                  addressData['city'] ??
+                                      'Alamat tidak tersedia',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              } catch (e) {
+                                return Text(
+                                  'Alamat tidak valid',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                );
+                              }
+                            }
+                            return Text(
+                              'Memuat...',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
