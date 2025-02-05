@@ -47,7 +47,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     districtController = TextEditingController();
     postalCodeController = TextEditingController();
 
-    if (widget.initialAddress['address'].isNotEmpty) {
+    if (widget.initialAddress['address']?.toString().isNotEmpty ?? false) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         searchAddress(widget.initialAddress['address'], isInitial: true);
       });
@@ -219,7 +219,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
           elevation: 0,
           backgroundColor: AppTheme.primary,
           title: Text(
-            widget.initialAddress['address'].isEmpty
+            widget.initialAddress['address']?.isEmpty ?? true
                 ? 'Tambah Alamat'
                 : 'Ubah Alamat',
             style: TextStyle(color: Colors.white),
