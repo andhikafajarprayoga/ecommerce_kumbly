@@ -3,6 +3,11 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../../../controllers/order_controller.dart';
+
+final supabase = Supabase.instance.client;
 
 class DetailPesananScreen extends StatefulWidget {
   final Map<String, dynamic> order;
@@ -317,6 +322,9 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
                 ],
               ),
             ),
+
+            // Bukti Pembayaran
+            _buildPaymentProof(),
           ],
         ),
       ),
@@ -374,6 +382,241 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPaymentProof() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bukti Pembayaran',
+            style: AppTheme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<Map<String, dynamic>?>(
+            future: _fetchPaymentInfo(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final paymentInfo = snapshot.data;
+              final paymentProof = paymentInfo?['payment_proof'];
+              final paymentGroupId = paymentInfo?['id'];
+
+              print('Payment Info: $paymentInfo'); // Debug print
+              print('Payment Proof: $paymentProof'); // Debug print
+              print('Payment Group ID: $paymentGroupId'); // Debug print
+
+              if (paymentProof != null && paymentProof.isNotEmpty) {
+                return InkWell(
+                  onTap: () => Get.to(() => ImageViewScreen(
+                        imageUrl: paymentProof,
+                        tag: 'payment_proof',
+                      )),
+                  child: Hero(
+                    tag: 'payment_proof',
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        paymentProof,
+                        width: double.infinity,
+                        height: 200,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          print('Error loading image: $error');
+                          return Container(
+                            width: double.infinity,
+                            height: 200,
+                            color: Colors.grey[200],
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline,
+                                    size: 48, color: Colors.grey[400]),
+                                const SizedBox(height: 8),
+                                Text('Gagal memuat gambar',
+                                    style: TextStyle(color: Colors.grey[600])),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                );
+              } else if (paymentGroupId != null) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.receipt_long_outlined,
+                          size: 48, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Belum ada bukti pembayaran',
+                        style: TextStyle(color: Colors.grey[600]),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () => _uploadPaymentProof(paymentGroupId),
+                        icon: const Icon(Icons.upload_file),
+                        label: const Text('Upload Bukti Pembayaran'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _fetchPaymentInfo() async {
+    try {
+      // Ambil data payment_groups dari order
+      final paymentGroups = widget.order['payment_groups'];
+      print('Full Order Data: ${widget.order}');
+      print('Payment Groups Data: $paymentGroups');
+
+      if (paymentGroups == null) {
+        // Jika tidak ada di order, ambil dari database
+        final response = await supabase
+            .from('payment_groups')
+            .select()
+            .eq('id', widget.order['payment_group_id'])
+            .single();
+
+        print('Payment Groups from DB: $response');
+        return response;
+      }
+
+      return paymentGroups;
+    } catch (e) {
+      print('Error fetching payment info: $e');
+      return null;
+    }
+  }
+
+  Future<void> _uploadPaymentProof(String paymentGroupId) async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image == null) return;
+
+      // Baca file sebagai bytes
+      final bytes = await image.readAsBytes();
+      final fileExt = image.path.split('.').last;
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+
+      // Upload ke storage
+      await supabase.storage
+          .from('payment-proofs')
+          .uploadBinary(fileName, bytes);
+
+      // Dapatkan URL publik
+      final imageUrl =
+          supabase.storage.from('payment-proofs').getPublicUrl(fileName);
+
+      // Update payment_proof
+      final updatedPaymentGroup = await supabase
+          .from('payment_groups')
+          .update({'payment_proof': imageUrl})
+          .eq('id', paymentGroupId)
+          .select()
+          .single();
+
+      // Update widget.order dengan data terbaru
+      setState(() {
+        if (widget.order['payment_groups'] != null) {
+          widget.order['payment_groups']['payment_proof'] = imageUrl;
+        }
+      });
+
+      print('Updated Payment Group: $updatedPaymentGroup');
+
+      Get.snackbar(
+        'Berhasil',
+        'Bukti pembayaran berhasil diupload',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      // Refresh OrderController untuk memperbarui data di halaman PesananSaya
+      final orderController = Get.put(OrderController());
+      await orderController.fetchOrders();
+    } catch (e) {
+      print('Error uploading payment proof: $e');
+      Get.snackbar(
+        'Gagal',
+        'Terjadi kesalahan saat mengupload bukti pembayaran',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+}
+
+class ImageViewScreen extends StatelessWidget {
+  final String imageUrl;
+  final String tag;
+
+  const ImageViewScreen({
+    Key? key,
+    required this.imageUrl,
+    required this.tag,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: Hero(
+          tag: tag,
+          child: InteractiveViewer(
+            minScale: 0.5,
+            maxScale: 4,
+            child: Image.network(imageUrl, fit: BoxFit.contain),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -16,8 +16,9 @@ class OrderController extends GetxController {
 
   Future<void> fetchOrders() async {
     try {
-      isLoading(true);
-      final userId = _supabase.auth.currentUser!.id;
+      isLoading.value = true;
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
 
       final response = await _supabase.from('orders').select('''
             id,
@@ -26,24 +27,35 @@ class OrderController extends GetxController {
             shipping_address,
             shipping_cost,
             created_at,
-            items:order_items (
+            payment_group_id,
+            order_items!left (
               id,
               quantity,
               price,
-              product:products (
+              product_id,
+              products (
                 id,
                 name,
                 image_url
               )
+            ),
+            payment_groups!left (
+              id,
+              payment_status,
+              payment_proof,
+              payment_method_id,
+              total_amount,
+              admin_fee,
+              total_shipping_cost
             )
           ''').eq('buyer_id', userId).order('created_at', ascending: false);
 
-      print('Orders response: $response'); // Untuk debugging
-      orders.value = response;
+      print('Orders with payment groups: $response'); // Debug print
+      orders.assignAll(response);
     } catch (e) {
       print('Error fetching orders: $e');
     } finally {
-      isLoading(false);
+      isLoading.value = false;
     }
   }
 
