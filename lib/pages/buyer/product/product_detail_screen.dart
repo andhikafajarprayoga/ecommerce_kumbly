@@ -522,44 +522,42 @@ class ProductDetailScreen extends StatelessWidget {
     }
 
     try {
+      // Ambil alamat user dan data merchant
       final userResponse = await supabase
           .from('users')
           .select('address')
           .eq('id', userId)
           .single();
 
-      String? address = userResponse['address'];
+      final merchantResponse = await supabase
+          .from('merchants')
+          .select()
+          .eq('id', product['seller_id'])
+          .single();
 
-      if (address == null || address.isEmpty) {
-        final newAddress = await Get.to(() => EditAddressScreen(
-              initialAddress: '',
-              onSave: (address) {},
-            ));
-
-        if (newAddress == null) return;
-        address = newAddress;
-      }
-
-      // Data untuk checkout tanpa seller_id
+      // Langsung ke CheckoutScreen dengan alamat dan data merchant
       Get.to(() => CheckoutScreen(
             data: {
               'items': [
                 {
-                  'products': product, // Data produk lengkap
+                  'products': {
+                    ...product,
+                    'merchant': merchantResponse, // Tambahkan data merchant
+                  },
                   'quantity': 1,
                 }
               ],
               'total_amount': product['price'] * 1,
-              'shipping_address': address,
               'buyer_id': userId,
               'status': 'pending',
+              'shipping_address': userResponse['address'] ?? {},
             },
           ));
     } catch (e) {
-      print('Error getting address: $e');
+      print('Error getting data: $e');
       Get.snackbar(
         'Error',
-        'Gagal mengambil data alamat. Silakan coba lagi.',
+        'Terjadi kesalahan. Silakan coba lagi.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

@@ -61,121 +61,108 @@ class _CartScreenState extends State<CartScreen> {
           );
         }
 
+        // Kelompokkan items berdasarkan merchant
+        Map<String, List<dynamic>> groupedItems = {};
+        for (var item in cartController.cartItems) {
+          String sellerId = item['products']['seller_id'].toString();
+
+          if (!groupedItems.containsKey(sellerId)) {
+            groupedItems[sellerId] = [];
+          }
+          groupedItems[sellerId]!.add(item);
+        }
+
         return Column(
           children: [
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: cartController.cartItems.length,
+                itemCount: groupedItems.length,
                 itemBuilder: (context, index) {
-                  final item = cartController.cartItems[index];
-                  selectedItems.putIfAbsent(item['id'].toString(), () => false);
+                  String sellerId = groupedItems.keys.elementAt(index);
+                  List<dynamic> merchantItems = groupedItems[sellerId]!;
 
                   return Card(
-                    margin: EdgeInsets.only(bottom: 12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Checkbox(
-                            value: selectedItems[item['id'].toString()],
-                            onChanged: (bool? value) {
-                              setState(() {
-                                selectedItems[item['id'].toString()] = value!;
-                              });
-                            },
-                            activeColor: AppTheme.primary,
-                          ),
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              image: DecorationImage(
-                                image:
-                                    NetworkImage(item['products']['image_url']),
-                                fit: BoxFit.cover,
+                    margin: EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Merchant Header with Select All
+                        Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: merchantItems.every((item) =>
+                                    selectedItems[item['id']] == true),
+                                onChanged: (bool? value) {
+                                  setState(() {
+                                    for (var item in merchantItems) {
+                                      selectedItems[item['id']] =
+                                          value ?? false;
+                                    }
+                                  });
+                                },
+                                activeColor: AppTheme.primary,
                               ),
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item['products']['name'],
+                              Icon(Icons.store, size: 20),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  merchantItems.first['products']['merchant']
+                                          ['store_name'] ??
+                                      'Toko',
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
                                   ),
                                 ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Rp ${NumberFormat('#,###').format(item['products']['price'])}',
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    bool currentValue = merchantItems.every(
+                                        (item) =>
+                                            selectedItems[item['id']] == true);
+                                    for (var item in merchantItems) {
+                                      selectedItems[item['id']] = !currentValue;
+                                    }
+                                  });
+                                },
+                                child: Text(
+                                  merchantItems.every((item) =>
+                                          selectedItems[item['id']] == true)
+                                      ? 'Batal Pilih Semua'
+                                      : 'Pilih Semua',
                                   style: TextStyle(
                                     color: AppTheme.primary,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
                                   ),
                                 ),
-                                SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                            color: Colors.grey[300]!),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          IconButton(
-                                            icon: Icon(Icons.remove, size: 16),
-                                            onPressed: () {
-                                              int newQuantity =
-                                                  item['quantity'] - 1;
-                                              if (newQuantity > 0) {
-                                                cartController.updateQuantity(
-                                                    item['id'], newQuantity);
-                                              }
-                                            },
-                                            constraints: BoxConstraints(
-                                              minWidth: 32,
-                                              minHeight: 32,
-                                            ),
-                                          ),
-                                          Text('${item['quantity']}'),
-                                          IconButton(
-                                            icon: Icon(Icons.add, size: 16),
-                                            onPressed: () {
-                                              cartController.updateQuantity(
-                                                  item['id'],
-                                                  item['quantity'] + 1);
-                                            },
-                                            constraints: BoxConstraints(
-                                              minWidth: 32,
-                                              minHeight: 32,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Spacer(),
-                                    IconButton(
-                                      icon: Icon(Icons.delete_outline,
-                                          color: Colors.red[400]),
-                                      onPressed: () {
-                                        cartController
-                                            .removeFromCart(item['id']);
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        Divider(height: 1),
+
+                        // Merchant Items
+                        ...merchantItems
+                            .map((item) => CartItemWidget(
+                                  item: item,
+                                  isSelected:
+                                      selectedItems[item['id']] ?? false,
+                                  onChanged: (bool? value) {
+                                    setState(() {
+                                      selectedItems[item['id']] =
+                                          value ?? false;
+                                    });
+                                  },
+                                  onUpdateQuantity:
+                                      cartController.updateQuantity,
+                                  onRemove: cartController.removeFromCart,
+                                ))
+                            .toList(),
+                      ],
                     ),
                   );
                 },
@@ -259,6 +246,118 @@ class _CartScreenState extends State<CartScreen> {
           ],
         );
       }),
+    );
+  }
+}
+
+// Buat widget terpisah untuk item cart
+class CartItemWidget extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final bool isSelected;
+  final Function(bool?) onChanged;
+  final Function(String, int) onUpdateQuantity;
+  final Function(String) onRemove;
+
+  const CartItemWidget({
+    required this.item,
+    required this.isSelected,
+    required this.onChanged,
+    required this.onUpdateQuantity,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Checkbox(
+            value: isSelected,
+            onChanged: onChanged,
+            activeColor: AppTheme.primary,
+          ),
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              image: DecorationImage(
+                image: NetworkImage(item['products']['image_url']),
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item['products']['name'],
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Rp ${NumberFormat('#,###').format(item['products']['price'])}',
+                  style: TextStyle(
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.remove, size: 16),
+                            onPressed: () {
+                              int newQuantity = item['quantity'] - 1;
+                              if (newQuantity > 0) {
+                                onUpdateQuantity(item['id'], newQuantity);
+                              }
+                            },
+                            constraints: BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                          Text('${item['quantity']}'),
+                          IconButton(
+                            icon: Icon(Icons.add, size: 16),
+                            onPressed: () {
+                              onUpdateQuantity(
+                                  item['id'], item['quantity'] + 1);
+                            },
+                            constraints: BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Spacer(),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline, color: Colors.red[400]),
+                      onPressed: () => onRemove(item['id']),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

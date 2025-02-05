@@ -34,12 +34,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool isLoadingRates = false;
   Map<String, double> merchantShippingCosts = {};
   final TextEditingController _voucherController = TextEditingController();
+  Map<String, dynamic>?
+      discountVoucher; // Tambahkan variabel untuk menyimpan data voucher diskon
+  double discountAmount = 0; // Tambahkan variabel untuk menyimpan jumlah diskon
+  List<Map<String, dynamic>> availableDiscountVouchers = [];
+  bool isLoadingVouchers = false;
 
   @override
   void initState() {
     super.initState();
     fetchPaymentMethods();
     fetchShippingRates();
+    fetchAvailableVouchers();
   }
 
   Future<void> fetchPaymentMethods() async {
@@ -76,12 +82,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => isLoadingRates = false);
   }
 
+  Future<void> fetchAvailableVouchers() async {
+    setState(() => isLoadingVouchers = true);
+    try {
+      final response = await supabase
+          .from('discount_vouchers')
+          .select()
+          .order('created_at', ascending: false);
+      setState(() {
+        availableDiscountVouchers = List<Map<String, dynamic>>.from(response);
+      });
+    } catch (e) {
+      print('Error fetching vouchers: $e');
+    }
+    setState(() => isLoadingVouchers = false);
+  }
+
   Future<void> handleConfirmOrder() async {
     if (paymentMethod != null) {
       try {
         print('Debug: Starting order creation process');
 
-        // Debug print data yang akan dikirim
+        // Pastikan setiap merchant memiliki shipping cost
+        for (var item in widget.data['items']) {
+          final merchantId = item['products']['seller_id'];
+          if (!merchantShippingCosts.containsKey(merchantId)) {
+            Get.snackbar(
+              'Error',
+              'Silakan pilih metode pengiriman terlebih dahulu',
+              backgroundColor: Colors.red,
+              colorText: Colors.white,
+            );
+            return;
+          }
+        }
+
         final params = {
           'p_buyer_id': supabase.auth.currentUser!.id,
           'p_payment_method_id': int.parse(paymentMethod!),
@@ -94,7 +129,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     'merchant_id': item['products']['seller_id'],
                   })
               .toList(),
-          'p_shipping_costs': merchantShippingCosts,
+          'p_shipping_costs': Map<String, dynamic>.fromEntries(
+            merchantShippingCosts.entries.map(
+              (e) => MapEntry(e.key, e.value.toDouble()),
+            ),
+          ),
           'p_admin_fee': adminFee,
           'p_total_amount':
               widget.data['total_amount'] + adminFee + shippingCost,
@@ -177,70 +216,77 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (shippingType == null) return;
 
     try {
-      final selectedRate = shippingRates.firstWhere(
-        (rate) => rate['type'] == shippingType,
-        orElse: () => throw Exception('Rate not found'),
-      );
-
-      if (shippingType == 'special') {
-        // Untuk tarif khusus, langsung set total shipping cost tanpa kalkulasi
-        setState(() {
-          shippingCost = double.parse(selectedRate['base_rate'].toString());
-          merchantShippingCosts.clear();
-          // Simpan total ke merchant pertama saja
-          if (widget.data['items'].isNotEmpty) {
-            final firstItem = widget.data['items'][0];
-            merchantShippingCosts[firstItem['products']['seller_id']] =
-                shippingCost;
-          }
-        });
-        return;
-      }
-
-      // Kalkulasi normal untuk tarif regular (within/between)
-      double baseRate = double.parse(selectedRate['base_rate'].toString());
+      double baseRate;
       Map<String, double> merchantWeights = {};
+      merchantShippingCosts.clear();
+      double totalShippingCost = 0;
 
-      // Hitung berat per merchant
-      for (var item in widget.data['items']) {
-        final product = item['products'];
-        final merchantId = product['seller_id'];
-
-        if (!merchantWeights.containsKey(merchantId)) {
-          merchantWeights[merchantId] = 0.0;
-        }
-
-        final actualWeight = (product['weight'] ?? 1000) / 1000.0;
-        final volumetricWeight = calculateVolumetricWeight(
-          product['length'] ?? 0,
-          product['width'] ?? 0,
-          product['height'] ?? 0,
+      // Ambil base rate sesuai tipe pengiriman
+      if (shippingType == 'special') {
+        final selectedRate = shippingRates.firstWhere(
+          (rate) => rate['type'] == 'special',
         );
-
-        final itemWeight =
-            actualWeight > volumetricWeight ? actualWeight : volumetricWeight;
-        merchantWeights[merchantId] =
-            merchantWeights[merchantId]! + (itemWeight * item['quantity']);
+        baseRate = double.parse(selectedRate['base_rate'].toString());
+      } else {
+        final selectedRate = shippingRates.firstWhere(
+          (rate) => rate['type'] == shippingType,
+        );
+        baseRate = double.parse(selectedRate['base_rate'].toString());
       }
 
-      // Hitung ongkir per merchant untuk tarif regular
-      double totalShippingCost = 0;
-      merchantShippingCosts.clear();
+      // Kelompokkan item berdasarkan merchant
+      Map<String, List<dynamic>> itemsByMerchant = {};
+      for (var item in widget.data['items']) {
+        final merchantId = item['products']['seller_id'];
+        if (!itemsByMerchant.containsKey(merchantId)) {
+          itemsByMerchant[merchantId] = [];
+        }
+        itemsByMerchant[merchantId]!.add(item);
+      }
 
-      merchantWeights.forEach((merchantId, totalWeight) {
-        double chargeableWeight = totalWeight < 1.0
-            ? 1.0
-            : (totalWeight - totalWeight.floor() >= 0.5)
-                ? totalWeight.ceil().toDouble()
-                : totalWeight.floor().toDouble();
+      // Hitung ongkir untuk setiap merchant
+      itemsByMerchant.forEach((merchantId, items) {
+        if (shippingType == 'special') {
+          // Untuk tarif khusus, gunakan base rate langsung per merchant
+          merchantShippingCosts[merchantId] = baseRate;
+          totalShippingCost += baseRate;
+        } else {
+          // Untuk tarif regular, hitung berdasarkan berat
+          double totalWeight = 0.0;
+          for (var item in items) {
+            final product = item['products'];
+            final actualWeight = (product['weight'] ?? 1000) / 1000.0;
+            final volumetricWeight = calculateVolumetricWeight(
+              product['length'] ?? 0,
+              product['width'] ?? 0,
+              product['height'] ?? 0,
+            );
+            final itemWeight = actualWeight > volumetricWeight
+                ? actualWeight
+                : volumetricWeight;
+            totalWeight += itemWeight * item['quantity'];
+          }
 
-        final merchantShippingCost = baseRate * chargeableWeight;
-        merchantShippingCosts[merchantId] = merchantShippingCost;
-        totalShippingCost += merchantShippingCost;
+          // Pembulatan berat
+          double chargeableWeight = totalWeight < 1.0
+              ? 1.0
+              : (totalWeight - totalWeight.floor() >= 0.5)
+                  ? totalWeight.ceil().toDouble()
+                  : totalWeight.floor().toDouble();
+
+          final merchantShippingCost = baseRate * chargeableWeight;
+          merchantShippingCosts[merchantId] = merchantShippingCost;
+          totalShippingCost += merchantShippingCost;
+        }
       });
 
       setState(() {
         shippingCost = totalShippingCost;
+      });
+
+      print('Debug - Shipping costs per merchant:');
+      merchantShippingCosts.forEach((merchantId, cost) {
+        print('Merchant $merchantId: Rp ${NumberFormat('#,###').format(cost)}');
       });
     } catch (e) {
       print('Error calculating shipping cost: $e');
@@ -249,31 +295,100 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> validateVoucherCode(String code) async {
     try {
-      final response = await supabase
+      // Cek apakah sedang menggunakan tarif khusus
+      if (shippingType == 'special') {
+        Get.snackbar(
+          'Gagal',
+          'Tidak dapat menggunakan diskon saat menggunakan tarif khusus',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Cek shipping voucher terlebih dahulu
+      final shippingVoucher = await supabase
           .from('shipping_vouchers')
           .select()
           .eq('code', code)
-          .single();
+          .maybeSingle();
 
-      if (response != null) {
+      if (shippingVoucher != null) {
         setState(() {
+          if (specialRate != null) {
+            shippingRates.remove(specialRate);
+          }
           specialRate = {
             'type': 'special',
-            'base_rate': response['rate'],
+            'base_rate': shippingVoucher['rate'],
+            'code': shippingVoucher['code']
           };
           shippingRates.add(specialRate!);
         });
         Get.snackbar(
           'Sukses',
-          'Kode tarif khusus berhasil digunakan',
+          'Kode tarif khusus tersedia, silakan pilih untuk menggunakan',
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
+        return; // Keluar dari fungsi jika ini adalah shipping voucher
       }
-    } catch (e) {
+
+      // Cek discount voucher
+      final discountVoucher = await supabase
+          .from('discount_vouchers')
+          .select()
+          .eq('code', code)
+          .maybeSingle();
+
+      if (discountVoucher != null) {
+        final totalAmount =
+            widget.data['total_amount'] + adminFee + shippingCost;
+        if (totalAmount >= (discountVoucher['min_purchase'] ?? 0)) {
+          setState(() {
+            this.discountVoucher = discountVoucher;
+
+            // Ambil rate sebagai nilai potongan langsung
+            double calculatedDiscount =
+                double.parse(discountVoucher['rate'].toString());
+
+            // Batasi diskon tidak melebihi ongkir
+            if (calculatedDiscount > shippingCost) {
+              calculatedDiscount = shippingCost;
+            }
+
+            discountAmount = calculatedDiscount;
+          });
+
+          Get.snackbar(
+            'Sukses',
+            'Diskon ongkir Rp ${NumberFormat('#,###').format(discountAmount)} berhasil digunakan',
+            backgroundColor: Colors.green,
+            colorText: Colors.white,
+          );
+        } else {
+          Get.snackbar(
+            'Gagal',
+            'Minimal pembelian Rp ${NumberFormat('#,###').format(discountVoucher['min_purchase'] ?? 0)}',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+        }
+        return;
+      }
+
+      // Jika kode tidak valid untuk kedua jenis voucher
       Get.snackbar(
         'Error',
-        'Kode tarif khusus tidak valid',
+        'Kode tidak valid',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      print('Error validating voucher: $e');
+      Get.snackbar(
+        'Error',
+        'Terjadi kesalahan saat validasi',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -291,21 +406,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.local_shipping, color: AppTheme.primary, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Pilih Pengiriman',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 12),
-            // Input kode tarif khusus
+            // Input kode voucher
             Container(
               padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -331,33 +432,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     onPressed: () {
                       final code = _voucherController.text.trim();
                       if (code.isNotEmpty) {
-                        if (specialRate != null) {
-                          setState(() {
-                            shippingRates.remove(specialRate);
-                            specialRate = null;
-                          });
-                        }
                         validateVoucherCode(code);
                       }
                     },
-                    child: Text(
-                      'Cek Voucher',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    child: Text('Cek Voucher'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                      minimumSize: Size(0, 32),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      backgroundColor: Colors.pink,
+                      foregroundColor: Colors.white,
                     ),
                   ),
                 ],
               ),
             ),
-            SizedBox(height: 12),
+            SizedBox(height: 16),
+
             // Opsi pengiriman
             if (isLoadingRates)
               Center(child: CircularProgressIndicator())
@@ -373,7 +461,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ? 'Dalam Kabupaten'
                               : rate['type'] == 'between'
                                   ? 'Antar Kabupaten'
-                                  : 'Tarif Khusus',
+                                  : 'Tarif Khusus (${rate['code']})',
                           style: TextStyle(fontSize: 13),
                         ),
                         Text(
@@ -393,7 +481,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       await calculateShippingCost();
                     },
                   )),
-            // Tombol Chat Admin
+
+            // Chat Admin button
             TextButton.icon(
               onPressed: createOrOpenChatRoom,
               icon: Icon(Icons.chat_bubble_outline, size: 16),
@@ -461,7 +550,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header toko
+                    // Header toko dengan ongkir
                     Container(
                       padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -483,25 +572,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ),
                           ),
-                          if (merchantShippingCosts[merchantId] != null)
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                'Ongkir: Rp ${NumberFormat('#,###').format(merchantShippingCosts[merchantId])}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.pink.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Ongkir: Rp ${NumberFormat('#,###').format(merchantShippingCosts[merchantId] ?? 0)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.pink,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
+                          ),
                         ],
                       ),
                     ),
@@ -631,6 +719,136 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         colorText: Colors.white,
       );
     }
+  }
+
+  Widget _buildDiscountVoucherCard() {
+    return Card(
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.discount, color: AppTheme.primary, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Voucher Diskon',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            if (isLoadingVouchers)
+              Center(child: CircularProgressIndicator())
+            else if (availableDiscountVouchers.isEmpty)
+              Center(
+                child: Text(
+                  'Tidak ada voucher tersedia',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey,
+                  ),
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: availableDiscountVouchers.length,
+                itemBuilder: (context, index) {
+                  final voucher = availableDiscountVouchers[index];
+                  final isSelected = discountVoucher?['id'] == voucher['id'];
+                  final totalAmount =
+                      widget.data['total_amount'] + adminFee + shippingCost;
+                  final isEligible =
+                      totalAmount >= (voucher['min_purchase'] ?? 0);
+
+                  return Container(
+                    margin: EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: isSelected
+                            ? AppTheme.primary
+                            : Colors.grey.shade300,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      color:
+                          isSelected ? AppTheme.primary.withOpacity(0.1) : null,
+                    ),
+                    child: ListTile(
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      title: Text(
+                        'Diskon Rp ${NumberFormat('#,###').format(voucher['rate'])}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (voucher['min_purchase'] != null)
+                            Text(
+                              'Min. pembelian Rp ${NumberFormat('#,###').format(voucher['min_purchase'])}',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          if (voucher['max_discount'] != null)
+                            Text(
+                              'Maks. diskon Rp ${NumberFormat('#,###').format(voucher['max_discount'])}',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                        ],
+                      ),
+                      trailing: isEligible
+                          ? ElevatedButton(
+                              onPressed: isSelected
+                                  ? () {
+                                      setState(() {
+                                        discountVoucher = null;
+                                        discountAmount = 0;
+                                      });
+                                    }
+                                  : () {
+                                      validateVoucherCode(voucher['code']);
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    isSelected ? Colors.red : AppTheme.primary,
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                minimumSize: Size(0, 32),
+                              ),
+                              child: Text(
+                                isSelected ? 'Hapus' : 'Pakai',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              'Min. pembelian tidak terpenuhi',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.red,
+                              ),
+                            ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -798,37 +1016,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 _buildProductList(),
                 SizedBox(height: 8),
 
+                // Voucher Diskon
+                _buildDiscountVoucherCard(),
+                SizedBox(height: 8),
+
                 // Ringkasan Pembayaran
-                Card(
-                  elevation: 0.5,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Ringkasan Pembayaran',
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 12),
-                        _buildPaymentDetail(
-                            'Total Harga', widget.data['total_amount']),
-                        _buildPaymentDetail('Biaya Penanganan', adminFee),
-                        _buildPaymentDetail('Ongkos Kirim', shippingCost),
-                        Divider(height: 16),
-                        _buildPaymentDetail(
-                          'Total Pembayaran',
-                          widget.data['total_amount'] + adminFee + shippingCost,
-                          isTotal: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildPaymentSummary(),
               ],
             ),
           ),
@@ -886,21 +1079,79 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Widget _buildPaymentSummary() {
+    return Card(
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ringkasan Pembayaran',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 12),
+            _buildPaymentDetail('Total Harga', widget.data['total_amount']),
+            _buildPaymentDetail('Biaya Penanganan', adminFee),
+            _buildPaymentDetail('Ongkos Kirim', shippingCost,
+                note:
+                    discountAmount >= shippingCost ? '(Gratis Ongkir)' : null),
+            if (discountAmount > 0)
+              _buildPaymentDetail('Diskon Voucher', -discountAmount,
+                  isDiscount: true),
+            Divider(height: 16),
+            _buildPaymentDetail(
+              'Total Pembayaran',
+              (widget.data['total_amount'] + adminFee + shippingCost) -
+                  (discountAmount > shippingCost
+                      ? shippingCost
+                      : discountAmount),
+              isTotal: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPaymentDetail(String label, double amount,
-      {bool isTotal = false}) {
+      {bool isTotal = false, bool isDiscount = false, String? note}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(fontSize: 13)),
-          Text(
-            'Rp ${NumberFormat('#,###').format(amount)}',
-            style: TextStyle(
-              fontSize: isTotal ? 14 : 13,
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              color: isTotal ? AppTheme.primary : null,
-            ),
+          Row(
+            children: [
+              Text(
+                '${isDiscount ? "-" : ""}Rp ${NumberFormat('#,###').format(amount.abs())}',
+                style: TextStyle(
+                  fontSize: isTotal ? 14 : 13,
+                  fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+                  color: isTotal
+                      ? AppTheme.primary
+                      : isDiscount
+                          ? Colors.red
+                          : null,
+                ),
+              ),
+              if (note != null) ...[
+                SizedBox(width: 4),
+                Text(
+                  note,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.green,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
