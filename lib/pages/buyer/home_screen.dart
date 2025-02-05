@@ -362,6 +362,21 @@ class ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Parse image URLs
+    List<String> imageUrls = [];
+    if (product['image_url'] != null) {
+      try {
+        if (product['image_url'] is List) {
+          imageUrls = List<String>.from(product['image_url']);
+        } else if (product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(product['image_url']);
+          imageUrls = List<String>.from(urls);
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
+
     return GestureDetector(
       onTap: () => Get.to(() => ProductDetailScreen(product: product)),
       child: Card(
@@ -378,7 +393,11 @@ class ProductCard extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: NetworkImage(product['image_url']),
+                    image: NetworkImage(
+                      imageUrls.isNotEmpty
+                          ? imageUrls.first // Tampilkan gambar pertama
+                          : 'https://via.placeholder.com/150', // Gambar default
+                    ),
                     fit: BoxFit.cover,
                   ),
                 ),

@@ -10,16 +10,38 @@ import '../checkout/checkout_screen.dart';
 import '../checkout/edit_address_screen.dart';
 import 'dart:convert';
 
-class ProductDetailScreen extends StatelessWidget {
+class ProductDetailScreen extends StatefulWidget {
   final dynamic product;
   ProductDetailScreen({super.key, required this.product}) {
     Get.put(CartController());
   }
+
+  @override
+  State<ProductDetailScreen> createState() => _ProductDetailScreenState();
+}
+
+class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final CartController cartController = Get.put(CartController());
   final supabase = Supabase.instance.client;
+  int _currentImageIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    // Parse image URLs
+    List<String> imageUrls = [];
+    if (widget.product['image_url'] != null) {
+      try {
+        if (widget.product['image_url'] is List) {
+          imageUrls = List<String>.from(widget.product['image_url']);
+        } else if (widget.product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(widget.product['image_url']);
+          imageUrls = List<String>.from(urls);
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppTheme.primary,
@@ -65,15 +87,54 @@ class ProductDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Gambar Produk
+            // Gambar Produk dengan Slider
             Container(
               height: 300,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: NetworkImage(product['image_url']),
-                  fit: BoxFit.cover,
-                ),
+              child: Stack(
+                children: [
+                  PageView.builder(
+                    itemCount: imageUrls.isEmpty ? 1 : imageUrls.length,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentImageIndex = index;
+                      });
+                    },
+                    itemBuilder: (context, index) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: NetworkImage(
+                              imageUrls.isEmpty
+                                  ? 'https://via.placeholder.com/300'
+                                  : imageUrls[index],
+                            ),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (imageUrls.length > 1)
+                    Positioned(
+                      right: 16,
+                      bottom: 16,
+                      child: Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${_currentImageIndex + 1}/${imageUrls.length}',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 
@@ -85,7 +146,7 @@ class ProductDetailScreen extends StatelessWidget {
                 children: [
                   // Nama dan Harga
                   Text(
-                    product['name'],
+                    widget.product['name'],
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -96,7 +157,7 @@ class ProductDetailScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Rp ${NumberFormat('#,###').format(product['price'])}',
+                        'Rp ${NumberFormat('#,###').format(widget.product['price'])}',
                         style: TextStyle(
                           fontSize: 18,
                           color: AppTheme.primary,
@@ -108,7 +169,7 @@ class ProductDetailScreen extends StatelessWidget {
                           Icon(Icons.shopping_bag_outlined, size: 16),
                           SizedBox(width: 4),
                           Text(
-                            'Terjual ${product['sales'] ?? 0}',
+                            'Terjual ${widget.product['sales'] ?? 0}',
                             style: TextStyle(color: Colors.grey),
                           ),
                         ],
@@ -131,7 +192,7 @@ class ProductDetailScreen extends StatelessWidget {
                             color: AppTheme.primary),
                         const SizedBox(width: 8),
                         Text(
-                          'Stok: ${product['stock']}',
+                          'Stok: ${widget.product['stock']}',
                           style: TextStyle(fontSize: 16),
                         ),
                       ],
@@ -150,7 +211,7 @@ class ProductDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    product['description'] ?? 'Tidak ada deskripsi',
+                    widget.product['description'] ?? 'Tidak ada deskripsi',
                     style: TextStyle(
                       fontSize: 11,
                       color: Colors.black87,
@@ -182,7 +243,7 @@ class ProductDetailScreen extends StatelessWidget {
                           future: supabase
                               .from('merchants')
                               .select('store_name, store_address')
-                              .eq('id', product['seller_id'])
+                              .eq('id', widget.product['seller_id'])
                               .single(),
                           builder: (context, snapshot) {
                             if (snapshot.hasData) {
@@ -264,7 +325,7 @@ class ProductDetailScreen extends StatelessWidget {
               ),
             ),
             FutureBuilder<List<Map<String, dynamic>>>(
-              future: _fetchRelatedProducts(product['category']),
+              future: _fetchRelatedProducts(widget.product['category']),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
@@ -282,7 +343,7 @@ class ProductDetailScreen extends StatelessWidget {
                     itemCount: relatedProducts.length,
                     itemBuilder: (context, index) {
                       final relatedProduct = relatedProducts[index];
-                      if (relatedProduct['id'] == product['id']) {
+                      if (relatedProduct['id'] == widget.product['id']) {
                         return SizedBox.shrink(); // Skip produk yang sama
                       }
                       return GestureDetector(
@@ -309,7 +370,7 @@ class ProductDetailScreen extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     image: DecorationImage(
                                       image: NetworkImage(
-                                          relatedProduct['image_url']),
+                                          _getFirstImageUrl(relatedProduct)),
                                       fit: BoxFit.cover,
                                     ),
                                   ),
@@ -399,7 +460,7 @@ class ProductDetailScreen extends StatelessWidget {
                 height: 32,
                 child: ElevatedButton(
                   onPressed: () {
-                    cartController.addToCart(product);
+                    cartController.addToCart(widget.product);
                     Get.snackbar(
                       'Sukses',
                       'Produk ditambahkan ke keranjang',
@@ -459,7 +520,7 @@ class ProductDetailScreen extends StatelessWidget {
         .from('products')
         .select()
         .eq('category', category) // Filter berdasarkan kolom category
-        .neq('id', product['id']) // Kecuali produk saat ini
+        .neq('id', widget.product['id']) // Kecuali produk saat ini
         .order('sales', ascending: false) // Urutkan berdasarkan penjualan
         .limit(5);
 
@@ -478,7 +539,7 @@ class ProductDetailScreen extends StatelessWidget {
         .from('chat_rooms')
         .select()
         .eq('buyer_id', buyerId)
-        .eq('seller_id', product['seller_id'])
+        .eq('seller_id', widget.product['seller_id'])
         .maybeSingle();
 
     Map<String, dynamic> chatRoom;
@@ -492,7 +553,7 @@ class ProductDetailScreen extends StatelessWidget {
           .from('chat_rooms')
           .insert({
             'buyer_id': buyerId,
-            'seller_id': product['seller_id'],
+            'seller_id': widget.product['seller_id'],
             'created_at': DateTime.now().toUtc().toIso8601String(),
           })
           .select()
@@ -504,7 +565,7 @@ class ProductDetailScreen extends StatelessWidget {
     seller = await supabase
         .from('merchants')
         .select()
-        .eq('id', product['seller_id'])
+        .eq('id', widget.product['seller_id'])
         .single();
 
     // Navigasi ke chat detail
@@ -532,7 +593,7 @@ class ProductDetailScreen extends StatelessWidget {
       final merchantResponse = await supabase
           .from('merchants')
           .select()
-          .eq('id', product['seller_id'])
+          .eq('id', widget.product['seller_id'])
           .single();
 
       // Langsung ke CheckoutScreen dengan alamat dan data merchant
@@ -541,13 +602,13 @@ class ProductDetailScreen extends StatelessWidget {
               'items': [
                 {
                   'products': {
-                    ...product,
+                    ...widget.product,
                     'merchant': merchantResponse, // Tambahkan data merchant
                   },
                   'quantity': 1,
                 }
               ],
-              'total_amount': product['price'] * 1,
+              'total_amount': widget.product['price'] * 1,
               'buyer_id': userId,
               'status': 'pending',
               'shipping_address': userResponse['address'] ?? {},
@@ -562,6 +623,25 @@ class ProductDetailScreen extends StatelessWidget {
         colorText: Colors.white,
       );
     }
+  }
+
+  String _getFirstImageUrl(Map<String, dynamic> product) {
+    List<String> imageUrls = [];
+    if (product['image_url'] != null) {
+      try {
+        if (product['image_url'] is List) {
+          imageUrls = List<String>.from(product['image_url']);
+        } else if (product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(product['image_url']);
+          imageUrls = List<String>.from(urls);
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
+    return imageUrls.isNotEmpty
+        ? imageUrls.first
+        : 'https://via.placeholder.com/150';
   }
 }
 

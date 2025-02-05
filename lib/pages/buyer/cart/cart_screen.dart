@@ -5,6 +5,7 @@ import 'package:kumbly_ecommerce/controllers/order_controller.dart';
 import 'package:kumbly_ecommerce/pages/buyer/checkout/checkout_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
+import 'dart:convert';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -266,6 +267,25 @@ class CartItemWidget extends StatelessWidget {
     required this.onRemove,
   });
 
+  String _getFirstImageUrl(Map<String, dynamic> product) {
+    List<String> imageUrls = [];
+    if (product['image_url'] != null) {
+      try {
+        if (product['image_url'] is List) {
+          imageUrls = List<String>.from(product['image_url']);
+        } else if (product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(product['image_url']);
+          imageUrls = List<String>.from(urls);
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
+    return imageUrls.isNotEmpty
+        ? imageUrls.first
+        : 'https://via.placeholder.com/150';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -283,7 +303,7 @@ class CartItemWidget extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               image: DecorationImage(
-                image: NetworkImage(item['products']['image_url']),
+                image: NetworkImage(_getFirstImageUrl(item['products'])),
                 fit: BoxFit.cover,
               ),
             ),

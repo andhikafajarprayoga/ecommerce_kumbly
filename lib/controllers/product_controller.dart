@@ -104,21 +104,24 @@ class ProductController extends GetxController {
     int stock,
     String description,
     String category,
-    String imageUrl,
+    List<String> imageUrls,
+    int weight,
+    int length,
+    int width,
+    int height,
   ) async {
-    try {
-      await supabase.from('products').update({
-        'name': name,
-        'description': description,
-        'price': price,
-        'stock': stock,
-        'category': category,
-        'image_url': imageUrl,
-      }).match({'id': id});
-      await fetchProducts();
-    } catch (e) {
-      print('Error updating product: $e');
-    }
+    await supabase.from('products').update({
+      'name': name,
+      'price': price,
+      'stock': stock,
+      'description': description,
+      'category': category,
+      'image_url': imageUrls,
+      'weight': weight,
+      'length': length,
+      'width': width,
+      'height': height,
+    }).eq('id', id);
   }
 
   Future<void> deleteProduct(int productId) async {

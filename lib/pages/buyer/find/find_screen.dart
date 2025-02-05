@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'package:geocoding/geocoding.dart';
+import '../product/product_detail_screen.dart';
 
 class FindScreen extends StatelessWidget {
   final ProductController productController = Get.find<ProductController>();
@@ -355,6 +356,62 @@ class FindScreen extends StatelessWidget {
             }),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ProductCard extends StatelessWidget {
+  final Map<String, dynamic> product;
+
+  const ProductCard({super.key, required this.product});
+
+  String _getFirstImageUrl(Map<String, dynamic> product) {
+    List<String> imageUrls = [];
+    if (product['image_url'] != null) {
+      try {
+        if (product['image_url'] is List) {
+          imageUrls = List<String>.from(product['image_url']);
+        } else if (product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(product['image_url']);
+          imageUrls = List<String>.from(urls);
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
+    return imageUrls.isNotEmpty
+        ? imageUrls.first
+        : 'https://via.placeholder.com/150';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Get.to(() => ProductDetailScreen(product: product)),
+      child: Card(
+        elevation: 0.5,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Gambar Produk
+            AspectRatio(
+              aspectRatio: 1,
+              child: Container(
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(_getFirstImageUrl(product)),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
+            // ... kode lain tetap sama ...
+          ],
+        ),
       ),
     );
   }

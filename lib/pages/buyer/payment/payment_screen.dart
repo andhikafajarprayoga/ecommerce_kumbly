@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../pages/buyer/home_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
 
 class PaymentScreen extends StatefulWidget {
   final Map<String, dynamic> orderData;
@@ -61,6 +62,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   // Widget untuk menampilkan daftar produk
   Widget _buildOrderItems() {
+    String _getFirstImageUrl(Map<String, dynamic> product) {
+      List<String> imageUrls = [];
+      if (product['image_url'] != null) {
+        try {
+          if (product['image_url'] is List) {
+            imageUrls = List<String>.from(product['image_url']);
+          } else if (product['image_url'] is String) {
+            final List<dynamic> urls = json.decode(product['image_url']);
+            imageUrls = List<String>.from(urls);
+          }
+        } catch (e) {
+          print('Error parsing image URLs: $e');
+        }
+      }
+      return imageUrls.isNotEmpty
+          ? imageUrls.first
+          : 'https://via.placeholder.com/150';
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -90,7 +110,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(
-                            product['image_url'],
+                            _getFirstImageUrl(product),
                             width: 60,
                             height: 60,
                             fit: BoxFit.cover,
