@@ -89,8 +89,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       'sender_id': widget.currentUserId,
       'message': _messageController.text,
       'is_read': false,
-      'created_at':
-          DateTime.now().toUtc().add(Duration(hours: 7)).toIso8601String(),
     };
 
     try {
