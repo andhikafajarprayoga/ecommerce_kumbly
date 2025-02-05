@@ -5,6 +5,8 @@ class OrderController extends GetxController {
   final SupabaseClient _supabase = Supabase.instance.client;
   final RxBool isLoading = false.obs;
   final RxList orders = <dynamic>[].obs;
+  final RxList hotelBookings = <Map<String, dynamic>>[].obs;
+  final RxBool isLoadingHotel = false.obs;
 
   @override
   void onInit() {
@@ -56,6 +58,16 @@ class OrderController extends GetxController {
       Get.snackbar('Error', 'Gagal menghapus pesanan: $e');
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  void filterOrders(String status) {
+    if (status == 'all') {
+      fetchOrders();
+    } else {
+      final filtered =
+          orders.where((order) => order['status'] == status).toList();
+      orders.assignAll(filtered);
     }
   }
 
@@ -245,6 +257,38 @@ class OrderController extends GetxController {
       throw e;
     } finally {
       isLoading(false);
+    }
+  }
+
+  Future<void> fetchHotelBookings() async {
+    try {
+      isLoadingHotel.value = true;
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final response = await _supabase.from('hotel_bookings').select('''
+            *,
+            hotels (
+              name
+            )
+          ''').eq('user_id', userId).order('created_at', ascending: false);
+
+      hotelBookings.assignAll(response);
+    } catch (e) {
+      print('Error fetching hotel bookings: $e');
+    } finally {
+      isLoadingHotel.value = false;
+    }
+  }
+
+  void filterHotelBookings(String status) {
+    if (status == 'all') {
+      fetchHotelBookings();
+    } else {
+      final filtered = hotelBookings
+          .where((booking) => booking['status'] == status)
+          .toList();
+      hotelBookings.assignAll(filtered);
     }
   }
 }

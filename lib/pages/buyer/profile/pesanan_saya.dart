@@ -16,13 +16,18 @@ class PesananSayaScreen extends StatefulWidget {
   State<PesananSayaScreen> createState() => _PesananSayaScreenState();
 }
 
-class _PesananSayaScreenState extends State<PesananSayaScreen> {
+class _PesananSayaScreenState extends State<PesananSayaScreen>
+    with SingleTickerProviderStateMixin {
   final OrderController orderController = Get.put(OrderController());
+  late TabController _tabController;
+  RxString selectedFilter = 'all'.obs;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     orderController.fetchOrders();
+    orderController.fetchHotelBookings();
   }
 
   String formatDate(String date) {
@@ -338,8 +343,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFFF5F5F5), // Warna background khas e-commerce
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: AppTheme.primary,
@@ -351,173 +355,346 @@ class _PesananSayaScreenState extends State<PesananSayaScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Produk'),
+            Tab(text: 'Hotel'),
+          ],
+        ),
       ),
-      body: Obx(() {
-        if (orderController.isLoading.value) {
-          return Center(
-              child: CircularProgressIndicator(
-            color: AppTheme.primary,
-          ));
-        }
-
-        if (orderController.orders.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+      body: Column(
+        children: [
+          _buildFilterChips(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
               children: [
-                Icon(
-                  Icons.shopping_bag_outlined,
-                  size: 80,
-                  color: AppTheme.textSecondary,
+                _buildProductOrders(),
+                _buildHotelBookings(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    return Obx(() => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              _filterChip('Semua', 'all'),
+              _filterChip('Menunggu Pembayaran', 'pending'),
+              _filterChip('Dikonfirmasi', 'confirmed'),
+              _filterChip('Selesai', 'completed'),
+              _filterChip('Dibatalkan', 'cancelled'),
+            ],
+          ),
+        ));
+  }
+
+  Widget _filterChip(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        selected: selectedFilter.value == value,
+        label: Text(label),
+        onSelected: (bool selected) {
+          selectedFilter.value = value;
+          orderController.filterOrders(value);
+          orderController.filterHotelBookings(value);
+        },
+      ),
+    );
+  }
+
+  Widget _buildProductOrders() {
+    return Obx(() {
+      if (orderController.isLoading.value) {
+        return const Center(child: CircularProgressIndicator());
+      }
+
+      if (orderController.orders.isEmpty) {
+        return _buildEmptyState('Belum ada pesanan');
+      }
+
+      return ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: orderController.orders.length,
+        itemBuilder: (context, index) {
+          final order = orderController.orders[index];
+          final totalPayment = calculateTotalPayment(order);
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Belum ada pesanan',
-                  style: AppTheme.textTheme.titleLarge?.copyWith(
-                    color: AppTheme.textSecondary,
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.grey.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 16,
+                            color: AppTheme.textSecondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Order ${formatOrderId(order['id'])}',
+                            style: AppTheme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              getStatusColor(order['status']).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          order['status'].toUpperCase(),
+                          style: AppTheme.textTheme.bodySmall?.copyWith(
+                            color: getStatusColor(order['status']),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Yuk mulai belanja!',
-                  style: AppTheme.textTheme.bodyMedium?.copyWith(
-                    color: AppTheme.textHint,
+
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildInfoRow(
+                        Icons.calendar_today_outlined,
+                        'Tanggal Pesanan',
+                        formatDate(order['created_at']),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1),
+                      ),
+                      _buildInfoRow(
+                        Icons.payments_outlined,
+                        'Total Pembayaran',
+                        formatCurrency(totalPayment),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(height: 1),
+                      ),
+                      _buildInfoRow(
+                        Icons.location_on_outlined,
+                        'Alamat Pengiriman',
+                        order['shipping_address'],
+                      ),
+                    ],
                   ),
+                ),
+
+                // Tombol Detail
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.grey.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: _buildOrderActions(order),
                 ),
               ],
             ),
           );
-        }
+        },
+      );
+    });
+  }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: orderController.orders.length,
-          itemBuilder: (context, index) {
-            final order = orderController.orders[index];
-            final totalPayment = calculateTotalPayment(order);
+  Widget _buildHotelBookings() {
+    return Obx(() {
+      if (orderController.isLoadingHotel.value) {
+        return const Center(child: CircularProgressIndicator());
+      }
 
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey.withOpacity(0.1),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.shopping_bag_outlined,
-                              size: 16,
-                              color: AppTheme.textSecondary,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Order ${formatOrderId(order['id'])}',
-                              style: AppTheme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: getStatusColor(order['status'])
-                                .withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            order['status'].toUpperCase(),
-                            style: AppTheme.textTheme.bodySmall?.copyWith(
-                              color: getStatusColor(order['status']),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+      final filteredBookings = orderController.hotelBookings.where((booking) {
+        return selectedFilter.value == 'all' ||
+            booking['status'] == selectedFilter.value;
+      }).toList();
 
-                  // Content
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildInfoRow(
-                          Icons.calendar_today_outlined,
-                          'Tanggal Pesanan',
-                          formatDate(order['created_at']),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: Divider(height: 1),
-                        ),
-                        _buildInfoRow(
-                          Icons.payments_outlined,
-                          'Total Pembayaran',
-                          formatCurrency(totalPayment),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: Divider(height: 1),
-                        ),
-                        _buildInfoRow(
-                          Icons.location_on_outlined,
-                          'Alamat Pengiriman',
-                          order['shipping_address'],
-                        ),
-                      ],
-                    ),
-                  ),
+      if (filteredBookings.isEmpty) {
+        return _buildEmptyState('Belum ada booking hotel');
+      }
 
-                  // Tombol Detail
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        top: BorderSide(
-                          color: Colors.grey.withOpacity(0.1),
-                          width: 1,
-                        ),
-                      ),
-                    ),
-                    child: _buildOrderActions(order),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      }),
+      return ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: filteredBookings.length,
+        itemBuilder: (context, index) {
+          final booking = filteredBookings[index];
+          return _buildHotelBookingCard(booking);
+        },
+      );
+    });
+  }
+
+  Widget _buildHotelBookingCard(Map<String, dynamic> booking) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          ListTile(
+            title: Text(
+              'Booking ID: ${formatOrderId(booking['id'])}',
+              style: AppTheme.textTheme.titleMedium,
+            ),
+            trailing: _buildStatusChip(booking['status']),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildInfoRow(
+                  Icons.hotel,
+                  'Hotel',
+                  booking['hotel_name'] ?? 'Unknown Hotel',
+                ),
+                _buildInfoRow(
+                  Icons.person,
+                  'Tamu',
+                  booking['guest_name'],
+                ),
+                _buildInfoRow(
+                  Icons.calendar_today,
+                  'Check-in',
+                  DateFormat('dd MMM yyyy')
+                      .format(DateTime.parse(booking['check_in'])),
+                ),
+                _buildInfoRow(
+                  Icons.calendar_today,
+                  'Check-out',
+                  DateFormat('dd MMM yyyy')
+                      .format(DateTime.parse(booking['check_out'])),
+                ),
+                _buildInfoRow(
+                  Icons.attach_money,
+                  'Total Pembayaran',
+                  formatCurrency(booking['total_price']),
+                ),
+              ],
+            ),
+          ),
+          if (booking['status'] == 'pending') _buildBookingActions(booking),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: getStatusColor(status).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: TextStyle(
+          color: getStatusColor(status),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookingActions(Map<String, dynamic> booking) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton(
+            onPressed: () => _showCancelBookingDialog(booking),
+            child: const Text('Batalkan Booking'),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {
+              // Navigate to payment page
+            },
+            child: const Text('Bayar Sekarang'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.shopping_bag_outlined,
+            size: 80,
+            color: AppTheme.textSecondary,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: AppTheme.textTheme.titleLarge?.copyWith(
+              color: AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Yuk mulai belanja!',
+            style: AppTheme.textTheme.bodyMedium?.copyWith(
+              color: AppTheme.textHint,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -552,6 +729,47 @@ class _PesananSayaScreenState extends State<PesananSayaScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showCancelBookingDialog(Map<String, dynamic> booking) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Batalkan Booking'),
+        content: const Text('Apakah Anda yakin ingin membatalkan booking ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Tidak'),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await supabase
+                    .from('hotel_bookings')
+                    .update({'status': 'cancelled'}).eq('id', booking['id']);
+                Get.back();
+                orderController.fetchHotelBookings();
+                Get.snackbar(
+                  'Sukses',
+                  'Booking berhasil dibatalkan',
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                );
+              } catch (e) {
+                Get.back();
+                Get.snackbar(
+                  'Error',
+                  'Gagal membatalkan booking',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+              }
+            },
+            child: const Text('Ya, Batalkan'),
+          ),
+        ],
+      ),
     );
   }
 }
