@@ -8,6 +8,7 @@ import '../cart/cart_screen.dart';
 import '../chat/chat_detail_screen.dart';
 import '../checkout/checkout_screen.dart';
 import '../checkout/edit_address_screen.dart';
+import 'dart:convert';
 
 class ProductDetailScreen extends StatelessWidget {
   final dynamic product;
@@ -210,13 +211,30 @@ class ProductDetailScreen extends StatelessWidget {
                                           color: AppTheme.primary),
                                       SizedBox(width: 8),
                                       Expanded(
-                                        child: Text(
-                                          merchant['store_address'] ??
-                                              'Alamat Toko',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                          ),
+                                        child: Builder(
+                                          builder: (context) {
+                                            try {
+                                              final addressData = jsonDecode(
+                                                  merchant['store_address'] ??
+                                                      '{}');
+                                              return Text(
+                                                '${addressData['street']}, ${addressData['village']}, ${addressData['district']}, ${addressData['city']}, ${addressData['province']} ${addressData['postal_code']}',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              );
+                                            } catch (e) {
+                                              return Text(
+                                                'Alamat tidak valid',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey[600],
+                                                ),
+                                              );
+                                            }
+                                          },
                                         ),
                                       ),
                                     ],
