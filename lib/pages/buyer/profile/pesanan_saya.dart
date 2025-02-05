@@ -201,37 +201,39 @@ class _PesananSayaScreenState extends State<PesananSayaScreen> {
   }
 
   Future<void> _deleteOrder(String orderId) async {
-    try {
-      // Hapus order_cancellations terlebih dahulu
-      await supabase
-          .from('order_cancellations')
-          .delete()
-          .eq('order_id', orderId);
+  try {
+    // Hapus order_items terlebih dahulu
+    await supabase.from('order_items').delete().eq('order_id', orderId);
 
-      // Kemudian hapus order
-      await supabase.from('orders').delete().eq('id', orderId);
+    // Hapus order_cancellations jika ada
+    await supabase.from('order_cancellations').delete().eq('order_id', orderId);
 
-      Get.back(); // Tutup dialog
-      Get.snackbar(
-        'Berhasil',
-        'Pesanan telah dihapus',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
+    // Setelah semua dependensi dihapus, baru hapus order
+    await supabase.from('orders').delete().eq('id', orderId);
 
-      // Refresh data pesanan
-      orderController.fetchOrders();
-    } catch (e) {
-      print('Error deleting order: $e');
-      Get.back();
-      Get.snackbar(
-        'Gagal',
-        'Terjadi kesalahan saat menghapus pesanan',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
+    // Beri notifikasi sukses
+    Get.back();
+    Get.snackbar(
+      'Berhasil',
+      'Pesanan telah dihapus',
+      backgroundColor: Colors.green,
+      colorText: Colors.white,
+    );
+
+    // Refresh daftar pesanan
+    orderController.fetchOrders();
+  } catch (e) {
+    print('Error deleting order: $e');
+    Get.back();
+    Get.snackbar(
+      'Gagal',
+      'Terjadi kesalahan saat menghapus pesanan: $e',
+      backgroundColor: Colors.red,
+      colorText: Colors.white,
+    );
   }
+}
+
 
   // Di dalam ListView.builder, tambahkan tombol batalkan jika status pending
   Widget _buildCancelButton(Map<String, dynamic> order) {

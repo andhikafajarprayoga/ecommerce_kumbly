@@ -3,51 +3,57 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 class PaymentGroup {
   final String id;
-  final String buyerName;
+  final String buyerId;
   final double totalAmount;
+  final int? paymentMethodId;
+  final String paymentStatus;
+  final String? paymentProof;
+  final DateTime createdAt;
   final double adminFee;
   final double shippingCost;
-  final String status;
-  final DateTime createdAt;
-  final String? paymentProof;
+  final Map<String, dynamic>? profiles;
 
   PaymentGroup({
     required this.id,
-    required this.buyerName,
+    required this.buyerId,
     required this.totalAmount,
+    this.paymentMethodId,
+    required this.paymentStatus,
+    this.paymentProof,
+    required this.createdAt,
     required this.adminFee,
     required this.shippingCost,
-    required this.status,
-    required this.createdAt,
-    this.paymentProof,
+    this.profiles,
   });
+
+  String get buyerName => profiles?['full_name'] ?? 'Unknown';
+  String get buyerEmail => profiles?['email'] ?? 'No email';
 
   factory PaymentGroup.fromJson(Map<String, dynamic> json) {
     return PaymentGroup(
       id: json['id'],
-      buyerName: json['buyer']['email'] ?? 'Unknown',
+      buyerId: json['buyer_id'],
       totalAmount: (json['total_amount'] as num).toDouble(),
-      adminFee: (json['admin_fee'] as num).toDouble(),
-      shippingCost: (json['total_shipping_cost'] as num).toDouble(),
-      status: json['payment_status'],
-      createdAt: DateTime.parse(json['created_at']),
+      paymentMethodId: json['payment_method_id'],
+      paymentStatus: json['payment_status'] ?? 'pending',
       paymentProof: json['payment_proof'],
+      createdAt: DateTime.parse(json['created_at']),
+      adminFee: (json['admin_fee'] as num?)?.toDouble() ?? 0.0,
+      shippingCost: (json['total_shipping_cost'] as num?)?.toDouble() ?? 0.0,
+      profiles: json['profiles'],
     );
   }
 }
 
 class ReportsController extends GetxController {
-  final _supabase = Supabase.instance.client;
-
-  var startDate = DateTime.now().subtract(Duration(days: 30)).obs;
-  var endDate = DateTime.now().obs;
-  var selectedStatus = 'Semua'.obs;
-
-  var payments = <PaymentGroup>[].obs;
-  var isLoading = false.obs;
-
-  var totalTransactions = 0.obs;
-  var totalIncome = 0.0.obs;
+  final supabase = Supabase.instance.client;
+  final payments = <PaymentGroup>[].obs;
+  final isLoading = false.obs;
+  final startDate = DateTime.now().subtract(Duration(days: 30)).obs;
+  final endDate = DateTime.now().obs;
+  final selectedStatus = 'Semua'.obs;
+  final totalTransactions = 0.obs;
+  final totalIncome = 0.0.obs;
 
   @override
   void onInit() {
@@ -56,54 +62,44 @@ class ReportsController extends GetxController {
   }
 
   Future<void> fetchPayments() async {
-    isLoading.value = true;
     try {
-      var query = _supabase
+      isLoading.value = true;
+
+      // Ambil semua transaksi
+      final paymentResponse = await supabase
           .from('payment_groups')
-          .select('''
-            id,
-            total_amount,
-            admin_fee,
-            total_shipping_cost,
-            payment_status,
-            payment_proof,
-            created_at,
-            profiles:buyer_id (
-              email
-            )
-          ''')
+          .select('*') // Ambil semua data tanpa join
           .gte('created_at', startDate.value.toIso8601String())
           .lte('created_at', endDate.value.toIso8601String());
 
-      if (selectedStatus.value != 'Semua') {
-        query = query.eq('payment_status', selectedStatus.value);
+      List<PaymentGroup> fetchedPayments = [];
+      double income = 0.0;
+      int transactions = 0;
+
+      for (var payment in paymentResponse as List) {
+        // Ambil data user berdasarkan buyer_id
+        final profileResponse = await supabase
+            .from('users') // Ganti dengan tabel user yang benar
+            .select('full_name, email')
+            .eq('id', payment['buyer_id'])
+            .maybeSingle(); // Jika tidak ada, hasilnya null
+
+        // Gabungkan data
+        fetchedPayments.add(PaymentGroup.fromJson({
+          ...payment,
+          'profiles': profileResponse, // Tambahkan data user
+        }));
+
+        // Hitung total transaksi dan total pendapatan
+        income += (payment['total_amount'] as num).toDouble();
+        transactions++;
       }
 
-      final response = await query;
-
-      payments.value = (response as List).map((data) {
-        return PaymentGroup(
-          id: data['id'],
-          buyerName: data['profiles']?['email'] ?? 'Unknown',
-          totalAmount: (data['total_amount'] as num).toDouble(),
-          adminFee: (data['admin_fee'] as num).toDouble(),
-          shippingCost: (data['total_shipping_cost'] as num).toDouble(),
-          status: data['payment_status'],
-          createdAt: DateTime.parse(data['created_at']),
-          paymentProof: data['payment_proof'],
-        );
-      }).toList();
-
-      totalTransactions.value = payments.length;
-      totalIncome.value = payments
-          .where((p) => p.status == 'success')
-          .fold(0.0, (sum, payment) => sum + payment.totalAmount);
+      payments.value = fetchedPayments;
+      totalIncome.value = income;
+      totalTransactions.value = transactions;
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Gagal mengambil data pembayaran: $e',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      print('Error fetching payments: $e');
     } finally {
       isLoading.value = false;
     }
