@@ -5,7 +5,7 @@ import '../../controllers/stats_controller.dart';
 import '../../pages/admin/feature/users_screen.dart';
 import '../../pages/admin/feature/stores_screen.dart';
 import 'pengiriman/shipments_screen.dart';
-import '../../pages/admin/feature/reports_screen.dart';
+import 'laporan-pembayaran/reports_screen.dart';
 import '../../pages/admin/feature/banners_screen.dart';
 import '../../pages/admin/feature/payment_methods_screen.dart';
 import '../../pages/admin/feature/shipping_rates_screen.dart';
