@@ -361,14 +361,6 @@ class _HomeMenuState extends State<_HomeMenu> {
                           label: 'Hotel',
                           onTap: () => Get.to(() => HotelManagementScreen()),
                         ),
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.book_online,
-                          label: 'Book Hotel',
-                          onTap: () => Get.to(() => HotelBookingsScreen(
-                                hotelId: '',
-                              )),
-                        ),
                       ],
                     ),
                   ],

@@ -89,6 +89,8 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
   }
 
   void _showCancelDialog(Map<String, dynamic> order) {
+    final reasonController = TextEditingController();
+
     Get.dialog(
       AlertDialog(
         title: Text(
@@ -105,12 +107,15 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
               'Apakah Anda yakin ingin membatalkan pesanan ini?',
               style: AppTheme.textTheme.bodyMedium,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Pembatalan akan diproses setelah mendapat persetujuan admin.',
-              style: AppTheme.textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Alasan Pembatalan',
+                hintText: 'Masukkan alasan pembatalan...',
+                border: OutlineInputBorder(),
               ),
+              maxLines: 3,
             ),
           ],
         ),
@@ -123,7 +128,19 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             ),
           ),
           ElevatedButton(
-            onPressed: () => _requestCancellation(order['id']),
+            onPressed: () {
+              if (reasonController.text.trim().isEmpty) {
+                Get.snackbar(
+                  'Error',
+                  'Harap masukkan alasan pembatalan',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+                return;
+              }
+              Get.back();
+              _requestCancellation(order['id'], reasonController.text);
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
             ),
@@ -134,22 +151,21 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
     );
   }
 
-  Future<void> _requestCancellation(String orderId) async {
+  Future<void> _requestCancellation(String orderId, String reason) async {
     try {
-      // 1. Insert ke order_cancellations dengan status pending
       await supabase.from('order_cancellations').insert({
         'order_id': orderId,
-        'status': 'pending', // Menunggu persetujuan admin
+        'status': 'pending',
         'requested_at': DateTime.now().toIso8601String(),
         'requested_by': supabase.auth.currentUser!.id,
+        'reason': reason,
       });
 
-      // 2. Update status order menjadi pending_cancellation
       await supabase
           .from('orders')
           .update({'status': 'pending_cancellation'}).eq('id', orderId);
 
-      Get.back(); // Tutup dialog
+      Get.back();
       Get.snackbar(
         'Berhasil',
         'Permintaan pembatalan telah dikirim dan menunggu persetujuan admin',
@@ -157,11 +173,9 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
         colorText: Colors.white,
       );
 
-      // 3. Refresh data pesanan
       orderController.fetchOrders();
     } catch (e) {
       print('Error requesting cancellation: $e');
-      Get.back();
       Get.snackbar(
         'Gagal',
         'Terjadi kesalahan saat memproses permintaan pembatalan',

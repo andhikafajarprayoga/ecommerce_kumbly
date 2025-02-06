@@ -26,11 +26,18 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
   Future<void> _fetchHotels() async {
     try {
       final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      print('Debug userId: $userId'); // Debug print
+
       final response = await supabase
           .from('hotels')
-          .select('*')
-          .eq('merchant_id', userId?.toString() as Object)
+          .select()
+          .eq('merchant_id',
+              userId) // Menggunakan userId langsung, bukan toString()
           .order('created_at', ascending: false);
+
+      print('Debug hotels response: $response'); // Debug print
 
       hotels.value = List<Map<String, dynamic>>.from(response);
       isLoading.value = false;
@@ -57,6 +64,15 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
+    }
+  }
+
+  void _navigateToBookings(String hotelId) {
+    print('Debug navigating to bookings with hotelId: $hotelId'); // Debug print
+    if (hotelId.isNotEmpty) {
+      Get.to(() => HotelBookingsScreen(hotelId: hotelId));
+    } else {
+      print('Error: Trying to navigate with empty hotelId');
     }
   }
 
@@ -192,8 +208,11 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: () => Get.to(() =>
-                                    HotelBookingsScreen(hotelId: hotel['id'])),
+                                onPressed: () {
+                                  print(
+                                      'Debug hotel id before navigation: ${hotel['id']}'); // Debug print
+                                  _navigateToBookings(hotel['id']);
+                                },
                                 child: Text('Lihat Booking'),
                               ),
                             ),

@@ -26,11 +26,17 @@ class _CancellationRequestsScreenState
 
   Future<void> _fetchCancellationRequests() async {
     try {
-      final currentUserId = supabase.auth.currentUser?.id;
-      if (currentUserId == null) return;
+      isLoading.value = true;
 
       final response = await supabase.from('order_cancellations').select('''
-            *,
+            id,
+            status,
+            requested_at,
+            processed_at,
+            notes,
+            reason,
+            requested_by,
+            processed_by,
             order:orders (
               id,
               total_amount,
@@ -39,16 +45,44 @@ class _CancellationRequestsScreenState
                 quantity,
                 price,
                 product:products (
-                  name
+                  name,
+                  image_url
                 )
               )
-            ),
-            requester:auth_users (
-              email
             )
           ''').eq('status', 'pending').order('requested_at', ascending: false);
 
-      cancellationRequests.value = List<Map<String, dynamic>>.from(response);
+      print('Debug response: $response');
+
+      // Fetch user details separately
+      if (response != null) {
+        final List<Map<String, dynamic>> requests =
+            List<Map<String, dynamic>>.from(response);
+
+        for (var request in requests) {
+          // Get requester details
+          if (request['requested_by'] != null) {
+            final requesterResponse = await supabase
+                .from('users')
+                .select('id, email, full_name')
+                .eq('id', request['requested_by'])
+                .single();
+            request['requester'] = requesterResponse;
+          }
+
+          // Get processor details
+          if (request['processed_by'] != null) {
+            final processorResponse = await supabase
+                .from('users')
+                .select('id, email, full_name')
+                .eq('id', request['processed_by'])
+                .single();
+            request['processor'] = processorResponse;
+          }
+        }
+
+        cancellationRequests.value = requests;
+      }
     } catch (e) {
       print('Error fetching cancellation requests: $e');
     } finally {
@@ -56,27 +90,36 @@ class _CancellationRequestsScreenState
     }
   }
 
-  Future<void> _processRequest(
-      String requestId, String status, String notes) async {
+  Future<void> _processRequest(String requestId, String status) async {
     try {
       final currentUserId = supabase.auth.currentUser?.id;
       if (currentUserId == null) return;
 
+      // Ambil data request terlebih dahulu
+      final cancellationData = await supabase
+          .from('order_cancellations')
+          .select('order_id, reason')
+          .eq('id', requestId)
+          .single();
+
+      if (cancellationData == null) {
+        throw Exception('Cancellation request not found');
+      }
+
+      // 1. Update order status terlebih dahulu
+      final orderId = cancellationData['order_id'];
+      final newOrderStatus = status == 'approved' ? 'cancelled' : 'pending';
+
+      await supabase.from('orders').update({
+        'status': newOrderStatus,
+      }).eq('id', orderId);
+
+      // 2. Update cancellation request
       await supabase.from('order_cancellations').update({
         'status': status,
         'processed_by': currentUserId,
         'processed_at': DateTime.now().toIso8601String(),
-        'notes': notes
       }).eq('id', requestId);
-
-      if (status == 'approved') {
-        // Update order status jika pembatalan disetujui
-        final request =
-            cancellationRequests.firstWhere((req) => req['id'] == requestId);
-        await supabase
-            .from('orders')
-            .update({'status': 'cancelled'}).eq('id', request['order_id']);
-      }
 
       Get.snackbar(
         'Sukses',
@@ -85,7 +128,7 @@ class _CancellationRequestsScreenState
         colorText: Colors.white,
       );
 
-      _fetchCancellationRequests();
+      await _fetchCancellationRequests();
     } catch (e) {
       print('Error processing cancellation request: $e');
       Get.snackbar(
@@ -97,28 +140,11 @@ class _CancellationRequestsScreenState
     }
   }
 
-  void _showProcessDialog(Map<String, dynamic> request) {
-    final notesController = TextEditingController();
-
+  void _showConfirmationDialog(Map<String, dynamic> request) {
     Get.dialog(
       AlertDialog(
-        title: const Text('Proses Permintaan Pembatalan'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Catatan (opsional):'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: notesController,
-              decoration: const InputDecoration(
-                hintText: 'Masukkan catatan...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
+        title: const Text('Konfirmasi'),
+        content: const Text('Pilih tindakan untuk permintaan pembatalan ini'),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
@@ -127,7 +153,7 @@ class _CancellationRequestsScreenState
           ElevatedButton(
             onPressed: () {
               Get.back();
-              _processRequest(request['id'], 'rejected', notesController.text);
+              _processRequest(request['id'], 'rejected');
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Tolak'),
@@ -135,7 +161,7 @@ class _CancellationRequestsScreenState
           ElevatedButton(
             onPressed: () {
               Get.back();
-              _processRequest(request['id'], 'approved', notesController.text);
+              _processRequest(request['id'], 'approved');
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             child: const Text('Setujui'),
@@ -183,65 +209,96 @@ class _CancellationRequestsScreenState
           itemCount: cancellationRequests.length,
           itemBuilder: (context, index) {
             final request = cancellationRequests[index];
-            final order = request['order'];
-            final requester = request['requester'];
+            print('Debug request $index: $request');
+            return _buildRequestCard(request);
+          },
+        );
+      }),
+    );
+  }
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ListTile(
-                    title: Text(
-                      'Order #${order['id'].toString().substring(0, 8)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+  Widget _buildRequestCard(Map<String, dynamic> request) {
+    final order = request['order'];
+    final requester = request['requester'];
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            title: Text(
+              'Order #${order['id'].toString().substring(0, 8)}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    'Diminta oleh: ${requester['full_name'] ?? requester['email']}'),
+                Text(
+                    'Tanggal: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(request['requested_at']))}'),
+                if (request['reason']?.isNotEmpty ?? false)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    subtitle: Text(
-                      'Diminta oleh: ${requester['email']}\n'
-                      'Tanggal: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(request['requested_at']))}',
-                    ),
-                    trailing: Text(
-                      'Rp ${NumberFormat('#,###').format(order['total_amount'])}',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const Divider(),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () =>
-                                _processRequest(request['id'], 'rejected', ''),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                            ),
-                            child: const Text('Tolak'),
+                        Text(
+                          'Alasan Pembatalan:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey[700],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () => _showProcessDialog(request),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                            ),
-                            child: const Text('Proses'),
-                          ),
+                        const SizedBox(height: 4),
+                        Text(
+                          request['reason'] ?? '-',
+                          style: TextStyle(color: Colors.grey[800]),
                         ),
                       ],
                     ),
                   ),
+                if (request['processed_at'] != null) ...[
+                  Text(
+                      'Diproses oleh: ${request['processor']?['full_name'] ?? request['processor']?['email'] ?? '-'}'),
+                  Text(
+                      'Tanggal proses: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(request['processed_at']))}'),
                 ],
+              ],
+            ),
+            trailing: Text(
+              'Rp ${NumberFormat('#,###').format(order['total_amount'])}',
+              style: const TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
               ),
-            );
-          },
-        );
-      }),
+            ),
+          ),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _showConfirmationDialog(request),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primary,
+                    ),
+                    child: const Text('Proses'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

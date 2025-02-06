@@ -23,28 +23,63 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
   @override
   void initState() {
     super.initState();
+    print('Debug initState hotelId: ${widget.hotelId}'); // Debug print
     _fetchBookings();
   }
 
   Future<void> _fetchBookings() async {
     try {
+      if (widget.hotelId.isEmpty) {
+        print('Error: hotelId is empty string'); // Debug print
+        return;
+      }
+
+      print(
+          'Debug fetching bookings for hotelId: ${widget.hotelId}'); // Debug print
+
       final response = await supabase
           .from('hotel_bookings')
-          .select('''
-          *,
-            users:user_id (
-              email,
-              phone
-            )
-          ''')
+          .select()
           .eq('hotel_id', widget.hotelId)
           .order('created_at', ascending: false);
 
-      bookings.value = List<Map<String, dynamic>>.from(response);
-      isLoading.value = false;
+      print('Debug bookings response: $response'); // Debug print
+
+      // Ambil data user untuk setiap booking
+      final List<Map<String, dynamic>> bookingsWithUserData = [];
+      for (var booking in response) {
+        if (booking['user_id'] != null) {
+          try {
+            final userData = await supabase
+                .from('users')
+                .select('email, full_name')
+                .eq('id', booking['user_id'])
+                .single();
+
+            booking['user_data'] = userData;
+          } catch (e) {
+            print('Error fetching user data for booking ${booking['id']}: $e');
+            booking['user_data'] = {
+              'email': 'N/A',
+              'full_name': 'User tidak ditemukan'
+            };
+          }
+        } else {
+          booking['user_data'] = {
+            'email': 'N/A',
+            'full_name': 'User tidak ditemukan'
+          };
+        }
+
+        bookingsWithUserData.add(booking);
+      }
+
+      print('Debug final bookings data: $bookingsWithUserData'); // Debug print
+      bookings.value = bookingsWithUserData;
     } catch (e) {
       print('Error fetching bookings: $e');
-    isLoading.value = false;
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -93,134 +128,72 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
           itemCount: bookings.length,
           itemBuilder: (context, index) {
             final booking = bookings[index];
-            final checkIn = DateTime.parse(booking['check_in']);
-            final checkOut = DateTime.parse(booking['check_out']);
-
-            return Card(
-              margin: EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Booking #${booking['id'].toString().substring(0, 8)}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        _buildStatusChip(booking['status']),
-                      ],
-                    ),
-                    Divider(),
-                    _buildInfoRow('Tamu', booking['guest_name']),
-                    _buildInfoRow('Telepon', booking['guest_phone']),
-                    _buildInfoRow('Email', booking['users']['email']),
-                    _buildInfoRow('Tipe Kamar', booking['room_type']),
-                    _buildInfoRow(
-                      'Check-in',
-                      DateFormat('dd MMM yyyy').format(checkIn),
-                    ),
-                    _buildInfoRow(
-                      'Check-out',
-                      DateFormat('dd MMM yyyy').format(checkOut),
-                    ),
-                    _buildInfoRow(
-                      'Total',
-                      NumberFormat.currency(
-                        locale: 'id',
-                        symbol: 'Rp ',
-                        decimalDigits: 0,
-                      ).format(booking['total_price']),
-                    ),
-                    if (booking['special_requests'] != null &&
-                        booking['special_requests'].isNotEmpty)
-                      _buildInfoRow(
-                          'Permintaan Khusus', booking['special_requests']),
-                    Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        if (booking['status'] == 'pending')
-                          ElevatedButton(
-                            onPressed: () => _updateBookingStatus(
-                                booking['id'], 'confirmed'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                            ),
-                            child: Text('Konfirmasi'),
-                          ),
-                        if (booking['status'] == 'confirmed')
-                          ElevatedButton(
-                            onPressed: () => _updateBookingStatus(
-                                booking['id'], 'completed'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primary,
-                            ),
-                            child: Text('Selesai'),
-                          ),
-                        if (booking['status'] == 'pending')
-                          ElevatedButton(
-                            onPressed: () => _updateBookingStatus(
-                                booking['id'], 'cancelled'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                            ),
-                            child: Text('Tolak'),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
+            return _buildBookingCard(booking);
           },
         );
       }),
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    Color color;
-    String label;
-
-    switch (status) {
-      case 'pending':
-        color = Colors.orange;
-        label = 'Menunggu';
-        break;
-      case 'confirmed':
-        color = Colors.blue;
-        label = 'Dikonfirmasi';
-        break;
-      case 'completed':
-        color = Colors.green;
-        label = 'Selesai';
-        break;
-      case 'cancelled':
-        color = Colors.red;
-        label = 'Dibatalkan';
-        break;
-      default:
-        color = Colors.grey;
-        label = status;
-    }
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
+  Widget _buildBookingCard(Map<String, dynamic> booking) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInfoRow('Status', booking['status'] ?? 'N/A'),
+            _buildInfoRow('Tamu', booking['guest_name'] ?? 'N/A'),
+            _buildInfoRow('Telepon', booking['guest_phone'] ?? 'N/A'),
+            _buildInfoRow('Email', booking['user_data']?['email'] ?? 'N/A'),
+            _buildInfoRow(
+              'Check In',
+              DateFormat('dd MMM yyyy')
+                  .format(DateTime.parse(booking['check_in'])),
+            ),
+            _buildInfoRow(
+              'Check Out',
+              DateFormat('dd MMM yyyy')
+                  .format(DateTime.parse(booking['check_out'])),
+            ),
+            _buildInfoRow('Tipe Kamar', booking['room_type'] ?? 'N/A'),
+            _buildInfoRow('Jumlah Malam', '${booking['total_nights']} malam'),
+            _buildInfoRow(
+              'Total Pembayaran',
+              NumberFormat.currency(
+                locale: 'id',
+                symbol: 'Rp ',
+                decimalDigits: 0,
+              ).format(booking['total_price']),
+            ),
+            if (booking['special_requests'] != null &&
+                booking['special_requests'].isNotEmpty)
+              _buildInfoRow('Permintaan Khusus', booking['special_requests']),
+            const SizedBox(height: 16),
+            if (booking['status'] == 'pending')
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () =>
+                        _updateBookingStatus(booking['id'], 'confirmed'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
+                    child: const Text('Terima'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () =>
+                        _updateBookingStatus(booking['id'], 'cancelled'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text('Tolak'),
+                  ),
+                ],
+              ),
+          ],
         ),
       ),
     );
@@ -228,7 +201,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -244,7 +217,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.w500,
               ),
             ),
