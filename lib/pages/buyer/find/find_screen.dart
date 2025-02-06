@@ -24,13 +24,26 @@ class _FindScreenState extends State<FindScreen> {
   final minPriceController = TextEditingController(text: '0');
   final maxPriceController = TextEditingController(text: '0');
   final formatter = NumberFormat('#,###');
+  final isSearching = false.obs;
 
   @override
   void initState() {
     super.initState();
+
+    print('Debug: FindScreen initState');
     searchController.text = productController.searchQuery.value;
     productController.products.clear();
-    productController.searchedMerchants.clear();
+
+    final query = Get.arguments as String?;
+
+    if (query != null && query.isNotEmpty) {
+      print('Debug: Memulai pencarian dengan query: $query');
+      searchController.text = query;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await performSearch(query);
+      });
+    }
   }
 
   void _showSortOptions() {
@@ -541,31 +554,32 @@ class _FindScreenState extends State<FindScreen> {
     }
   }
 
-  Future<void> performSearch(String query) async {
-    try {
-      productController.isLoading.value = true;
+  Future<void> performSearch(String value) async {
+    if (value.isEmpty) return;
 
-      // Reset merchants sebelum pencarian baru
+    try {
+      isSearching.value = true; // Set searching state
+      print('Debug: Membersihkan data lama');
+      productController.products.clear();
       productController.searchedMerchants.clear();
 
-      // Cari produk
-      await productController.searchProducts(query);
+      print('Debug: Mencari produk');
+      await productController.searchProducts(value);
 
-      // Cari merchant jika query tidak kosong
-      if (query.isNotEmpty) {
-        final merchantResponse = await supabase
-            .from('merchants')
-            .select('id, store_name, store_description')
-            .or('store_name.ilike.%${query}%,store_description.ilike.%${query}%')
-            .limit(5);
+      print('Debug: Mencari toko');
+      final merchantResponse = await supabase
+          .from('merchants')
+          .select('id, store_name, store_description')
+          .or('store_name.ilike.%${value}%,store_description.ilike.%${value}%')
+          .limit(5);
 
-        print('Merchant search response: $merchantResponse');
-        productController.searchedMerchants.assignAll(merchantResponse);
-      }
+      print(
+          'Debug: Hasil pencarian toko: ${merchantResponse.length} toko ditemukan');
+      productController.searchedMerchants.assignAll(merchantResponse);
     } catch (e) {
-      print('Error searching: $e');
+      print('Debug: Error dalam pencarian: $e');
     } finally {
-      productController.isLoading.value = false;
+      isSearching.value = false; // Reset searching state
     }
   }
 
@@ -603,7 +617,6 @@ class _FindScreenState extends State<FindScreen> {
                                 searchController.clear();
                                 productController.searchQuery.value = '';
                                 productController.products.clear();
-                                productController.searchedMerchants.clear();
                               });
                             },
                           )
@@ -614,7 +627,6 @@ class _FindScreenState extends State<FindScreen> {
                       productController.searchQuery.value = value;
                       if (value.isEmpty) {
                         productController.products.clear();
-                        productController.searchedMerchants.clear();
                       }
                     });
                   },
@@ -720,6 +732,12 @@ class _FindScreenState extends State<FindScreen> {
 
   @override
   void dispose() {
+    // Gunakan addPostFrameCallback untuk menghindari error setState
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      productController.products.clear();
+      productController.searchedMerchants.clear();
+      productController.searchQuery.value = '';
+    });
     searchController.dispose();
     minPriceController.dispose();
     maxPriceController.dispose();
