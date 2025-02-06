@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import '../hotel/hotel_detail_screen.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:math' show cos, sqrt, asin;
+import 'dart:math' show cos, sqrt, asin, sin, pi;
 
 class HotelScreen extends StatefulWidget {
   @override
@@ -32,6 +32,9 @@ class _HotelScreenState extends State<HotelScreen> {
   @override
   void initState() {
     super.initState();
+    // Reset filter saat pertama kali masuk
+    _isNearestActive = false;
+    _isPriceFilterActive = false;
     _fetchHotels();
     _getCurrentLocation();
   }
@@ -57,11 +60,25 @@ class _HotelScreenState extends State<HotelScreen> {
 
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
-    const double p = 0.017453292519943295; // Math.PI / 180
-    double a = 0.5 -
-        cos((lat2 - lat1) * p) / 2 +
-        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
-    return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
+    const double earthRadius = 6371; // Radius bumi dalam kilometer
+
+    // Konversi ke radian
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+
+    // Haversine formula
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+
+    final c = 2 * asin(sqrt(a));
+    return earthRadius * c; // Jarak dalam kilometer
+  }
+
+  double _toRadians(double degree) {
+    return degree * pi / 180;
   }
 
   void _showFilterDialog() {
@@ -242,9 +259,7 @@ class _HotelScreenState extends State<HotelScreen> {
                                       10000000;
                                 }
                                 Navigator.pop(context);
-                                _fetchHotels(
-                                    search: _searchController.text,
-                                    sort: sortBy);
+                                _fetchHotels(search: _searchController.text);
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primary,
@@ -297,8 +312,7 @@ class _HotelScreenState extends State<HotelScreen> {
                     ),
                     contentPadding: EdgeInsets.zero,
                   ),
-                  onSubmitted: (value) =>
-                      _fetchHotels(search: value, sort: sortBy),
+                  onSubmitted: (value) => _fetchHotels(search: value),
                 ),
               ),
             ),
@@ -327,7 +341,14 @@ class _HotelScreenState extends State<HotelScreen> {
                 itemCount: hotels.length,
                 itemBuilder: (context, index) {
                   final hotel = hotels[index];
-                  final hotelAddress = hotel['address'];
+                  final hotelAddress = hotel['address'] is Map
+                      ? (hotel['address'] as Map)['full_address']
+                      : hotel['address'] as String;
+
+                  // Tambahkan informasi jarak jika ada
+                  final String displayAddress = hotel['distance'] != null
+                      ? '$hotelAddress (${hotel['distance'] < 1 ? '${(hotel['distance'] * 1000).toStringAsFixed(0)}m' : '${hotel['distance'].toStringAsFixed(1)}km'})'
+                      : hotelAddress;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -374,7 +395,7 @@ class _HotelScreenState extends State<HotelScreen> {
                                         const SizedBox(height: 4),
                                         // Location
                                         Text(
-                                          hotelAddress,
+                                          displayAddress,
                                           style: TextStyle(
                                             color: AppTheme.textHint,
                                             fontSize: 12,
@@ -437,77 +458,100 @@ class _HotelScreenState extends State<HotelScreen> {
     );
   }
 
-  Future<void> _fetchHotels({String? search, String? sort}) async {
+  Future<void> _fetchHotels({String? search}) async {
     try {
       isLoading.value = true;
-      var query = supabase.from('hotels').select('''
-        *,
-        merchants:merchant_id (
-          store_name,
-          store_address
-        )
-      ''');
 
-      if (search != null && search.isNotEmpty) {
-        query = query.ilike('name', '%$search%');
-      }
+      // 1. Ambil data hotel dasar
+      final response = await supabase
+          .from('hotels')
+          .select('*, merchants:merchant_id (store_name, store_address)');
 
-      final response = await query;
       var filteredHotels = List<Map<String, dynamic>>.from(response);
 
-      // Filter berdasarkan jarak jika aktif
-      if (_isNearestActive && _currentPosition != null) {
-        filteredHotels.forEach((hotel) {
-          final address = Map<String, dynamic>.from(hotel['address']);
-          final distance = _calculateDistance(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            double.parse(address['latitude'].toString()),
-            double.parse(address['longitude'].toString()),
-          );
-          hotel['distance'] = distance;
-        });
-
-        filteredHotels.sort((a, b) =>
-            (a['distance'] as double).compareTo(b['distance'] as double));
+      // 2. Filter pencarian jika ada
+      if (search != null && search.isNotEmpty) {
+        filteredHotels = filteredHotels
+            .where((hotel) => hotel['name']
+                .toString()
+                .toLowerCase()
+                .contains(search.toLowerCase()))
+            .toList();
       }
 
-      // Filter berdasarkan range harga hanya jika aktif
+      // 3. Filter berdasarkan range harga
       if (_isPriceFilterActive) {
         filteredHotels = filteredHotels.where((hotel) {
+          if (hotel['room_types'] == null) return false;
           double lowestPrice = _getLowestPrice(hotel['room_types']);
           return lowestPrice >= _minPrice && lowestPrice <= _maxPrice;
         }).toList();
       }
 
-      // Sort if needed
-      if (sort != null) {
-        switch (sort) {
+      // 4. Filter dan sort berdasarkan jarak
+      if (_isNearestActive && _currentPosition != null) {
+        // Hitung jarak untuk setiap hotel
+        for (var hotel in filteredHotels) {
+          if (hotel['latitude'] == null || hotel['longitude'] == null) {
+            hotel['distance'] = double.infinity;
+            continue;
+          }
+
+          try {
+            hotel['distance'] = _calculateDistance(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              double.parse(hotel['latitude'].toString()),
+              double.parse(hotel['longitude'].toString()),
+            );
+          } catch (e) {
+            print('Error calculating distance for ${hotel['name']}: $e');
+            hotel['distance'] = double.infinity;
+          }
+        }
+
+        // Sort berdasarkan jarak
+        filteredHotels.sort((a, b) =>
+            (a['distance'] as double).compareTo(b['distance'] as double));
+      }
+
+      // 5. Sort berdasarkan harga jika dipilih
+      if (sortBy != null) {
+        switch (sortBy) {
           case 'price_high':
             filteredHotels.sort((a, b) {
-              final aPrice = _getLowestPrice(a['room_types']);
-              final bPrice = _getLowestPrice(b['room_types']);
-              return bPrice.compareTo(aPrice);
+              final priceA = _getLowestPrice(a['room_types']);
+              final priceB = _getLowestPrice(b['room_types']);
+              return priceB.compareTo(priceA); // Harga tertinggi dulu
             });
             break;
           case 'price_low':
             filteredHotels.sort((a, b) {
-              final aPrice = _getLowestPrice(a['room_types']);
-              final bPrice = _getLowestPrice(b['room_types']);
-              return aPrice.compareTo(bPrice);
+              final priceA = _getLowestPrice(a['room_types']);
+              final priceB = _getLowestPrice(b['room_types']);
+              return priceA.compareTo(priceB); // Harga terendah dulu
             });
             break;
         }
       }
 
+      // Update list hotel
       hotels.value = filteredHotels;
     } catch (e) {
-      print('Error fetching hotels: $e');
+      print('Error in _fetchHotels: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal memuat data hotel: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     } finally {
-      isLoading.value = false;
+      isLoading.value = true;
     }
   }
 
+
+  // Helper function untuk mendapatkan harga terendah
   double _getLowestPrice(List<dynamic> roomTypes) {
     if (roomTypes.isEmpty) return 0;
     try {
@@ -523,6 +567,9 @@ class _HotelScreenState extends State<HotelScreen> {
 
   @override
   void dispose() {
+    // Reset filter saat keluar screen
+    _isNearestActive = false;
+    _isPriceFilterActive = false;
     _minPriceController.dispose();
     _maxPriceController.dispose();
     super.dispose();

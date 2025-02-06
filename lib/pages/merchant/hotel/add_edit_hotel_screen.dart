@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' as latlong2; // Tambahkan alias
+import 'hotel_management_screen.dart';
 
 class AddEditHotelScreen extends StatefulWidget {
   final Map<String, dynamic>? hotel;
@@ -27,16 +33,146 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
   List<File> _newImages = [];
   bool _isLoading = false;
 
+  // Tambahkan controller untuk koordinat
+  double? _latitude;
+  double? _longitude;
+  String _selectedAddress = '';
+
+  String _formatAddress(Map<String, dynamic> address) {
+    try {
+      return address['full_address'] ?? 'Alamat tidak tersedia';
+    } catch (e) {
+      print('Error formatting address: $e');
+      return 'Alamat tidak tersedia';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     if (widget.hotel != null) {
       _nameController.text = widget.hotel!['name'];
       _descriptionController.text = widget.hotel!['description'] ?? '';
-      _addressController.text = widget.hotel!['address'] ?? '';
-      _facilitiesController.text =
-          (widget.hotel!['facilities'] as List).join(', ');
+
+      // Perbaiki cara mengakses alamat
+      if (widget.hotel!['address'] is Map) {
+        final address = widget.hotel!['address'] as Map<String, dynamic>;
+        _selectedAddress = address['full_address'] ?? '';
+        _addressController.text = _selectedAddress;
+      }
+
+      _facilitiesController.text = widget.hotel!['facilities'] != null
+          ? (widget.hotel!['facilities'] as List).join(', ')
+          : '';
       _imageUrls = List<String>.from(widget.hotel!['image_url'] ?? []);
+      _latitude = widget.hotel!['latitude']?.toDouble();
+      _longitude = widget.hotel!['longitude']?.toDouble();
+    }
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition();
+        setState(() {
+          _latitude = _latitude ?? position.latitude;
+          _longitude = _longitude ?? position.longitude;
+        });
+        if (_selectedAddress.isEmpty) {
+          _getAddressFromLatLng();
+        }
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+    }
+  }
+
+  Future<void> _getAddressFromLatLng() async {
+    try {
+      if (_latitude != null && _longitude != null) {
+        setState(() => _isLoading = true);
+
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          _latitude!,
+          _longitude!,
+        ).timeout(
+          Duration(seconds: 10),
+          onTimeout: () {
+            throw TimeoutException('Waktu pengambilan alamat habis');
+          },
+        );
+
+        if (placemarks.isNotEmpty) {
+          Placemark place = placemarks[0];
+          setState(() {
+            _selectedAddress = [
+              if (place.street?.isNotEmpty == true) place.street,
+              if (place.subLocality?.isNotEmpty == true) place.subLocality,
+              if (place.locality?.isNotEmpty == true) place.locality,
+              if (place.subAdministrativeArea?.isNotEmpty == true)
+                place.subAdministrativeArea,
+              if (place.administrativeArea?.isNotEmpty == true)
+                place.administrativeArea,
+              if (place.postalCode?.isNotEmpty == true) place.postalCode,
+            ].where((e) => e != null).join(', ');
+
+            _addressController.text = _selectedAddress;
+          });
+        }
+      }
+    } on TimeoutException catch (_) {
+      Get.snackbar(
+        'Peringatan',
+        'Waktu pengambilan alamat habis. Silakan coba lagi.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      print('Error getting address: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mendapatkan alamat. Silakan coba lagi.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showMapPicker() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      final latlong2.LatLng? result = await Get.to(
+        () => MapPicker(
+          initialLocation: _latitude != null && _longitude != null
+              ? latlong2.LatLng(_latitude!, _longitude!)
+              : null,
+        ),
+      );
+
+      if (result != null) {
+        setState(() {
+          _latitude = result.latitude;
+          _longitude = result.longitude;
+        });
+        await _getAddressFromLatLng();
+      }
+    } catch (e) {
+      print('Error showing map: $e');
+      Get.snackbar('Error', e.toString(),
+          backgroundColor: Colors.red, colorText: Colors.white);
     }
   }
 
@@ -73,44 +209,64 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
   Future<void> _saveHotel() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_latitude == null || _longitude == null) {
+      Get.snackbar(
+        'Error',
+        'Silakan pilih lokasi hotel pada peta terlebih dahulu',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     try {
       setState(() => _isLoading = true);
 
-      // Upload new images
       final List<String> newImageUrls = await _uploadImages();
       final allImageUrls = [..._imageUrls, ...newImageUrls];
 
       final hotelData = {
         'name': _nameController.text,
         'description': _descriptionController.text,
-        'address': _addressController.text,
-        'facilities':
-            _facilitiesController.text.split(',').map((e) => e.trim()).toList(),
+        'address': {
+          'full_address': _selectedAddress,
+        },
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'facilities': _facilitiesController.text
+            .split(',')
+            .where((facility) => facility.trim().isNotEmpty)
+            .map((e) => e.trim())
+            .toList(),
         'image_url': allImageUrls,
         'merchant_id': supabase.auth.currentUser!.id,
       };
 
       if (widget.hotel == null) {
-        // Create new hotel
         await supabase.from('hotels').insert(hotelData);
+        Get.snackbar(
+          'Sukses',
+          'Hotel berhasil ditambahkan',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
       } else {
-        // Update existing hotel
         await supabase
             .from('hotels')
             .update(hotelData)
             .eq('id', widget.hotel!['id']);
+        Get.snackbar(
+          'Sukses',
+          'Hotel berhasil diupdate',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
       }
 
-      Get.back();
-      Get.snackbar(
-        'Sukses',
-        widget.hotel == null
-            ? 'Hotel berhasil ditambahkan'
-            : 'Hotel berhasil diupdate',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
+      // Kembali ke HotelManagementScreen
+      Get.offAll(() => HotelManagementScreen());
     } catch (e) {
+      print('Error saving hotel: $e');
       Get.snackbar(
         'Error',
         'Gagal menyimpan hotel: $e',
@@ -164,8 +320,13 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
               decoration: InputDecoration(
                 labelText: 'Alamat',
                 border: OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(Icons.map),
+                  onPressed: _showMapPicker,
+                ),
               ),
               maxLines: 2,
+              readOnly: true,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Alamat tidak boleh kosong';
@@ -173,6 +334,15 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
                 return null;
               },
             ),
+
+            if (_latitude != null && _longitude != null) ...[
+              SizedBox(height: 8),
+              Text(
+                'Koordinat: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+
             SizedBox(height: 16),
 
             TextFormField(
@@ -235,6 +405,76 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Tambahkan class MapPicker
+class MapPicker extends StatefulWidget {
+  final latlong2.LatLng? initialLocation;
+
+  const MapPicker({Key? key, this.initialLocation}) : super(key: key);
+
+  @override
+  _MapPickerState createState() => _MapPickerState();
+}
+
+class _MapPickerState extends State<MapPicker> {
+  latlong2.LatLng? _selectedLocation;
+  MapController mapController = MapController();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLocation = widget.initialLocation;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Pilih Lokasi'),
+        backgroundColor: AppTheme.primary,
+        actions: [
+          if (_selectedLocation != null)
+            TextButton(
+              onPressed: () => Get.back(result: _selectedLocation),
+              child: Text('Pilih', style: TextStyle(color: Colors.white)),
+            ),
+        ],
+      ),
+      body: FlutterMap(
+        mapController: mapController,
+        options: MapOptions(
+          initialCenter:
+              widget.initialLocation ?? latlong2.LatLng(-6.200000, 106.816666),
+          initialZoom: 15,
+          onTap: (tapPosition, point) {
+            setState(() => _selectedLocation = point);
+          },
+        ),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.example.app',
+          ),
+          if (_selectedLocation != null)
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: _selectedLocation!,
+                  width: 80,
+                  height: 80,
+                  child: Icon(
+                    Icons.location_pin,
+                    color: AppTheme.primary,
+                    size: 40,
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
