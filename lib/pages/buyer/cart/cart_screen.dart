@@ -202,33 +202,91 @@ class _CartScreenState extends State<CartScreen> {
                   ElevatedButton(
                     onPressed: selectedItems.containsValue(true)
                         ? () async {
-                            List<Map<String, dynamic>> selectedProducts = [];
-                            for (var item in cartController.cartItems) {
-                              if (selectedItems[item['id'].toString()] ==
-                                  true) {
-                                selectedProducts.add({
-                                  'id': item['id'],
-                                  'product_id': item['product_id'],
-                                  'quantity': item['quantity'],
-                                  'products': item['products'],
-                                });
+                            try {
+                              List<Map<String, dynamic>> selectedProducts = [];
+                              List<String> selectedIds =
+                                  []; // Untuk menyimpan ID item yang dipilih
+
+                              for (var item in cartController.cartItems) {
+                                if (selectedItems[item['id'].toString()] ==
+                                    true) {
+                                  selectedProducts.add({
+                                    'id': item['id'],
+                                    'product_id': item['product_id'],
+                                    'quantity': item['quantity'],
+                                    'products': item['products'],
+                                  });
+                                  selectedIds.add(item['id']
+                                      .toString()); // Simpan ID yang dipilih
+                                }
                               }
+
+                              final userId =
+                                  cartController.supabase.auth.currentUser!.id;
+
+                              // Ambil alamat user
+                              final userResponse = await cartController.supabase
+                                  .from('users')
+                                  .select('address')
+                                  .eq('id', userId)
+                                  .single();
+
+                              // Convert address map to string format
+                              final address = userResponse['address']
+                                  as Map<String, dynamic>;
+                              final formattedAddress = '${address['street']}, '
+                                  '${address['village']}, '
+                                  '${address['district']}, '
+                                  '${address['city']}, '
+                                  '${address['province']}, '
+                                  '${address['postal_code']}';
+
+                              final checkoutData = {
+                                'buyer_id': userId,
+                                'shipping_address': formattedAddress,
+                                'total_amount': calculateSelectedTotal(),
+                                'items': selectedProducts,
+                                'payment_method': null,
+                                'shipping_cost': 0,
+                                'admin_fee': 0,
+                                'status': 'pending',
+                              };
+
+                              // Navigasi ke CheckoutScreen dan tunggu hasilnya
+                              final result = await Get.to(
+                                  () => CheckoutScreen(data: checkoutData));
+
+                              // Jika checkout berhasil, hapus item yang dipilih dari keranjang
+                              if (result == true) {
+                                // Hapus item yang dipilih dari cart
+                                for (String id in selectedIds) {
+                                  await cartController.removeFromCart(id);
+                                }
+
+                                // Reset selection
+                                setState(() {
+                                  selectedItems.clear();
+                                });
+
+                                // Refresh cart items
+                                cartController.fetchCartItems();
+
+                                Get.snackbar(
+                                  'Sukses',
+                                  'Produk berhasil dicheckout',
+                                  backgroundColor: Colors.green,
+                                  colorText: Colors.white,
+                                );
+                              }
+                            } catch (e) {
+                              print('Error preparing checkout: $e');
+                              Get.snackbar(
+                                'Error',
+                                'Terjadi kesalahan saat mempersiapkan checkout',
+                                backgroundColor: Colors.red,
+                                colorText: Colors.white,
+                              );
                             }
-
-                            String userId =
-                                cartController.supabase.auth.currentUser!.id;
-                            String shippingAddress =
-                                await orderController.fetchUserAddress(userId);
-
-                            final checkoutData = {
-                              'buyer_id': userId,
-                              'courier_id': 'default_courier',
-                              'shipping_address': shippingAddress,
-                              'total_amount': calculateSelectedTotal(),
-                              'items': selectedProducts,
-                            };
-
-                            Get.to(() => CheckoutScreen(data: checkoutData));
                           }
                         : null,
                     style: ElevatedButton.styleFrom(

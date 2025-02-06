@@ -158,15 +158,20 @@ class CartController extends GetxController {
   }
 
   // Mengosongkan keranjang
-  Future<void> clearCart() async {
+  Future<void> clearCart(List<dynamic> productIds) async {
     try {
       isLoading(true);
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      await supabase.from('cart_items').delete().eq('user_id', userId);
+      await supabase
+          .from('cart_items')
+          .delete()
+          .eq('user_id', userId)
+          .inFilter('product_id', productIds);
 
-      cartItems.clear();
+      // Update local cart items
+      cartItems.removeWhere((item) => productIds.contains(item['product_id']));
     } catch (e) {
       print('Error clearing cart: $e');
       Get.snackbar(
@@ -200,7 +205,7 @@ class CartController extends GetxController {
       });
 
       // Kosongkan keranjang setelah checkout
-      await clearCart();
+      await clearCart([]);
 
       Get.snackbar('Sukses', 'Checkout berhasil!');
     } catch (e) {

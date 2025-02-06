@@ -313,86 +313,95 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
 
-            // Produk Referensi
+            const SizedBox(height: 16),
+
+            // Produk Serupa
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
-                'Produk Referensi',
+                'Produk Serupa',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
+
+            const SizedBox(height: 8),
+
             FutureBuilder<List<Map<String, dynamic>>>(
               future: _fetchRelatedProducts(widget.product['category']),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return Center(child: CircularProgressIndicator());
                 }
+
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return Center(child: Text('Tidak ada produk referensi'));
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Tidak ada produk serupa'),
+                  );
                 }
 
-                final relatedProducts = snapshot.data!;
-                return SizedBox(
+                return Container(
                   height: 220,
                   child: ListView.builder(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
                     scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    itemCount: relatedProducts.length,
+                    itemCount: snapshot.data!.length,
                     itemBuilder: (context, index) {
-                      final relatedProduct = relatedProducts[index];
-                      if (relatedProduct['id'] == widget.product['id']) {
-                        return SizedBox.shrink(); // Skip produk yang sama
-                      }
-                      return GestureDetector(
+                      final product = snapshot.data![index];
+                      return InkWell(
                         onTap: () {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProductDetailScreen(
-                                product: relatedProduct,
-                              ),
-                            ),
-                          );
+                          Get.off(() => ProductDetailScreen(product: product),
+                              preventDuplicates: false);
                         },
                         child: Container(
-                          width: 160,
-                          margin: EdgeInsets.symmetric(horizontal: 4),
+                          width: 140,
+                          margin: EdgeInsets.only(right: 12),
                           child: Card(
+                            elevation: 0.5,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Gambar Produk
-                                Container(
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    image: DecorationImage(
-                                      image: NetworkImage(
-                                          _getFirstImageUrl(relatedProduct)),
-                                      fit: BoxFit.cover,
-                                    ),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(8)),
+                                  child: Image.network(
+                                    _getFirstImageUrl(product),
+                                    height: 120,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        height: 120,
+                                        color: Colors.grey[200],
+                                        child: Icon(Icons.error_outline),
+                                      );
+                                    },
                                   ),
                                 ),
-                                // Info Produk
                                 Padding(
-                                  padding: EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(8.0),
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        relatedProduct['name'],
+                                        product['name'],
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(fontSize: 12),
                                       ),
                                       SizedBox(height: 4),
                                       Text(
-                                        'Rp ${NumberFormat('#,###').format(relatedProduct['price'])}',
+                                        'Rp ${NumberFormat('#,###').format(product['price'])}',
                                         style: TextStyle(
-                                          color: Colors.red,
+                                          color: AppTheme.primary,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 12,
                                         ),
@@ -404,10 +413,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                               size: 12, color: Colors.grey),
                                           SizedBox(width: 4),
                                           Text(
-                                            'Terjual ${relatedProduct['sales'] ?? 0}',
+                                            'Terjual ${product['sales'] ?? 0}',
                                             style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey),
+                                              fontSize: 10,
+                                              color: Colors.grey,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -424,6 +434,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 );
               },
             ),
+
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -519,12 +531,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final response = await supabase
         .from('products')
         .select()
-        .eq('category', category) // Filter berdasarkan kolom category
-        .neq('id', widget.product['id']) // Kecuali produk saat ini
-        .order('sales', ascending: false) // Urutkan berdasarkan penjualan
+        .eq('category', category)
+        .neq('id', widget.product['id'])
+        .order('sales', ascending: false)
         .limit(5);
 
-    return response;
+    return List<Map<String, dynamic>>.from(response);
   }
 
   Future<void> _startChat() async {
@@ -583,37 +595,57 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     try {
-      // Ambil alamat user dan data merchant
+      // Ambil alamat user
       final userResponse = await supabase
           .from('users')
           .select('address')
           .eq('id', userId)
           .single();
 
+      // Ambil data merchant
       final merchantResponse = await supabase
           .from('merchants')
           .select()
           .eq('id', widget.product['seller_id'])
           .single();
 
-      // Langsung ke CheckoutScreen dengan alamat dan data merchant
-      Get.to(() => CheckoutScreen(
-            data: {
-              'items': [
-                {
-                  'products': {
-                    ...widget.product,
-                    'merchant': merchantResponse, // Tambahkan data merchant
-                  },
-                  'quantity': 1,
-                }
-              ],
-              'total_amount': widget.product['price'] * 1,
-              'buyer_id': userId,
-              'status': 'pending',
-              'shipping_address': userResponse['address'] ?? {},
+      // Convert address map to string format
+      final address = userResponse['address'] as Map<String, dynamic>;
+      final formattedAddress = '${address['street']}, '
+          '${address['village']}, '
+          '${address['district']}, '
+          '${address['city']}, '
+          '${address['province']}, '
+          '${address['postal_code']}';
+
+      // Konversi product ke Map<String, dynamic>
+      final productData = Map<String, dynamic>.from(widget.product);
+
+      // Format data untuk checkout
+      final checkoutData = {
+        'items': [
+          {
+            'products': {
+              ...productData,
+              'seller_id': widget.product['seller_id'],
+              'merchant': Map<String, dynamic>.from(merchantResponse),
             },
-          ));
+            'quantity': 1,
+          }
+        ],
+        'total_amount': widget.product['price'],
+        'buyer_id': userId,
+        'status': 'pending',
+        'shipping_address': formattedAddress,
+        'payment_method': null,
+        'shipping_cost': 0,
+        'admin_fee': 0,
+      };
+
+      print('Debug - Checkout Data: $checkoutData'); // Debug print
+
+      // Navigasi ke CheckoutScreen
+      Get.to(() => CheckoutScreen(data: checkoutData));
     } catch (e) {
       print('Error getting data: $e');
       Get.snackbar(

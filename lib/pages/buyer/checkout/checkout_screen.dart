@@ -100,6 +100,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> handleConfirmOrder() async {
+    // Validasi alamat
+    if (widget.data['shipping_address'] == null ||
+        widget.data['shipping_address'].toString().trim().isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Silakan lengkapi alamat pengiriman terlebih dahulu',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // Validasi metode pembayaran
     if (paymentMethod != null) {
       try {
         print('Debug: Starting order creation process');
@@ -159,16 +173,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Ambil payment_group_id dari response
         final paymentGroupId = response['payment_group_id'];
 
-        await cartController.clearCart();
+        await cartController.clearCart(
+            widget.data['items'].map((item) => item['product_id']).toList());
 
         final selectedPaymentMethod = paymentMethods
             .firstWhere((method) => method['id'].toString() == paymentMethod);
 
+        // Navigasi ke PaymentScreen
         Get.off(() => PaymentScreen(
               orderData: {
                 ...widget.data,
-                'payment_group_id':
-                    paymentGroupId, // Tambahkan payment_group_id
+                'payment_group_id': paymentGroupId,
                 'total_amount':
                     widget.data['total_amount'] + adminFee + shippingCost,
                 'total_shipping_cost': shippingCost,
@@ -180,10 +195,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         print('Error creating order: $e');
         Get.snackbar(
           'Error',
-          'Terjadi kesalahan saat membuat pesanan: ${e.toString()}',
+          'Terjadi kesalahan saat membuat pesanan',
           backgroundColor: Colors.red,
           colorText: Colors.white,
-          duration: const Duration(seconds: 5),
         );
       }
     } else {
@@ -1060,39 +1074,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ],
         ),
         child: ElevatedButton(
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (BuildContext context) {
-                return AlertDialog(
-                  title: Text('Konfirmasi Pesanan'),
-                  content: Text(
-                      'Apakah Anda yakin ingin mengonfirmasi pesanan ini?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text('Batal'),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        handleConfirmOrder();
-                      },
-                      child: Text('Ya'),
-                    ),
-                  ],
-                );
-              },
-            );
-          },
+          onPressed: isAddressValid()
+              ? () {
+                  showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text('Konfirmasi Pesanan'),
+                        content: Text(
+                            'Apakah Anda yakin ingin mengonfirmasi pesanan ini?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text('Batal'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              handleConfirmOrder();
+                            },
+                            child: Text('Ya'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+              : null, // Disable tombol jika alamat tidak valid
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primary,
+            backgroundColor: isAddressValid() ? AppTheme.primary : Colors.grey,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          child:
-              Text('Konfirmasi Pesanan', style: TextStyle(color: Colors.white)),
+          child: Text('Konfirmasi Pesanan',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ),
     );
@@ -1175,5 +1192,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ],
       ),
     );
+  }
+
+  // Tambahkan fungsi untuk validasi alamat
+  bool isAddressValid() {
+    return widget.data['shipping_address'] != null &&
+        widget.data['shipping_address'].toString().trim().isNotEmpty;
   }
 }

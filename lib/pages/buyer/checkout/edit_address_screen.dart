@@ -24,6 +24,16 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   final supabase = Supabase.instance.client;
   TextEditingController searchController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    // Set alamat awal dan cari lokasinya
+    selectedAddress = widget.initialAddress;
+    if (widget.initialAddress.isNotEmpty) {
+      searchLocation(widget.initialAddress);
+    }
+  }
+
   Future<void> getAddressFromLatLng(LatLng position) async {
     setState(() => isLoading = true);
     try {
@@ -36,6 +46,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         Placemark place = placemarks[0];
         selectedAddress =
             '${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}';
+        setState(() {});
       }
     } catch (e) {
       print('Error getting address: $e');
@@ -45,26 +56,27 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   }
 
   Future<void> searchLocation(String query) async {
-    if (query.length > 2) {
-      try {
-        List<Location> locations = await locationFromAddress(query);
-        if (locations.isNotEmpty) {
-          Location location = locations.first;
-          LatLng newLocation = LatLng(location.latitude, location.longitude);
-          setState(() => selectedLocation = newLocation);
-          mapController.move(newLocation, 16.0);
-          getAddressFromLatLng(newLocation);
-        }
-      } catch (e) {
-        print('Error searching location: $e');
+    setState(() => isLoading = true);
+    try {
+      List<Location> locations = await locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        Location location = locations.first;
+        LatLng newLocation = LatLng(location.latitude, location.longitude);
+        setState(() => selectedLocation = newLocation);
+        mapController.move(newLocation, 16.0);
+        await getAddressFromLatLng(newLocation);
+        searchController.text = query; // Set teks pencarian
       }
+    } catch (e) {
+      print('Error searching location: $e');
+      Get.snackbar(
+        'Error',
+        'Lokasi tidak ditemukan',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    getAddressFromLatLng(selectedLocation);
+    setState(() => isLoading = false);
   }
 
   @override

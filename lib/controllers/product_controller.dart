@@ -185,4 +185,13 @@ class ProductController extends GetxController {
 
     products.value = filtered;
   }
+
+  void filterByPriceRange(int minPrice, int maxPrice) {
+    final filteredProducts = products.where((product) {
+      final price = double.tryParse(product['price'].toString()) ?? 0;
+      return price >= minPrice && price <= maxPrice;
+    }).toList();
+
+    products.value = filteredProducts;
+  }
 }
