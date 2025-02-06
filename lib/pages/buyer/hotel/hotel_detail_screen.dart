@@ -567,8 +567,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
     );
   }
 
-  String _formatAddress(String address) {
-    // Implementasi format address sesuai kebutuhan
-    return address;
+  String _formatAddress(dynamic address) {
+    if (address is Map) {
+      return address['full_address'] ?? 'Alamat tidak tersedia';
+    }
+    return address?.toString() ?? 'Alamat tidak tersedia';
   }
 }

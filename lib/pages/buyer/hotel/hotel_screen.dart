@@ -327,7 +327,14 @@ class _HotelScreenState extends State<HotelScreen> {
                 itemCount: hotels.length,
                 itemBuilder: (context, index) {
                   final hotel = hotels[index];
-                  final hotelAddress = hotel['address'];
+                  final hotelAddress = hotel['address'] is Map
+                      ? (hotel['address'] as Map)['full_address']
+                      : hotel['address'] as String;
+
+                  // Tambahkan informasi jarak jika ada
+                  final String displayAddress = hotel['distance'] != null
+                      ? '$hotelAddress (${hotel['distance'] < 1 ? '${(hotel['distance'] * 1000).toStringAsFixed(0)}m' : '${hotel['distance'].toStringAsFixed(1)}km'})'
+                      : hotelAddress;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -374,7 +381,7 @@ class _HotelScreenState extends State<HotelScreen> {
                                         const SizedBox(height: 4),
                                         // Location
                                         Text(
-                                          hotelAddress,
+                                          displayAddress,
                                           style: TextStyle(
                                             color: AppTheme.textHint,
                                             fontSize: 12,
@@ -455,24 +462,47 @@ class _HotelScreenState extends State<HotelScreen> {
       final response = await query;
       var filteredHotels = List<Map<String, dynamic>>.from(response);
 
+      // Debug print untuk melihat data hotel
+      print('=== DEBUG HOTEL DATA ===');
+      for (var hotel in filteredHotels) {
+        print('Hotel: ${hotel['name']}');
+        print(
+            'Latitude: ${hotel['latitude']} (${hotel['latitude'].runtimeType})');
+        print(
+            'Longitude: ${hotel['longitude']} (${hotel['longitude'].runtimeType})');
+      }
+      print('=== Current Position ===');
+      print('Latitude: ${_currentPosition?.latitude}');
+      print('Longitude: ${_currentPosition?.longitude}');
+      print('=====================');
+
       // Filter berdasarkan jarak jika aktif
       if (_isNearestActive && _currentPosition != null) {
         filteredHotels.forEach((hotel) {
-          final address = Map<String, dynamic>.from(hotel['address']);
-          final distance = _calculateDistance(
-            _currentPosition!.latitude,
-            _currentPosition!.longitude,
-            double.parse(address['latitude'].toString()),
-            double.parse(address['longitude'].toString()),
-          );
-          hotel['distance'] = distance;
+          try {
+            final distance = _calculateDistance(
+              _currentPosition!.latitude,
+              _currentPosition!.longitude,
+              double.parse(hotel['latitude'].toString()),
+              double.parse(hotel['longitude'].toString()),
+            );
+            hotel['distance'] = distance;
+          } catch (e) {
+            print('Error calculating distance for hotel: $e');
+            hotel['distance'] =
+                double.infinity; // Set jarak maksimum jika error
+          }
         });
 
-        filteredHotels.sort((a, b) =>
-            (a['distance'] as double).compareTo(b['distance'] as double));
+        // Urutkan berdasarkan jarak terdekat
+        filteredHotels.sort((a, b) {
+          final distanceA = a['distance'] as double? ?? double.infinity;
+          final distanceB = b['distance'] as double? ?? double.infinity;
+          return distanceA.compareTo(distanceB);
+        });
       }
 
-      // Filter berdasarkan range harga hanya jika aktif
+      // Filter berdasarkan range harga jika aktif
       if (_isPriceFilterActive) {
         filteredHotels = filteredHotels.where((hotel) {
           double lowestPrice = _getLowestPrice(hotel['room_types']);
@@ -480,7 +510,7 @@ class _HotelScreenState extends State<HotelScreen> {
         }).toList();
       }
 
-      // Sort if needed
+      // Sort berdasarkan harga jika dipilih
       if (sort != null) {
         switch (sort) {
           case 'price_high':
