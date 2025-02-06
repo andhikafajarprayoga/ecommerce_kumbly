@@ -28,6 +28,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     super.initState();
     _initializeMessages();
     _markMessagesAsRead();
+
+    // Scroll ke bawah setelah pesan dimuat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
   }
 
   @override
@@ -87,12 +92,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           'chat_room_id': widget.chatRoom['id'],
           'sender_id': userId,
           'content': _messageController.text,
+          'is_read': false,
         });
       } else {
         await supabase.from('chat_messages').insert({
           'room_id': widget.chatRoom['id'],
           'sender_id': userId,
           'message': _messageController.text,
+          'is_read': false,
         });
       }
 
@@ -100,8 +107,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       setState(() {
         _messageController.clear();
       });
+
+      // Scroll ke bawah setelah mengirim pesan
+      _scrollToBottom();
     } catch (e) {
       print('Error sending message: $e');
+    }
+  }
+
+  // Fungsi helper untuk scroll ke bawah
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -127,11 +148,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 }
 
                 final messages = snapshot.data!;
+
+                // Scroll ke bawah setiap kali ada pesan baru
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _scrollToBottom();
+                });
+
                 return ListView.builder(
-                  reverse: true,
+                  controller: _scrollController,
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final message = messages[messages.length - 1 - index];
+                    final message = messages[index];
                     final isMine =
                         message['sender_id'] == supabase.auth.currentUser?.id;
 
@@ -144,7 +171,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       isRead: message['is_read'] ?? false,
                     );
                   },
-                  controller: _scrollController,
                 );
               },
             ),

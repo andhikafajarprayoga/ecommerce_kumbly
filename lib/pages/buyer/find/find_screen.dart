@@ -639,7 +639,7 @@ class _FindScreenState extends State<FindScreen> {
               ),
             ),
             IconButton(
-              icon: Icon(Icons.filter_list, color: Colors.white),
+              icon: Icon(Icons.tune, color: Colors.white),
               onPressed: _showFilterBottomSheet,
             ),
           ],
