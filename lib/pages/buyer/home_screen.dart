@@ -12,6 +12,8 @@ import 'package:intl/intl.dart';
 import 'chat/chat_screen.dart';
 import 'dart:convert';
 import 'hotel/hotel_screen.dart';
+import 'package:rxdart/rxdart.dart';
+import '../../controllers/cart_controller.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -30,12 +32,19 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final TextEditingController searchController = TextEditingController();
   final TextEditingController minPriceController = TextEditingController();
   final TextEditingController maxPriceController = TextEditingController();
+  RxInt cartCount = 0.obs;
+  RxInt unreadChatCount = 0.obs;
+  final CartController cartController = Get.put(CartController());
 
   @override
   void initState() {
     super.initState();
     productController.fetchProducts();
     fetchBanners();
+    fetchCartCount();
+    listenToCartChanges();
+    fetchUnreadChats();
+    listenToUnreadChats();
   }
 
   Future<void> fetchBanners() async {
@@ -56,6 +65,61 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         isLoadingBanners = false;
       });
     }
+  }
+
+  Future<void> fetchCartCount() async {
+    try {
+      final response = await supabase
+          .from('cart_items')
+          .select('id')
+          .eq('user_id', supabase.auth.currentUser!.id)
+          .count();
+
+      cartCount.value = response.count ?? 0;
+    } catch (e) {
+      print('Error fetching cart count: $e');
+    }
+  }
+
+  void listenToCartChanges() {
+    final myUserId = supabase.auth.currentUser!.id;
+    supabase
+        .from('cart_items')
+        .stream(primaryKey: ['id'])
+        .order('created_at')
+        .listen((List<Map<String, dynamic>> data) {
+          cartCount.value =
+              data.where((item) => item['user_id'] == myUserId).length;
+        });
+  }
+
+  Future<void> fetchUnreadChats() async {
+    try {
+      final response = await supabase
+          .from('chat_messages')
+          .select('id')
+          .eq('receiver_id', supabase.auth.currentUser!.id)
+          .eq('is_read', false)
+          .count();
+
+      unreadChatCount.value = response.count ?? 0;
+    } catch (e) {
+      print('Error fetching unread chats: $e');
+    }
+  }
+
+  void listenToUnreadChats() {
+    final myUserId = supabase.auth.currentUser!.id;
+    supabase
+        .from('chat_messages')
+        .stream(primaryKey: ['id'])
+        .order('created_at')
+        .listen((List<Map<String, dynamic>> data) {
+          unreadChatCount.value = data
+              .where((msg) =>
+                  msg['receiver_id'] == myUserId && msg['is_read'] == false)
+              .length;
+        });
   }
 
   void _onItemTapped(int index) {
@@ -150,17 +214,74 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                 ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 0.2),
-                  child: IconButton(
-                    icon:
-                        Icon(Icons.shopping_cart_outlined, color: Colors.white),
-                    onPressed: () => Get.to(() => CartScreen()),
+                  child: Stack(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.shopping_cart, color: Colors.white),
+                        onPressed: () => Get.to(() => CartScreen()),
+                      ),
+                      Obx(() => cartController.cartItems.isNotEmpty
+                          ? Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(255, 0, 0, 0),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '${cartController.cartItems.length}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          : SizedBox()),
+                    ],
                   ),
                 ),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 0.2),
-                  child: IconButton(
-                    icon: Icon(Icons.chat_outlined, color: Colors.white),
-                    onPressed: () => Get.to(() => ChatScreen()),
+                  child: Stack(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.chat_outlined, color: Colors.white),
+                        onPressed: () => Get.to(() => ChatScreen()),
+                      ),
+                      Obx(() => unreadChatCount.value > 0
+                          ? Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(255, 0, 0, 0),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '${unreadChatCount.value}',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            )
+                          : SizedBox()),
+                    ],
                   ),
                 ),
               ],
