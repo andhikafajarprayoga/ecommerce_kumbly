@@ -395,7 +395,8 @@ class _HotelScreenState extends State<HotelScreen> {
                                         const SizedBox(height: 4),
                                         // Location
                                         Text(
-                                          displayAddress,
+                                          hotel['display_address'] ??
+                                              'Alamat tidak tersedia',
                                           style: TextStyle(
                                             color: AppTheme.textHint,
                                             fontSize: 12,
@@ -463,9 +464,13 @@ class _HotelScreenState extends State<HotelScreen> {
       isLoading.value = true;
 
       // 1. Ambil data hotel dasar
-      final response = await supabase
-          .from('hotels')
-          .select('*, merchants:merchant_id (store_name, store_address)');
+      final response = await supabase.from('hotels').select('''
+            *,
+            merchants:merchant_id (
+              store_name,
+              store_address
+            )
+          ''');
 
       var filteredHotels = List<Map<String, dynamic>>.from(response);
 
@@ -535,7 +540,15 @@ class _HotelScreenState extends State<HotelScreen> {
         }
       }
 
-      // Update list hotel
+      // Handle alamat yang berbentuk Map
+      for (var hotel in filteredHotels) {
+        if (hotel['address'] is Map) {
+          hotel['display_address'] = hotel['address']['full_address'];
+        } else {
+          hotel['display_address'] = hotel['address'].toString();
+        }
+      }
+
       hotels.value = filteredHotels;
     } catch (e) {
       print('Error in _fetchHotels: $e');
@@ -546,10 +559,9 @@ class _HotelScreenState extends State<HotelScreen> {
         colorText: Colors.white,
       );
     } finally {
-      isLoading.value = true;
+      isLoading.value = false;
     }
   }
-
 
   // Helper function untuk mendapatkan harga terendah
   double _getLowestPrice(List<dynamic> roomTypes) {
