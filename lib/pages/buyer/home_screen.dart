@@ -69,58 +69,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     });
   }
 
-  void _showPriceFilterDialog() {
-    Get.dialog(
-      AlertDialog(
-        title: Text('Filter Harga'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: minPriceController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Harga Minimum',
-                prefixText: 'Rp ',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 16),
-            TextField(
-              controller: maxPriceController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'Harga Maksimum',
-                prefixText: 'Rp ',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              minPriceController.clear();
-              maxPriceController.clear();
-              productController.filterByPrice(null, null);
-              Get.back();
-            },
-            child: Text('Reset'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final minPrice = double.tryParse(minPriceController.text);
-              final maxPrice = double.tryParse(maxPriceController.text);
-              productController.filterByPrice(minPrice, maxPrice);
-              Get.back();
-            },
-            child: Text('Terapkan'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _performSearch(String value) async {
     setState(() => _selectedIndex = 1);
     productController.searchQuery.value = value;
@@ -228,7 +176,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined),
-            label: 'Menemukan',
+            label: 'Jelajahi',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.hotel_outlined),
@@ -310,16 +258,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                         'Kategori',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      TextButton.icon(
-                        onPressed: _showPriceFilterDialog,
-                        icon: Icon(Icons.filter_list,
-                            size: 20, color: AppTheme.primary),
-                        label: Text(
-                          'Filter Harga',
-                          style: TextStyle(color: AppTheme.primary),
+                          fontWeight: FontWeight.normal,
                         ),
                       ),
                     ],
@@ -330,7 +269,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                     children: [
                       CategoryIcon(
                         icon: Icons.checkroom_outlined,
-                        label: 'Pakaian',
+                        label: 'Fashion',
                         onTap: () {
                           if (productController.currentCategory.value ==
                               'fashion') {
@@ -374,9 +313,17 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                       ),
                       CategoryIcon(
                         icon: Icons.more_horiz,
-                        label: 'lainnya',
-                        onTap: () =>
-                            productController.filterByCategory('aksesoris'),
+                        label: 'Lainnya',
+                        onTap: () {
+                          if (productController.currentCategory.value ==
+                              'lainnya') {
+                            productController.currentCategory.value = '';
+                            productController.fetchProducts();
+                          } else {
+                            productController.currentCategory.value = 'lainnya';
+                            productController.filterOtherCategories();
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -425,41 +372,80 @@ class CategoryIcon extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final ProductController productController = Get.find<ProductController>();
 
-  const CategoryIcon({
+  CategoryIcon({
     required this.icon,
     required this.label,
     required this.onTap,
   });
 
+  String _getCategoryValue() {
+    switch (label.toLowerCase()) {
+      case 'fashion':
+        return 'fashion';
+      case 'elektronik':
+        return 'elektronik';
+      case 'aksesoris':
+        return 'aksesoris';
+      case 'lainnya':
+        return 'lainnya';
+      default:
+        return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryLight.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 30, color: AppTheme.primary),
+    return Obx(() {
+      final isSelected =
+          productController.currentCategory.value == _getCategoryValue() &&
+              productController.currentCategory.value.isNotEmpty;
+      return GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: Duration(milliseconds: 300),
+          child: Column(
+            children: [
+              AnimatedContainer(
+                duration: Duration(milliseconds: 300),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppTheme.primary
+                      : AppTheme.primaryLight.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: AppTheme.primary.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
+                          )
+                        ]
+                      : [],
+                ),
+                child: Icon(icon,
+                    size: 30,
+                    color: isSelected ? Colors.white : AppTheme.primary),
+              ),
+              const SizedBox(height: 8),
+              AnimatedDefaultTextStyle(
+                duration: Duration(milliseconds: 300),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? AppTheme.primary : AppTheme.textPrimary,
+                ),
+                child: Text(label),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
+        ),
+      );
+    });
   }
 }
-
 
 class ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;

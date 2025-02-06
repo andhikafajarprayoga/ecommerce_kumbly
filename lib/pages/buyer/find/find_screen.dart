@@ -29,6 +29,8 @@ class _FindScreenState extends State<FindScreen> {
   void initState() {
     super.initState();
     searchController.text = productController.searchQuery.value;
+    productController.products.clear();
+    productController.searchedMerchants.clear();
   }
 
   void _showSortOptions() {
@@ -580,6 +582,7 @@ class _FindScreenState extends State<FindScreen> {
                 height: 40,
                 child: TextField(
                   controller: searchController,
+                  autofocus: true,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
@@ -599,7 +602,8 @@ class _FindScreenState extends State<FindScreen> {
                               setState(() {
                                 searchController.clear();
                                 productController.searchQuery.value = '';
-                                performSearch('');
+                                productController.products.clear();
+                                productController.searchedMerchants.clear();
                               });
                             },
                           )
@@ -609,12 +613,15 @@ class _FindScreenState extends State<FindScreen> {
                     setState(() {
                       productController.searchQuery.value = value;
                       if (value.isEmpty) {
-                        performSearch('');
+                        productController.products.clear();
+                        productController.searchedMerchants.clear();
                       }
                     });
                   },
                   onSubmitted: (value) {
-                    performSearch(value);
+                    if (value.isNotEmpty) {
+                      performSearch(value);
+                    }
                   },
                 ),
               ),
@@ -682,7 +689,7 @@ class _FindScreenState extends State<FindScreen> {
                       : 'Produk dari Toko',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.normal,
                   ),
                 ),
               ),

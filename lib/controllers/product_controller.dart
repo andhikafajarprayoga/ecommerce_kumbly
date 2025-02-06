@@ -62,25 +62,18 @@ class ProductController extends GetxController {
     }
   }
 
-  void filterByCategory(String? category) {
-    selectedCategory.value = category;
-    if (category == null && searchQuery.value.isEmpty) {
-      fetchProducts();
-      return;
+  void filterByCategory(String category) async {
+    try {
+      final response = await supabase
+          .from('products')
+          .select()
+          .ilike('category', category)
+          .order('created_at');
+
+      products.value = List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      print('Error filtering by category: $e');
     }
-
-    final filteredProducts = products.where((product) {
-      final matchesQuery = searchQuery.value.isEmpty ||
-          product['name']
-              .toString()
-              .toLowerCase()
-              .contains(searchQuery.value.toLowerCase());
-      final matchesCategory =
-          category == null || product['category'] == category;
-      return matchesQuery && matchesCategory;
-    }).toList();
-
-    products.value = filteredProducts;
   }
 
   Future<void> addProduct(
@@ -193,5 +186,20 @@ class ProductController extends GetxController {
     }).toList();
 
     products.value = filteredProducts;
+  }
+
+  void filterOtherCategories() async {
+    try {
+      // Fetch semua produk terlebih dahulu
+      final response = await supabase
+          .from('products')
+          .select()
+          .not('category', 'in', '(fashion,elektronik,aksesoris)')
+          .order('created_at');
+
+      products.value = List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      print('Error filtering other categories: $e');
+    }
   }
 }
