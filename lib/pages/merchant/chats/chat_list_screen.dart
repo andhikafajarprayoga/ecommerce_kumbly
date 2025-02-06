@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/controllers/chatrooms_controller.dart';
 import 'package:kumbly_ecommerce/pages/merchant/chats/chat_detail_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final supabase = Supabase.instance.client;
 
 class ChatListScreen extends StatefulWidget {
   final String sellerId;
@@ -33,6 +36,23 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   void _listenForNewMessages() {
     chatController.listenForNewMessages(widget.sellerId);
+  }
+
+  // Fungsi untuk menandai pesan sebagai telah dibaca
+  Future<void> _markAsRead(String roomId) async {
+    try {
+      await supabase
+          .from('chat_messages')
+          .update({'is_read': true})
+          .eq('room_id', roomId)
+          .eq('sender_id', widget.sellerId)
+          .eq('is_read', false);
+
+      // Refresh data chat
+      chatController.fetchChatRooms(widget.sellerId);
+    } catch (e) {
+      print('Error marking messages as read: $e');
+    }
   }
 
   @override
@@ -81,6 +101,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
           itemBuilder: (context, index) {
             var chat = chatController.chatList[index];
             final unreadCount = chat["unread_count"] ?? 0;
+            final fullName = chat["buyer_name"] ?? "Unknown User";
+            final initial =
+                fullName.isNotEmpty ? fullName[0].toUpperCase() : "?";
 
             return Card(
               elevation: 0,
@@ -91,7 +114,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   backgroundColor: Colors.blue[100],
                   radius: 25,
                   child: Text(
-                    chat["buyer_id"].toString().substring(0, 1).toUpperCase(),
+                    initial,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -103,9 +126,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        chat["buyer_id"] ?? "Unknown Buyer",
-                        style: const TextStyle(
+                        fullName,
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
+                          color:
+                              unreadCount > 0 ? Colors.black : Colors.black87,
                         ),
                       ),
                     ),
@@ -113,7 +138,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       _formatTimestamp(chat["last_message_time"]),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: unreadCount > 0 ? Colors.blue : Colors.grey[600],
+                        fontWeight: unreadCount > 0
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -126,7 +154,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: unreadCount > 0
+                              ? Colors.black87
+                              : Colors.grey[600],
+                          fontWeight: unreadCount > 0
+                              ? FontWeight.w500
+                              : FontWeight.normal,
                         ),
                       ),
                     ),
@@ -142,16 +175,23 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                   ],
                 ),
-                onTap: () {
+                onTap: () async {
+                  // Tandai pesan sebagai telah dibaca saat chat dibuka
+                  if (unreadCount > 0) {
+                    await _markAsRead(chat["id"]);
+                  }
+
                   Get.to(() => ChatDetailScreen(
-                      userName: chat["buyer_id"],
-                      roomId: chat["id"],
-                      currentUserId: widget.sellerId));
+                        userName: fullName,
+                        roomId: chat["id"],
+                        currentUserId: widget.sellerId,
+                      ));
                 },
               ),
             );

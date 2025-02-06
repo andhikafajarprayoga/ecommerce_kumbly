@@ -5,6 +5,7 @@ import '../../../theme/app_theme.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
 
 class ShippingManagementScreen extends StatefulWidget {
   const ShippingManagementScreen({Key? key}) : super(key: key);
@@ -532,6 +533,8 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
   }
 
   Widget _buildProductList(List<Map<String, dynamic>> orderItems) {
+    print('Debug orderItems: $orderItems'); // Debug print
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -560,6 +563,28 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             final item = orderItems[index];
             final product = item['product'];
 
+            print('Debug product data: $product'); // Debug print
+
+            // Ambil URL gambar dari product
+            String? imageUrl;
+            if (product != null && product['image_url'] != null) {
+              try {
+                var imageUrls = product['image_url'];
+                if (imageUrls is String) {
+                  // Jika string JSON, parse dulu
+                  List<dynamic> parsedUrls = jsonDecode(imageUrls);
+                  if (parsedUrls.isNotEmpty) {
+                    imageUrl = parsedUrls.first.toString();
+                  }
+                } else if (imageUrls is List && imageUrls.isNotEmpty) {
+                  imageUrl = imageUrls.first.toString();
+                }
+                print('Debug final imageUrl: $imageUrl'); // Debug print
+              } catch (e) {
+                print('Error extracting image URL: $e');
+              }
+            }
+
             return Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -575,13 +600,15 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: product['image_url'] != null
+                    child: imageUrl != null && imageUrl.startsWith('http')
                         ? Image.network(
-                            product['image_url'],
+                            imageUrl,
                             width: 80,
                             height: 80,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
+                              print(
+                                  'Error loading image: $error'); // Debug print
                               return _buildImagePlaceholder();
                             },
                           )

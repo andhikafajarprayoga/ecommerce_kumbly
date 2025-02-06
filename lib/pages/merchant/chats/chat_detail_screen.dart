@@ -63,6 +63,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           .order('created_at', ascending: true);
 
       _messages.assignAll(response);
+      // Scroll ke bawah setelah pesan dimuat
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } catch (e) {
       print("Error fetching messages: $e");
     }
@@ -77,6 +79,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         .order('created_at', ascending: true)
         .listen((data) {
           _messages.assignAll(data);
+          // Scroll ke bawah setiap kali ada pesan baru
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _scrollToBottom());
         });
   }
 
@@ -94,8 +99,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     try {
       await _supabase.from('chat_messages').insert(newMessage);
       _messageController.clear();
-      // Directly add the new message to the list for immediate feedback
-      _messages.add(newMessage);
+      // Scroll ke bawah setelah mengirim pesan
+      _scrollToBottom();
     } catch (e) {
       print("Error sending message: $e");
     }
@@ -118,7 +123,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             CircleAvatar(
               backgroundColor: Colors.blue[100],
               child: Text(
-                widget.userName.substring(0, 1).toUpperCase(),
+                widget.userName.isNotEmpty
+                    ? widget.userName[0].toUpperCase()
+                    : "?",
                 style: const TextStyle(
                   color: Colors.blue,
                   fontWeight: FontWeight.bold,
@@ -143,14 +150,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           Expanded(
             child: Obx(() {
-              WidgetsBinding.instance
-                  .addPostFrameCallback((_) => _scrollToBottom());
               return ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 itemCount: _messages.length,
+                reverse: true,
                 itemBuilder: (context, index) {
-                  final message = _messages[index];
+                  final message = _messages[_messages.length - 1 - index];
                   final isCurrentUser =
                       message['sender_id'] == widget.currentUserId;
                   final DateTime dateTime =
@@ -162,53 +168,51 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     alignment: isCurrentUser
                         ? Alignment.centerRight
                         : Alignment.centerLeft,
-                    child: ConstrainedBox(
+                    child: Container(
                       constraints: BoxConstraints(
                         maxWidth: MediaQuery.of(context).size.width * 0.75,
                       ),
-                      child: Container(
-                        margin: EdgeInsets.only(
-                          bottom: 8,
-                          left: isCurrentUser ? 50 : 0,
-                          right: isCurrentUser ? 0 : 50,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isCurrentUser ? Colors.blue : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 5,
-                              offset: const Offset(0, 2),
+                      margin: EdgeInsets.only(
+                        bottom: 8,
+                        left: isCurrentUser ? 50 : 0,
+                        right: isCurrentUser ? 0 : 50,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isCurrentUser ? Colors.blue : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 5,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            message['message'],
+                            style: TextStyle(
+                              color:
+                                  isCurrentUser ? Colors.white : Colors.black,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              message['message'],
-                              style: TextStyle(
-                                color:
-                                    isCurrentUser ? Colors.white : Colors.black,
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            time,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isCurrentUser
+                                  ? Colors.white.withOpacity(0.7)
+                                  : Colors.black54,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              time,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isCurrentUser
-                                    ? Colors.white.withOpacity(0.7)
-                                    : Colors.black54,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   );

@@ -4,39 +4,79 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class ChatController extends GetxController {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  var chatList = <Map<String, dynamic>>[].obs;
-  var isLoading = false.obs;
+  final RxBool isLoading = false.obs;
+  final RxList<Map<String, dynamic>> chatList = <Map<String, dynamic>>[].obs;
 
   Future<void> fetchChatRooms(String sellerId) async {
     try {
-      isLoading.value = true;
-      final chatRoomsResponse = await _supabase
+      isLoading(true);
+
+      final response = await _supabase
           .from('chat_rooms')
-          .select('id, buyer_id, seller_id')
-          .eq('seller_id', sellerId);
+          .select('''
+            id,
+            seller_id,
+            buyer_id,
+            created_at,
+            last_message_time
+          ''')
+          .eq('seller_id', sellerId)
+          .order('last_message_time', ascending: false);
 
-      List<Map<String, dynamic>> chatRooms =
-          List<Map<String, dynamic>>.from(chatRoomsResponse);
+      final transformedResponse = await Future.wait(
+        response.map((room) async {
+          try {
+            final buyerProfile = await _supabase
+                .from('users')
+                .select('full_name, email')
+                .eq('id', room['buyer_id'])
+                .single();
 
-      for (var chatRoom in chatRooms) {
-        final lastMessageResponse = await _supabase
-            .from('chat_messages')
-            .select('message, created_at')
-            .eq('room_id', chatRoom['id'])
-            .order('created_at', ascending: false)
-            .limit(1)
-            .single();
+            // Ambil pesan terakhir dan hitung unread messages
+            final lastMessage = await _supabase
+                .from('chat_messages')
+                .select('message')
+                .eq('room_id', room['id'])
+                .order('created_at', ascending: false)
+                .limit(1)
+                .maybeSingle();
 
-        chatRoom['last_message'] =
-            lastMessageResponse['message'] ?? "Belum ada pesan";
-        chatRoom['last_message_time'] = lastMessageResponse['created_at'];
-      }
+            // Hitung jumlah pesan yang belum dibaca
+            final unreadCountResponse = await _supabase
+                .from('chat_messages')
+                .count()
+                .eq('room_id', room['id'])
+                .eq('sender_id', room['buyer_id'])
+                .eq('is_read', false);
 
-      chatList.assignAll(chatRooms);
+            // Debug print untuk melihat struktur response
+            print('Debug unreadCountResponse: $unreadCountResponse');
+
+            return {
+              ...room,
+              'buyer_name': buyerProfile['full_name'] ??
+                  buyerProfile['email'] ??
+                  'Unknown User',
+              'last_message': lastMessage?['message'] ?? 'Belum ada pesan',
+              'unread_count': unreadCountResponse,
+            };
+          } catch (e) {
+            print('Error fetching additional data: $e');
+            return {
+              ...room,
+              'buyer_name': 'Unknown User',
+              'last_message': 'Error loading message',
+              'unread_count': 0,
+            };
+          }
+        }),
+      );
+
+      chatList.assignAll(transformedResponse);
     } catch (e) {
-      print("Error fetching chat rooms: $e");
+      print('Error fetching chat rooms: $e');
     } finally {
-      isLoading.value = false;
+      isLoading(false);
     }
   }
 
@@ -57,5 +97,9 @@ class ChatController extends GetxController {
         fetchChatRooms(sellerId);
       }
     });
+  }
+
+  void updateChatRooms(List<Map<String, dynamic>> newData) {
+    chatList.assignAll(newData);
   }
 }
