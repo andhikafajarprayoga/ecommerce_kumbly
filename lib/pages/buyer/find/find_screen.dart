@@ -10,10 +10,23 @@ import 'dart:convert';
 import 'package:geocoding/geocoding.dart';
 import '../product/product_detail_screen.dart';
 import 'package:intl/intl.dart';
+import '../store/store_detail_screen.dart';
 
-class FindScreen extends StatelessWidget {
+class FindScreen extends StatefulWidget {
+  @override
+  State<FindScreen> createState() => _FindScreenState();
+}
+
+class _FindScreenState extends State<FindScreen> {
   final ProductController productController = Get.find<ProductController>();
   final supabase = Supabase.instance.client;
+  final TextEditingController searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    searchController.text = productController.searchQuery.value;
+  }
 
   void _showSortOptions() {
     Get.bottomSheet(
@@ -200,17 +213,17 @@ class FindScreen extends StatelessWidget {
         if (b['merchant_location'] == null) return -1;
 
         double distanceA = _calculateDistance(
-          userLocation['lat']?.toDouble() ?? 0.0,
-          userLocation['lng']?.toDouble() ?? 0.0,
           a['merchant_location']['lat']?.toDouble() ?? 0.0,
           a['merchant_location']['lng']?.toDouble() ?? 0.0,
+          userLocation['lat']?.toDouble() ?? 0.0,
+          userLocation['lng']?.toDouble() ?? 0.0,
         );
 
         double distanceB = _calculateDistance(
-          userLocation['lat']?.toDouble() ?? 0.0,
-          userLocation['lng']?.toDouble() ?? 0.0,
           b['merchant_location']['lat']?.toDouble() ?? 0.0,
           b['merchant_location']['lng']?.toDouble() ?? 0.0,
+          userLocation['lat']?.toDouble() ?? 0.0,
+          userLocation['lng']?.toDouble() ?? 0.0,
         );
 
         return distanceA.compareTo(distanceB);
@@ -256,6 +269,75 @@ class FindScreen extends StatelessWidget {
     return 12742 * asin(sqrt(a)); // 2 * R; R = 6371 km
   }
 
+  Future<void> _fetchMerchantProducts(String merchantId) async {
+    try {
+      print('Fetching products for merchant ID: $merchantId'); // Debug print
+      productController.isLoading.value = true; // Set loading state
+
+      final response =
+          await Supabase.instance.client.from('products').select('''
+            id,
+            name,
+            description,
+            price,
+            stock,
+            category,
+            image_url,
+            sales,
+            seller_id
+          ''').eq('seller_id', merchantId);
+
+      print('Raw merchant products response: $response'); // Debug print
+
+      if (response != null && response is List) {
+        print('Number of products found: ${response.length}'); // Debug print
+        productController.products.assignAll(response);
+      } else {
+        print('No products found or invalid response format'); // Debug print
+        productController.products
+            .clear(); // Clear existing products if none found
+      }
+    } catch (e) {
+      print('Error fetching merchant products: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal memuat produk dari toko ini',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      productController.isLoading.value = false; // Reset loading state
+    }
+  }
+
+  Future<void> performSearch(String query) async {
+    try {
+      productController.isLoading.value = true;
+
+      // Reset merchants sebelum pencarian baru
+      productController.searchedMerchants.clear();
+
+      // Cari produk
+      await productController.searchProducts(query);
+
+      // Cari merchant jika query tidak kosong
+      if (query.isNotEmpty) {
+        final merchantResponse = await supabase
+            .from('merchants')
+            .select('id, store_name, store_description')
+            .or('store_name.ilike.%${query}%,store_description.ilike.%${query}%')
+            .limit(5);
+
+        print('Merchant search response: $merchantResponse');
+        productController.searchedMerchants.assignAll(merchantResponse);
+      }
+    } catch (e) {
+      print('Error searching: $e');
+    } finally {
+      productController.isLoading.value = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -265,100 +347,140 @@ class FindScreen extends StatelessWidget {
         title: Container(
           height: 40,
           child: TextField(
+            controller: searchController,
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white,
-              hintText: 'Cari Produk...',
+              hintText: 'Cari Produk atau Toko...',
               hintStyle: TextStyle(fontSize: 13),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(4),
                 borderSide: BorderSide.none,
               ),
               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-              suffixIcon: IconButton(
-                icon: Icon(Icons.search, color: AppTheme.textHint),
-                onPressed: () {
-                  productController
-                      .searchProducts(productController.searchQuery.value);
-                },
-              ),
+              prefixIcon: Icon(Icons.search, color: AppTheme.textHint),
+              suffixIcon: searchController.text.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear, color: AppTheme.textHint),
+                      onPressed: () {
+                        setState(() {
+                          searchController.clear();
+                          productController.searchQuery.value = '';
+                          performSearch('');
+                        });
+                      },
+                    )
+                  : IconButton(
+                      icon: Icon(Icons.search, color: AppTheme.textHint),
+                      onPressed: () {
+                        performSearch(searchController.text);
+                      },
+                    ),
             ),
-            controller: TextEditingController(
-                text: productController.searchQuery.value),
             onChanged: (value) {
-              productController.searchQuery.value = value;
+              setState(() {
+                productController.searchQuery.value = value;
+                if (value.isEmpty) {
+                  performSearch('');
+                }
+              });
             },
             onSubmitted: (value) {
-              productController.searchProducts(value);
+              performSearch(value);
             },
             textInputAction: TextInputAction.search,
           ),
         ),
       ),
-      body: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _showSortOptions(),
-                    child: Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Icon(Icons.sort,
-                              size: 18, color: AppTheme.textPrimary),
-                          SizedBox(width: 4),
-                          Text(
-                            'Urutkan',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          Icon(
-                            Icons.arrow_drop_down,
-                            size: 20,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ],
-                      ),
+      body: Obx(() {
+        if (productController.isLoading.value) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        return CustomScrollView(
+          slivers: [
+            if (productController.searchedMerchants.isNotEmpty) ...[
+              SliverPadding(
+                padding: EdgeInsets.all(16),
+                sliver: SliverToBoxAdapter(
+                  child: Text(
+                    'Toko',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-              ],
+              ),
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final merchant = productController.searchedMerchants[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        child: Icon(Icons.store),
+                      ),
+                      title: Text(merchant['store_name'] ?? 'Nama Toko'),
+                      subtitle: Text(
+                        merchant['store_description'] ??
+                            'Deskripsi tidak tersedia',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        Get.to(() => StoreDetailScreen(merchant: merchant));
+                      },
+                    );
+                  },
+                  childCount: productController.searchedMerchants.length,
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Divider(height: 32),
+              ),
+            ],
+            SliverPadding(
+              padding: EdgeInsets.all(16),
+              sliver: SliverToBoxAdapter(
+                child: Text(
+                  productController.searchedMerchants.isEmpty
+                      ? 'Hasil Pencarian'
+                      : 'Produk dari Toko',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-          ),
-          Divider(height: 1),
-          Expanded(
-            child: Obx(() {
-              return GridView.builder(
-                padding: EdgeInsets.all(8),
+            SliverPadding(
+              padding: EdgeInsets.all(16),
+              sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   childAspectRatio: 0.65,
                   crossAxisSpacing: 8,
                   mainAxisSpacing: 8,
                 ),
-                itemCount: productController.products.length,
-                itemBuilder: (context, index) {
-                  final product = productController.products[index];
-                  return ProductCard(
-                      product: product); // Gunakan ProductCard dari home_screen
-                },
-              );
-            }),
-          ),
-        ],
-      ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final product = productController.products[index];
+                    return ProductCard(product: product);
+                  },
+                  childCount: productController.products.length,
+                ),
+              ),
+            ),
+          ],
+        );
+      }),
     );
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 }
 
