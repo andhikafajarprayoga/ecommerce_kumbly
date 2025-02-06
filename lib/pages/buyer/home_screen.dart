@@ -28,6 +28,8 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   bool isLoadingBanners = true;
   int _selectedIndex = 0;
   final TextEditingController searchController = TextEditingController();
+  final TextEditingController minPriceController = TextEditingController();
+  final TextEditingController maxPriceController = TextEditingController();
 
   @override
   void initState() {
@@ -67,6 +69,80 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     });
   }
 
+  void _showPriceFilterDialog() {
+    Get.dialog(
+      AlertDialog(
+        title: Text('Filter Harga'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: minPriceController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Harga Minimum',
+                prefixText: 'Rp ',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: maxPriceController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Harga Maksimum',
+                prefixText: 'Rp ',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              minPriceController.clear();
+              maxPriceController.clear();
+              productController.filterByPrice(null, null);
+              Get.back();
+            },
+            child: Text('Reset'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final minPrice = double.tryParse(minPriceController.text);
+              final maxPrice = double.tryParse(maxPriceController.text);
+              productController.filterByPrice(minPrice, maxPrice);
+              Get.back();
+            },
+            child: Text('Terapkan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _performSearch(String value) async {
+    setState(() => _selectedIndex = 1);
+    productController.searchQuery.value = value;
+
+    try {
+      // Cari produk
+      productController.searchProducts(value);
+
+      // Cari toko dengan case insensitive
+      final merchantResponse = await supabase
+          .from('merchants')
+          .select('id, store_name, store_description')
+          .or('store_name.ilike.%${value}%,store_description.ilike.%${value}%')
+          .limit(5);
+
+      print('Merchant search response: $merchantResponse'); // Debug print
+      productController.searchedMerchants.assignAll(merchantResponse);
+    } catch (e) {
+      print('Error searching: $e');
+    }
+  }
+
   Widget _getScreen() {
     switch (_selectedIndex) {
       case 0:
@@ -103,12 +179,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                         ),
                     suffixIcon: IconButton(
                       icon: Icon(Icons.search, color: AppTheme.textHint),
-                      onPressed: () {
-                        final searchValue = searchController.text;
-                        setState(() => _selectedIndex = 1);
-                        productController.searchQuery.value = searchValue;
-                        productController.searchProducts(searchValue);
-                      },
+                      onPressed: () => _performSearch(searchController.text),
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(4),
@@ -117,17 +188,12 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                   ),
-                  onSubmitted: (value) {
-                    setState(() => _selectedIndex = 1);
-                    productController.searchQuery.value = value;
-                    productController.searchProducts(value);
-                  },
+                  onSubmitted: _performSearch,
                 ),
               ),
               actions: [
                 Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 0.1), // Kurangi jaraknya
+                  padding: EdgeInsets.symmetric(horizontal: 0.2),
                   child: IconButton(
                     icon:
                         Icon(Icons.notifications_outlined, color: Colors.white),
@@ -237,12 +303,26 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Kategori',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Kategori',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: _showPriceFilterDialog,
+                        icon: Icon(Icons.filter_list,
+                            size: 20, color: AppTheme.primary),
+                        label: Text(
+                          'Filter Harga',
+                          style: TextStyle(color: AppTheme.primary),
+                        ),
+                      ),
+                    ],
                   ),
                   SizedBox(height: 12),
                   Row(
@@ -251,20 +331,46 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                       CategoryIcon(
                         icon: Icons.checkroom_outlined,
                         label: 'Pakaian',
-                        onTap: () =>
-                            productController.filterByCategory('fashion'),
+                        onTap: () {
+                          if (productController.currentCategory.value ==
+                              'fashion') {
+                            productController.currentCategory.value = '';
+                            productController.fetchProducts();
+                          } else {
+                            productController.currentCategory.value = 'fashion';
+                            productController.filterByCategory('fashion');
+                          }
+                        },
                       ),
                       CategoryIcon(
                         icon: Icons.phone_android_outlined,
                         label: 'Elektronik',
-                        onTap: () =>
-                            productController.filterByCategory('elektronik'),
+                        onTap: () {
+                          if (productController.currentCategory.value ==
+                              'elektronik') {
+                            productController.currentCategory.value = '';
+                            productController.fetchProducts();
+                          } else {
+                            productController.currentCategory.value =
+                                'elektronik';
+                            productController.filterByCategory('elektronik');
+                          }
+                        },
                       ),
                       CategoryIcon(
                         icon: Icons.watch_outlined,
                         label: 'Aksesoris',
-                        onTap: () =>
-                            productController.filterByCategory('aksesoris'),
+                        onTap: () {
+                          if (productController.currentCategory.value ==
+                              'aksesoris') {
+                            productController.currentCategory.value = '';
+                            productController.fetchProducts();
+                          } else {
+                            productController.currentCategory.value =
+                                'aksesoris';
+                            productController.filterByCategory('aksesoris');
+                          }
+                        },
                       ),
                       CategoryIcon(
                         icon: Icons.more_horiz,

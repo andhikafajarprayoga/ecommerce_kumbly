@@ -7,6 +7,11 @@ class ProductController extends GetxController {
   final isLoading = false.obs;
   final searchQuery = ''.obs;
   final selectedCategory = Rx<String?>(null);
+  RxString currentCategory = ''.obs;
+  Rx<double?> minPrice = Rx<double?>(null);
+  Rx<double?> maxPrice = Rx<double?>(null);
+  RxList<Map<String, dynamic>> searchedMerchants = <Map<String, dynamic>>[].obs;
+  RxList<Map<String, dynamic>> hotels = <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
@@ -29,24 +34,32 @@ class ProductController extends GetxController {
     }
   }
 
-  void searchProducts(String query) {
-    searchQuery.value = query;
-    if (query.isEmpty && selectedCategory.value == null) {
-      fetchProducts();
-      return;
+  Future<void> searchProducts(String query) async {
+    try {
+      isLoading.value = true;
+
+      if (query.isEmpty) {
+        await fetchProducts();
+        return;
+      }
+
+      final response = await supabase
+          .from('products')
+          .select()
+          .or('name.ilike.%${query}%,description.ilike.%${query}%')
+          .order('created_at', ascending: false);
+
+      if (response != null) {
+        products.assignAll(response);
+      } else {
+        products.clear();
+      }
+    } catch (e) {
+      print('Error searching products: $e');
+      products.clear();
+    } finally {
+      isLoading.value = false;
     }
-
-    final filteredProducts = products.where((product) {
-      final matchesQuery = product['name']
-          .toString()
-          .toLowerCase()
-          .contains(query.toLowerCase());
-      final matchesCategory = selectedCategory.value == null ||
-          product['category'] == selectedCategory.value;
-      return matchesQuery && matchesCategory;
-    }).toList();
-
-    products.value = filteredProducts;
   }
 
   void filterByCategory(String? category) {
@@ -152,5 +165,24 @@ class ProductController extends GetxController {
   void sortByPriceDesc() {
     products.sort((a, b) => (b['price'] ?? 0).compareTo(a['price'] ?? 0));
     products.refresh();
+  }
+
+  void filterByPrice(double? min, double? max) {
+    minPrice.value = min;
+    maxPrice.value = max;
+
+    if (min == null && max == null) {
+      fetchProducts(); // Reset filter
+      return;
+    }
+
+    final filtered = products.where((product) {
+      final price = double.tryParse(product['price'].toString()) ?? 0;
+      bool matchesMin = min == null || price >= min;
+      bool matchesMax = max == null || price <= max;
+      return matchesMin && matchesMax;
+    }).toList();
+
+    products.value = filtered;
   }
 }
