@@ -293,7 +293,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                     ),
                                     Text(
                                       _formatTimestamp(
-                                          room['last_message_time']),
+                                          room['last_message_time'] ??
+                                              room['created_at']),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey[600],
@@ -489,36 +490,29 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<int> _getUnreadCount(String roomId) async {
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return 0;
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return 0;
 
-      final response = await supabase
-          .from('chat_messages')
-          .select()
-          .eq('room_id', roomId)
-          .eq('is_read', false)
-          .neq('sender_id', userId);
+    final response = await supabase
+        .from('chat_messages')
+        .select('id')
+        .eq('room_id', roomId)
+        .eq('is_read', false)
+        .neq('sender_id', userId)
+        .count();
 
-      return response.length;
-    } catch (e) {
-      print('Error getting unread count: $e');
-      return 0;
-    }
+    return response.count ?? 0;
   }
 
   Future<void> _markMessagesAsRead(String roomId) async {
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
 
-      await supabase
-          .from('chat_messages')
-          .update({'is_read': true})
-          .eq('room_id', roomId)
-          .neq('sender_id', userId);
-    } catch (e) {
-      print('Error marking messages as read: $e');
-    }
+    await supabase
+        .from('chat_messages')
+        .update({'is_read': true})
+        .eq('room_id', roomId)
+        .neq('sender_id', userId)
+        .eq('is_read', false);
   }
 }
