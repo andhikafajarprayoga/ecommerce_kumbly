@@ -14,6 +14,7 @@ import 'package:kumbly_ecommerce/pages/merchant/order/shipping_management_screen
 import 'package:kumbly_ecommerce/pages/merchant/order/cancellation_requests_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/profile/edit_store_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/hotel/hotel_management_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/hotel/hotel_bookings_screen.dart';
 
 class MerchantHomeScreen extends StatefulWidget {
   final String sellerId;
@@ -413,8 +414,16 @@ class _HomeMenu extends StatelessWidget {
                         _buildMenuItem(
                           context: context,
                           icon: Icons.hotel,
-                          label: 'penginapan',
+                          label: 'Hotel',
                           onTap: () => Get.to(() => HotelManagementScreen()),
+                        ),
+                        _buildMenuItem(
+                          context: context,
+                          icon: Icons.book_online,
+                          label: 'Book Hotel',
+                          onTap: () => Get.to(() => HotelBookingsScreen(
+                                hotelId: '',
+                              )),
                         ),
                       ],
                     ),

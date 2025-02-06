@@ -22,12 +22,35 @@ class HotelDetailScreen extends StatefulWidget {
 class _HotelDetailScreenState extends State<HotelDetailScreen> {
   int _currentImageIndex = 0;
   final CarouselSliderController _imageController = CarouselSliderController();
+  Map<String, dynamic> merchantInfo = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchHotelAndMerchantDetails();
+  }
+
+  Future<void> _fetchHotelAndMerchantDetails() async {
+    try {
+      final response = await supabase.from('hotels').select('''
+            *,
+            merchants!inner (
+              id,
+              store_name,
+              store_address
+            )
+          ''').eq('id', widget.hotel['id']).single();
+
+      setState(() {
+        merchantInfo = response['merchants'] ?? {};
+      });
+    } catch (e) {
+      print('Error fetching hotel and merchant details: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final merchantAddress =
-        jsonDecode(widget.hotel['merchants']['store_address'] ?? '{}');
-
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -180,42 +203,81 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                         child: Text(
                           widget.hotel['name'],
                           style: TextStyle(
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                      Row(
-                        children: [
-                          Icon(Icons.star, color: Colors.amber, size: 20),
-                          SizedBox(width: 4),
-                          Text(
-                            '${widget.hotel['rating']?.toStringAsFixed(1) ?? 'N/A'}',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                      Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ],
                   ),
                   SizedBox(height: 8),
 
-                  // Location
-                  Row(
-                    children: [
-                      Icon(Icons.location_on_outlined,
-                          size: 16, color: AppTheme.textHint),
-                      SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '${merchantAddress['street']}, ${merchantAddress['district']}, '
-                          '${merchantAddress['city']}, ${merchantAddress['province']}',
-                          style: TextStyle(color: AppTheme.textHint),
-                        ),
+                  // Location and Merchant Info in a Card
+                  Card(
+                    elevation: 0,
+                    color: Colors.grey[50],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Location
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.location_on_outlined,
+                                  size: 16, color: AppTheme.primary),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _formatAddress(widget.hotel['address']),
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimary,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Divider(height: 16),
+                          // Merchant Info
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.store_outlined,
+                                  size: 16, color: AppTheme.primary),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      merchantInfo['store_name'] ?? '-',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                   SizedBox(height: 16),
 
@@ -223,37 +285,194 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                   Text(
                     'Deskripsi',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   SizedBox(height: 8),
                   Text(
                     widget.hotel['description'] ?? 'Tidak ada deskripsi',
-                    style: TextStyle(color: AppTheme.textPrimary),
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
                   ),
                   SizedBox(height: 16),
 
                   // Facilities
                   Text(
-                    'Fasilitas',
+                    'Fasilitas Publik',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children:
-                        (widget.hotel['facilities'] as List).map((facility) {
-                      return Chip(
-                        label: Text(facility),
-                        backgroundColor: AppTheme.primaryLight.withOpacity(0.1),
-                        labelStyle: TextStyle(color: AppTheme.primary),
-                      );
-                    }).toList(),
+                  SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          children: (widget.hotel['facilities'] as List)
+                              .take(10)
+                              .map<Widget>((facility) {
+                            IconData getIcon() {
+                              final String facilityLower =
+                                  facility.toString().toLowerCase();
+
+                              if (facilityLower.contains('wifi'))
+                                return Icons.wifi;
+                              if (facilityLower.contains('ac'))
+                                return Icons.ac_unit;
+                              if (facilityLower.contains('aula'))
+                                return Icons.audiotrack;
+                              if (facilityLower.contains('restoran'))
+                                return Icons.restaurant;
+
+                              if (facilityLower.contains('kopi') ||
+                                  facilityLower.contains('kafe'))
+                                return Icons.coffee;
+                              if (facilityLower.contains('check') ||
+                                  facilityLower.contains('resepsionis'))
+                                return Icons.access_time;
+                              if (facilityLower.contains('kamar'))
+                                return Icons.bedroom_parent;
+                              if (facilityLower.contains('parkir'))
+                                return Icons.local_parking;
+                              if (facilityLower.contains('kolam'))
+                                return Icons.pool;
+                              if (facilityLower.contains('kebugaran') ||
+                                  facilityLower.contains('gym'))
+                                return Icons.fitness_center;
+                              if (facilityLower.contains('spa') ||
+                                  facilityLower.contains('pijat') ||
+                                  facilityLower.contains('sauna'))
+                                return Icons.spa;
+                              if (facilityLower.contains('pertemuan') ||
+                                  facilityLower.contains('ballroom'))
+                                return Icons.meeting_room;
+                              if (facilityLower.contains('lift'))
+                                return Icons.elevator;
+                              if (facilityLower.contains('laundry'))
+                                return Icons.local_laundry_service;
+                              if (facilityLower.contains('merokok'))
+                                return Icons.smoking_rooms;
+                              if (facilityLower.contains('antar') ||
+                                  facilityLower.contains('jemput'))
+                                return Icons.airport_shuttle;
+                              if (facilityLower.contains('mobil'))
+                                return Icons.directions_car;
+                              if (facilityLower.contains('bagasi'))
+                                return Icons.luggage;
+                              if (facilityLower.contains('keamanan') ||
+                                  facilityLower.contains('cctv'))
+                                return Icons.security;
+                              if (facilityLower.contains('bisnis'))
+                                return Icons.business_center;
+
+                              return Icons.check_circle_outline;
+                            }
+
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: 8),
+                              child: Row(
+                                children: [
+                                  Icon(getIcon(),
+                                      size: 20, color: AppTheme.primary),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    facility,
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: AppTheme.textPrimary),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      if ((widget.hotel['facilities'] as List).length > 10) ...[
+                        SizedBox(width: 24),
+                        Expanded(
+                          child: Column(
+                            children: (widget.hotel['facilities'] as List)
+                                .skip(10)
+                                .map<Widget>((facility) {
+                              IconData getIcon() {
+                                final String facilityLower =
+                                    facility.toString().toLowerCase();
+
+                                if (facilityLower.contains('wifi'))
+                                  return Icons.wifi;
+                                if (facilityLower.contains('restoran'))
+                                  return Icons.restaurant;
+                                if (facilityLower.contains('kopi') ||
+                                    facilityLower.contains('kafe'))
+                                  return Icons.coffee;
+                                if (facilityLower.contains('check') ||
+                                    facilityLower.contains('resepsionis'))
+                                  return Icons.access_time;
+                                if (facilityLower.contains('kamar'))
+                                  return Icons.bedroom_parent;
+                                if (facilityLower.contains('parkir'))
+                                  return Icons.local_parking;
+                                if (facilityLower.contains('kolam'))
+                                  return Icons.pool;
+                                if (facilityLower.contains('kebugaran') ||
+                                    facilityLower.contains('gym'))
+                                  return Icons.fitness_center;
+                                if (facilityLower.contains('spa') ||
+                                    facilityLower.contains('pijat') ||
+                                    facilityLower.contains('sauna'))
+                                  return Icons.spa;
+                                if (facilityLower.contains('pertemuan') ||
+                                    facilityLower.contains('ballroom'))
+                                  return Icons.meeting_room;
+                                if (facilityLower.contains('lift'))
+                                  return Icons.elevator;
+                                if (facilityLower.contains('laundry'))
+                                  return Icons.local_laundry_service;
+                                if (facilityLower.contains('merokok'))
+                                  return Icons.smoking_rooms;
+                                if (facilityLower.contains('antar') ||
+                                    facilityLower.contains('jemput'))
+                                  return Icons.airport_shuttle;
+                                if (facilityLower.contains('mobil'))
+                                  return Icons.directions_car;
+                                if (facilityLower.contains('bagasi'))
+                                  return Icons.luggage;
+                                if (facilityLower.contains('keamanan') ||
+                                    facilityLower.contains('cctv'))
+                                  return Icons.security;
+                                if (facilityLower.contains('bisnis'))
+                                  return Icons.business_center;
+
+                                return Icons.check_circle_outline;
+                              }
+
+                              return Padding(
+                                padding: EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  children: [
+                                    Icon(getIcon(),
+                                        size: 20, color: AppTheme.primary),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      facility,
+                                      style: TextStyle(
+                                          fontSize: 14,
+                                          color: AppTheme.textPrimary),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   SizedBox(height: 16),
 
@@ -328,7 +547,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                                   backgroundColor: AppTheme.primary,
                                   padding: EdgeInsets.symmetric(vertical: 12),
                                 ),
-                                child: Text('Pesan Sekarang'),
+                                child: Text(
+                                  'Pesan Sekarang',
+                                  style: TextStyle(color: Colors.white),
+                                ),
                               ),
                             ),
                           ],
@@ -343,5 +565,10 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
         ],
       ),
     );
+  }
+
+  String _formatAddress(String address) {
+    // Implementasi format address sesuai kebutuhan
+    return address;
   }
 }

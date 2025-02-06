@@ -4,6 +4,7 @@ import 'package:kumbly_ecommerce/pages/admin/kelola-toko/edit_product_screen.dar
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'package:get/get.dart';
+import 'dart:convert';
 
 class StoreProductsScreen extends StatefulWidget {
   final Map<String, dynamic> store;
@@ -180,27 +181,49 @@ class _StoreProductsScreenState extends State<StoreProductsScreen> {
                                   children: [
                                     AspectRatio(
                                       aspectRatio: 1,
-                                      child: product['image_url'] != null
-                                          ? Image.network(
-                                              product['image_url'],
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error,
-                                                      stackTrace) =>
-                                                  Container(
+                                      child: () {
+                                        List<String> imageUrls = [];
+                                        if (product['image_url'] != null) {
+                                          try {
+                                            if (product['image_url'] is List) {
+                                              imageUrls = List<String>.from(
+                                                  product['image_url']);
+                                            } else if (product['image_url']
+                                                is String) {
+                                              final List<dynamic> urls = json
+                                                  .decode(product['image_url']);
+                                              imageUrls =
+                                                  List<String>.from(urls);
+                                            }
+                                          } catch (e) {
+                                            print(
+                                                'Error parsing image URLs: $e');
+                                          }
+                                        }
+
+                                        return imageUrls.isNotEmpty
+                                            ? Image.network(
+                                                imageUrls[0],
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error,
+                                                        stackTrace) =>
+                                                    Container(
+                                                  color: Colors.grey[200],
+                                                  child: Icon(
+                                                      Icons.error_outline,
+                                                      color: Colors.grey[400],
+                                                      size: 24),
+                                                ),
+                                              )
+                                            : Container(
                                                 color: Colors.grey[200],
-                                                child: Icon(Icons.error_outline,
+                                                child: Icon(
+                                                    Icons
+                                                        .image_not_supported_outlined,
                                                     color: Colors.grey[400],
                                                     size: 24),
-                                              ),
-                                            )
-                                          : Container(
-                                              color: Colors.grey[200],
-                                              child: Icon(
-                                                  Icons
-                                                      .image_not_supported_outlined,
-                                                  color: Colors.grey[400],
-                                                  size: 24),
-                                            ),
+                                              );
+                                      }(),
                                     ),
                                     Expanded(
                                       child: Padding(

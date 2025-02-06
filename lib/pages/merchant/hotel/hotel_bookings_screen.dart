@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase/supabase.dart';
 
 class HotelBookingsScreen extends StatefulWidget {
   final String hotelId;
@@ -30,7 +31,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
       final response = await supabase
           .from('hotel_bookings')
           .select('''
-            *,
+          *,
             users:user_id (
               email,
               phone
@@ -43,7 +44,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
       isLoading.value = false;
     } catch (e) {
       print('Error fetching bookings: $e');
-      isLoading.value = false;
+    isLoading.value = false;
     }
   }
 
