@@ -223,6 +223,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCOD =
+        widget.paymentMethod['name'].toString().toLowerCase().contains('cod');
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Pembayaran', style: TextStyle(color: Colors.white)),
@@ -262,193 +265,261 @@ class _PaymentScreenState extends State<PaymentScreen> {
               _buildOrderItems(),
               SizedBox(height: 12),
 
-              // Instruksi Pembayaran
-              Card(
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Instruksi Pembayaran',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          children: [
-                            _buildPaymentDetailRow(
-                                'Bank', widget.paymentMethod['name']),
-                            Divider(height: 16),
-                            _buildPaymentDetailRow('No. Rekening',
-                                widget.paymentMethod['account_number']),
-                            Divider(height: 16),
-                            _buildPaymentDetailRow('Atas Nama',
-                                widget.paymentMethod['account_name']),
-                          ],
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      Text('Catatan:',
+              if (!isCOD) ...[
+                // Instruksi Pembayaran untuk non-COD
+                Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Instruksi Pembayaran',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 13)),
-                      SizedBox(height: 4),
-                      Text(
-                        '1. Transfer sesuai nominal yang tertera\n'
-                        '2. Simpan bukti pembayaran\n'
-                        '3. Konfirmasi diproses dalam 1x24 jam',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 12),
-
-              // Upload Bukti Pembayaran
-              Card(
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Upload Bukti Pembayaran',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 12),
-                      if (paymentProofUrl != null) ...[
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            paymentProofUrl!,
-                            height: 180,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
+                        SizedBox(height: 8),
+                        Container(
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[50],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            children: [
+                              _buildPaymentDetailRow(
+                                  'Bank', widget.paymentMethod['name']),
+                              Divider(height: 16),
+                              _buildPaymentDetailRow('No. Rekening',
+                                  widget.paymentMethod['account_number']),
+                              Divider(height: 16),
+                              _buildPaymentDetailRow('Atas Nama',
+                                  widget.paymentMethod['account_name']),
+                            ],
                           ),
                         ),
                         SizedBox(height: 12),
-                        Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.check_circle,
-                                  color: Colors.green, size: 20),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Bukti Pembayaran Diterima',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Mohon tunggu konfirmasi dari penjual',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.green.shade700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                        Text('Catatan:',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
+                        SizedBox(height: 4),
+                        Text(
+                          '1. Transfer sesuai nominal yang tertera\n'
+                          '2. Simpan bukti pembayaran\n'
+                          '3. Konfirmasi diproses dalam 1x24 jam',
+                          style: TextStyle(fontSize: 13),
                         ),
                       ],
-                      if (paymentProofUrl == null) ...[
-                        SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: isUploading ? null : _uploadPaymentProof,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primary,
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (isUploading)
-                                Padding(
-                                  padding: EdgeInsets.only(right: 8),
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white),
-                                ),
-                              Text(
-                                isUploading
-                                    ? 'Mengupload...'
-                                    : 'Upload Bukti Pembayaran',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (paymentProofUrl != null) ...[
-                        SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () => Get.offAll(() => BuyerHomeScreen()),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primary,
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.home, color: Colors.white),
-                              SizedBox(width: 8),
-                              Text(
-                                'Kembali ke Beranda',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
+                SizedBox(height: 12),
+
+                // Upload Bukti Pembayaran
+                Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Upload Bukti Pembayaran',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        if (paymentProofUrl != null) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              paymentProofUrl!,
+                              height: 180,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle,
+                                    color: Colors.green, size: 20),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Bukti Pembayaran Diterima',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Mohon tunggu konfirmasi dari penjual',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.green.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (paymentProofUrl == null) ...[
+                          SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: isUploading ? null : _uploadPaymentProof,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (isUploading)
+                                  Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white),
+                                  ),
+                                Text(
+                                  isUploading
+                                      ? 'Mengupload...'
+                                      : 'Upload Bukti Pembayaran',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (paymentProofUrl != null) ...[
+                          SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () =>
+                                Get.offAll(() => BuyerHomeScreen()),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.home, color: Colors.white),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Kembali ke Beranda',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              // Tombol konfirmasi untuk COD
+              if (isCOD)
+                ElevatedButton(
+                  onPressed: () => _handleCODConfirmation(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  ),
+                  child: Text(
+                    'Konfirmasi Pesanan COD',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  void _handleCODConfirmation() async {
+    try {
+      // Update status pesanan untuk COD
+      await supabase.rpc('update_payment_proof', params: {
+        'p_payment_group_id': widget.orderData['payment_group_id'],
+        'p_payment_proof': 'COD',
+        'p_total_amount': widget.orderData['total_amount'],
+        'p_admin_fee': widget.orderData['admin_fee'] ?? 0,
+        'p_total_shipping_cost': widget.orderData['total_shipping_cost'] ?? 0,
+      });
+
+      // Tampilkan popup sukses
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Column(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 50),
+                SizedBox(height: 8),
+                Text('Pesanan Dikonfirmasi'),
+              ],
+            ),
+            content: Text(
+              'Pesanan Anda akan segera dikemas oleh penjual. Pembayaran akan dilakukan saat barang sampai.',
+              textAlign: TextAlign.center,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Get.offAll(() => BuyerHomeScreen());
+                },
+                child: Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    } catch (e) {
+      print('Error confirming COD order: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mengkonfirmasi pesanan',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 
   // Helper widget untuk detail pembayaran

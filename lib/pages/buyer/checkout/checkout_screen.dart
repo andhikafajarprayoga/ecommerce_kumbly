@@ -113,97 +113,85 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
-    // Validasi metode pembayaran
-    if (paymentMethod != null) {
-      try {
-        print('Debug: Starting order creation process');
-
-        // Pastikan setiap merchant memiliki shipping cost
-        for (var item in widget.data['items']) {
-          final merchantId = item['products']['seller_id'];
-          if (!merchantShippingCosts.containsKey(merchantId)) {
-            Get.snackbar(
-              'Error',
-              'Silakan pilih metode pengiriman terlebih dahulu',
-              backgroundColor: Colors.red,
-              colorText: Colors.white,
-            );
-            return;
-          }
-        }
-
-        final params = {
-          'p_buyer_id': supabase.auth.currentUser!.id,
-          'p_payment_method_id': int.parse(paymentMethod!),
-          'p_shipping_address': widget.data['shipping_address'],
-          'p_items': widget.data['items']
-              .map((item) => {
-                    'product_id': item['products']['id'],
-                    'quantity': item['quantity'],
-                    'price': item['products']['price'],
-                    'merchant_id': item['products']['seller_id'],
-                  })
-              .toList(),
-          'p_shipping_costs': Map<String, dynamic>.fromEntries(
-            merchantShippingCosts.entries.map(
-              (e) => MapEntry(e.key, e.value.toDouble()),
-            ),
-          ),
-          'p_admin_fee': adminFee,
-          'p_total_amount':
-              widget.data['total_amount'] + adminFee + shippingCost,
-          'p_total_shipping_cost': shippingCost,
-        };
-
-        print('Debug: Parameters being sent:');
-        print(params);
-
-        final response = await supabase.rpc(
-          'create_order_with_items',
-          params: params,
-        );
-
-        print('Debug: RPC Response:');
-        print(response);
-
-        if (response == null || response['success'] == false) {
-          throw Exception(response?['message'] ?? 'Unknown error occurred');
-        }
-
-        // Ambil payment_group_id dari response
-        final paymentGroupId = response['payment_group_id'];
-
-        await cartController.clearCart(
-            widget.data['items'].map((item) => item['product_id']).toList());
-
-        final selectedPaymentMethod = paymentMethods
-            .firstWhere((method) => method['id'].toString() == paymentMethod);
-
-        // Navigasi ke PaymentScreen
-        Get.off(() => PaymentScreen(
-              orderData: {
-                ...widget.data,
-                'payment_group_id': paymentGroupId,
-                'total_amount':
-                    widget.data['total_amount'] + adminFee + shippingCost,
-                'total_shipping_cost': shippingCost,
-                'admin_fee': adminFee,
-              },
-              paymentMethod: selectedPaymentMethod,
-            ));
-      } catch (e) {
-        print('Error creating order: $e');
+    // Pastikan setiap merchant memiliki shipping cost
+    for (var item in widget.data['items']) {
+      final merchantId = item['products']['seller_id'];
+      if (!merchantShippingCosts.containsKey(merchantId)) {
         Get.snackbar(
           'Error',
-          'Terjadi kesalahan saat membuat pesanan',
+          'Silakan pilih metode pengiriman terlebih dahulu',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
+        return;
       }
-    } else {
+    }
+
+    try {
+      print('Debug: Starting order creation process');
+
+      // Cek apakah metode pembayaran adalah COD
+      final selectedMethod = paymentMethods.firstWhere(
+        (method) => method['id'].toString() == paymentMethod,
+        orElse: () => {'name': ''},
+      );
+      final isCOD =
+          selectedMethod['name'].toString().toLowerCase().contains('cod');
+
+      final params = {
+        'p_buyer_id': supabase.auth.currentUser!.id,
+        'p_payment_method_id':
+            int.parse(paymentMethod ?? '1'), // Default ke ID 1 untuk COD
+        'p_shipping_address': widget.data['shipping_address'],
+        'p_items': widget.data['items']
+            .map((item) => {
+                  'product_id': item['products']['id'],
+                  'quantity': item['quantity'],
+                  'price': item['products']['price'],
+                  'merchant_id': item['products']['seller_id'],
+                })
+            .toList(),
+        'p_shipping_costs': Map<String, dynamic>.fromEntries(
+          merchantShippingCosts.entries.map(
+            (e) => MapEntry(e.key, e.value.toDouble()),
+          ),
+        ),
+        'p_admin_fee': adminFee,
+        'p_total_amount': widget.data['total_amount'] + adminFee + shippingCost,
+        'p_total_shipping_cost': shippingCost,
+      };
+
+      final response = await supabase.rpc(
+        'create_order_with_items',
+        params: params,
+      );
+
+      if (response == null || response['success'] == false) {
+        throw Exception(response?['message'] ?? 'Unknown error occurred');
+      }
+
+      final paymentGroupId = response['payment_group_id'];
+
+      await cartController.clearCart(
+          widget.data['items'].map((item) => item['product_id']).toList());
+
+      // Navigasi ke PaymentScreen
+      Get.off(() => PaymentScreen(
+            orderData: {
+              ...widget.data,
+              'payment_group_id': paymentGroupId,
+              'total_amount':
+                  widget.data['total_amount'] + adminFee + shippingCost,
+              'total_shipping_cost': shippingCost,
+              'admin_fee': adminFee,
+            },
+            paymentMethod: selectedMethod,
+          ));
+    } catch (e) {
+      print('Error creating order: $e');
       Get.snackbar(
         'Error',
-        'Silakan pilih metode pembayaran',
+        'Terjadi kesalahan saat membuat pesanan',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

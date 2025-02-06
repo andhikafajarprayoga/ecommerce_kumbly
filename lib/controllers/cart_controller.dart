@@ -174,11 +174,6 @@ class CartController extends GetxController {
       cartItems.removeWhere((item) => productIds.contains(item['product_id']));
     } catch (e) {
       print('Error clearing cart: $e');
-      Get.snackbar(
-        'Error',
-        'Gagal mengosongkan keranjang',
-        snackPosition: SnackPosition.TOP,
-      );
     } finally {
       isLoading(false);
     }

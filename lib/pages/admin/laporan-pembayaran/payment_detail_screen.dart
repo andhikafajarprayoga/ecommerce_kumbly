@@ -15,6 +15,29 @@ class PaymentDetailScreen extends StatefulWidget {
 
 class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
   final supabase = Supabase.instance.client;
+  bool isCOD = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkPaymentMethod();
+  }
+
+  Future<void> _checkPaymentMethod() async {
+    try {
+      final response = await supabase
+          .from('payment_methods')
+          .select('name')
+          .eq('id', widget.payment.paymentMethodId.toString())
+          .single();
+
+      setState(() {
+        isCOD = response['name'].toString().toLowerCase().contains('cod');
+      });
+    } catch (e) {
+      print('Error checking payment method: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +63,29 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
           children: [
             _buildInfoCard(),
             SizedBox(height: 16),
-            if (widget.payment.paymentProof != null) _buildPaymentProof(),
+            if (!isCOD && widget.payment.paymentProof != null)
+              _buildPaymentProof(),
+            if (isCOD)
+              Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(Icons.local_shipping, color: Colors.blue),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Pembayaran dilakukan saat barang sampai (COD)',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -82,6 +127,13 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
   }
 
   Widget _buildPaymentProof() {
+    if (isCOD ||
+        widget.payment.paymentProof == null ||
+        widget.payment.paymentProof == 'COD' ||
+        !widget.payment.paymentProof!.startsWith('http')) {
+      return SizedBox.shrink();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -98,6 +150,20 @@ class _PaymentDetailScreenState extends State<PaymentDetailScreen> {
           child: Image.network(
             widget.payment.paymentProof!,
             fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                width: double.infinity,
+                height: 200,
+                color: Colors.grey[200],
+                child: Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    size: 40,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
