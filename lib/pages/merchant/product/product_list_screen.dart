@@ -5,6 +5,8 @@ import 'add_product_screen.dart';
 import 'edit_product_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
+import '../../../theme/app_theme.dart';
 
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key});
@@ -29,26 +31,21 @@ class _ProductListScreenState extends State<ProductListScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.blue,
+        backgroundColor: AppTheme.primary,
         title: const Text(
           'Daftar Produk',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
             color: Colors.white,
+            fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: const Icon(
-                Icons.add_circle_outline_rounded,
-                color: Colors.white,
-              ),
-              onPressed: () {
-                Get.to(() => AddProductScreen());
-              },
+          IconButton(
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: Colors.white,
             ),
+            onPressed: () => Get.to(() => AddProductScreen()),
           ),
         ],
       ),
@@ -91,12 +88,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    Get.to(() => AddProductScreen());
-                  },
+                  onPressed: () => Get.to(() => AddProductScreen()),
                   icon: const Icon(Icons.add),
                   label: const Text('Tambah Produk'),
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -122,153 +119,146 @@ class _ProductListScreenState extends State<ProductListScreen> {
           itemCount: myProducts.length,
           itemBuilder: (context, index) {
             final product = myProducts[index];
-            return ProductCard(
-              product: product,
-              onEdit: () {
-                Get.to(() => EditProductScreen(product: product))?.then((_) {
-                  setState(() {
-                    productController.fetchProducts();
-                  });
-                });
-              },
-              onDelete: () async {
-                final confirm = await Get.dialog<bool>(
-                  AlertDialog(
-                    title: const Text('Konfirmasi'),
-                    content: const Text(
-                      'Apakah Anda yakin ingin menghapus produk ini?',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Get.back(result: false),
-                        child: const Text('Batal'),
-                      ),
-                      TextButton(
-                        onPressed: () => Get.back(result: true),
-                        child: const Text(
-                          'Hapus',
-                          style: TextStyle(color: Colors.red),
+            return Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Product Image
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(
+                            _getProductImage(product['image_url']),
+                          ),
+                          fit: BoxFit.cover,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                );
-
-                if (confirm == true) {
-                  await productController.deleteProduct(product['id']);
-                  setState(() {
-                    productController.fetchProducts();
-                  });
-                  Get.snackbar(
-                    'Sukses',
-                    'Produk berhasil dihapus',
-                    backgroundColor: Colors.green,
-                    colorText: Colors.white,
-                  );
-                }
-              },
+                  // Product Info
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product['name'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          NumberFormat.currency(
+                            locale: 'id',
+                            symbol: 'Rp ',
+                            decimalDigits: 0,
+                          ).format(product['price'] ?? 0),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () => Get.to(
+                                    () => EditProductScreen(product: product)),
+                                child: const Text('Edit'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primary,
+                                  padding: EdgeInsets.zero,
+                                  side: BorderSide(color: AppTheme.primary),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              color: Colors.red,
+                              onPressed: () => _showDeleteConfirmation(product),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         );
       }),
     );
   }
-}
 
-class ProductCard extends StatelessWidget {
-  final dynamic product;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-
-  const ProductCard({
-    super.key,
-    required this.product,
-    this.onEdit,
-    this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Parse image URLs
-    List<String> imageUrls = [];
-    if (product['image_url'] != null) {
-      try {
-        if (product['image_url'] is List) {
-          imageUrls = List<String>.from(product['image_url']);
-        } else if (product['image_url'] is String) {
-          final List<dynamic> urls = json.decode(product['image_url']);
-          imageUrls = List<String>.from(urls);
-        }
-      } catch (e) {
-        print('Error parsing image URLs: $e');
-      }
-    }
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Product Image
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: NetworkImage(
-                    imageUrls.isNotEmpty
-                        ? imageUrls.first // Tampilkan gambar pertama
-                        : 'https://via.placeholder.com/150', // Gambar default
-                  ),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
+  void _showDeleteConfirmation(Map<String, dynamic> product) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Konfirmasi'),
+        content: const Text('Apakah Anda yakin ingin menghapus produk ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Batal'),
           ),
-
-          // Product Info
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product['name'],
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Rp ${product['price']}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: onEdit,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: onDelete,
-                    ),
-                  ],
-                ),
-              ],
+          TextButton(
+            onPressed: () async {
+              Get.back();
+              await productController.deleteProduct(product['id']);
+              Get.snackbar(
+                'Sukses',
+                'Produk berhasil dihapus',
+                backgroundColor: Colors.green,
+                colorText: Colors.white,
+              );
+            },
+            child: const Text(
+              'Hapus',
+              style: TextStyle(color: Colors.red),
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _getProductImage(dynamic imageUrl) {
+    if (imageUrl == null) return 'https://via.placeholder.com/150';
+
+    try {
+      if (imageUrl is String) {
+        // Jika imageUrl string JSON, parse menjadi List
+        List<dynamic> images = jsonDecode(imageUrl);
+        return images.isNotEmpty
+            ? images[0]
+            : 'https://via.placeholder.com/150';
+      } else if (imageUrl is List) {
+        // Jika imageUrl sudah berbentuk List
+        return imageUrl.isNotEmpty
+            ? imageUrl[0]
+            : 'https://via.placeholder.com/150';
+      }
+    } catch (e) {
+      print('Error parsing image URL: $e');
+    }
+
+    return 'https://via.placeholder.com/150';
   }
 }
