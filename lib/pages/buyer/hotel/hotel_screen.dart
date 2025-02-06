@@ -102,8 +102,7 @@ class _HotelScreenState extends State<HotelScreen> {
           itemCount: hotels.length,
           itemBuilder: (context, index) {
             final hotel = hotels[index];
-            final merchantAddress =
-                jsonDecode(hotel['merchants']['store_address'] ?? '{}');
+            final hotelAddress = hotel['address'];
 
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
@@ -146,23 +145,14 @@ class _HotelScreenState extends State<HotelScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   // Location
-                                  Row(
-                                    children: [
-                                      Icon(Icons.location_on_outlined,
-                                          size: 14, color: AppTheme.textHint),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          '${merchantAddress['district']}, ${merchantAddress['city']}',
-                                          style: TextStyle(
-                                            color: AppTheme.textHint,
-                                            fontSize: 12,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
+                                  Text(
+                                    hotelAddress,
+                                    style: TextStyle(
+                                      color: AppTheme.textHint,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ],
                               ),

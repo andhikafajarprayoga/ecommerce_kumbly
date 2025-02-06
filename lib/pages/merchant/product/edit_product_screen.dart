@@ -5,6 +5,7 @@ import '../../../controllers/product_controller.dart';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import '../../../theme/app_theme.dart';
 
 class EditProductScreen extends StatefulWidget {
   final dynamic product;
@@ -101,7 +102,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.blue,
+        backgroundColor: AppTheme.primary,
         title: const Text(
           'Edit Produk',
           style: TextStyle(
@@ -117,7 +118,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.blue,
+                color: AppTheme.primary,
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
@@ -294,6 +295,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: AppTheme.primary,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -302,13 +304,25 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         Expanded(
                           child: _buildTextField(
                             controller: weightController,
-                            label: 'Berat (gram)',
-                            hint: 'Masukkan berat',
+                            label: 'Berat (kg)',
+                            hint: 'Contoh: 0.2',
                             icon: Icons.scale,
-                            keyboardType: TextInputType.number,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Berat tidak boleh kosong';
+                              }
+                              try {
+                                final weight = double.parse(value);
+                                if (weight <= 0) {
+                                  return 'Berat harus lebih dari 0';
+                                }
+                                // Convert kg to grams and update controller
+                                weightController.text =
+                                    (weight * 1000).toString();
+                              } catch (e) {
+                                return 'Masukkan angka yang valid';
                               }
                               return null;
                             },
@@ -354,7 +368,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                     ElevatedButton(
                       onPressed: updateProduct,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: AppTheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -365,6 +379,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -407,12 +422,17 @@ class _EditProductScreenState extends State<EditProductScreen> {
         keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(color: AppTheme.primary),
           hintText: hint,
           prefixText: prefixText,
-          prefixIcon: Icon(icon),
+          prefixIcon: Icon(icon, color: AppTheme.primary),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: AppTheme.primary),
           ),
           filled: true,
           fillColor: Colors.white,

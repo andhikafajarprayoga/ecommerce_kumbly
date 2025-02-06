@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'dart:io';
+import 'dart:convert';
 
 class EditProductScreen extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -19,8 +20,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   final _formKey = GlobalKey<FormState>();
   final supabase = Supabase.instance.client;
   bool isLoading = false;
-  File? _imageFile;
-  String? _imageUrl;
+  final RxList<String> imagePaths = <String>[].obs;
 
   final nameController = TextEditingController();
   final descriptionController = TextEditingController();
@@ -45,6 +45,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
   void initState() {
     super.initState();
     _initializeData();
+    _initializeImages();
   }
 
   void _initializeData() {
@@ -56,7 +57,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
     lengthController.text = widget.product['length'].toString();
     widthController.text = widget.product['width'].toString();
     heightController.text = widget.product['height'].toString();
-    _imageUrl = widget.product['image_url'];
 
     if (categories.contains(widget.product['category'])) {
       selectedCategory = widget.product['category'];
@@ -65,79 +65,51 @@ class _EditProductScreenState extends State<EditProductScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
-      if (image != null) {
-        setState(() {
-          _imageFile = File(image.path);
-        });
+  void _initializeImages() {
+    if (widget.product['image_url'] != null) {
+      try {
+        if (widget.product['image_url'] is List) {
+          imagePaths.addAll(List<String>.from(widget.product['image_url']));
+        } else if (widget.product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(widget.product['image_url']);
+          imagePaths.addAll(List<String>.from(urls));
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
       }
-    } catch (e) {
-      print('Error picking image: $e');
     }
   }
 
-  Future<String?> _uploadImage() async {
-    if (_imageFile == null) return _imageUrl;
-
-    try {
-      final String path = 'products/${DateTime.now().toIso8601String()}.jpg';
-      final file =
-          await supabase.storage.from('products').upload(path, _imageFile!);
-
-      return supabase.storage.from('products').getPublicUrl(path);
-    } catch (e) {
-      print('Error uploading image: $e');
-      return null;
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final List<XFile> images = await picker.pickMultiImage();
+    if (images.isNotEmpty) {
+      imagePaths.addAll(images.map((image) => image.path));
     }
   }
 
-  Future<void> _updateProduct() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => isLoading = true);
-
+  Future<List<String>> _uploadImages() async {
+    List<String> imageUrls = [];
     try {
-      String? imageUrl = await _uploadImage();
+      for (String path in imagePaths) {
+        if (path.startsWith('http')) {
+          imageUrls.add(path);
+          continue;
+        }
 
-      final updatedData = {
-        'name': nameController.text,
-        'description': descriptionController.text,
-        'price': double.parse(priceController.text),
-        'stock': int.parse(stockController.text),
-        'category': selectedCategory,
-        'weight': int.parse(weightController.text),
-        'length': int.parse(lengthController.text),
-        'width': int.parse(widthController.text),
-        'height': int.parse(heightController.text),
-        if (imageUrl != null) 'image_url': imageUrl,
-      };
+        final fileName =
+            '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
+        final file = File(path);
 
-      await supabase
-          .from('products')
-          .update(updatedData)
-          .eq('id', widget.product['id']);
-
-      Get.back(result: true);
-      Get.snackbar(
-        'Sukses',
-        'Produk berhasil diperbarui',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
+        await supabase.storage.from('products').upload(fileName, file);
+        final imageUrl =
+            supabase.storage.from('products').getPublicUrl(fileName);
+        imageUrls.add(imageUrl);
+      }
+      return imageUrls;
     } catch (e) {
-      print('Error updating product: $e');
-      Get.snackbar(
-        'Error',
-        'Gagal memperbarui produk',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    } finally {
-      setState(() => isLoading = false);
+      print('Error uploading images: $e');
+      return [];
     }
   }
 
@@ -154,22 +126,78 @@ class _EditProductScreenState extends State<EditProductScreen> {
           padding: EdgeInsets.all(16),
           children: [
             // Image Picker
-            InkWell(
-              onTap: _pickImage,
-              child: Container(
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: _imageFile != null
-                    ? Image.file(_imageFile!, fit: BoxFit.cover)
-                    : _imageUrl != null
-                        ? Image.network(_imageUrl!, fit: BoxFit.cover)
-                        : Icon(Icons.add_photo_alternate,
-                            size: 50, color: Colors.grey),
-              ),
-            ),
+            Obx(() => Container(
+                  height: 200,
+                  child: imagePaths.isEmpty
+                      ? InkWell(
+                          onTap: _pickImage,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(Icons.add_photo_alternate,
+                                size: 50, color: Colors.grey),
+                          ),
+                        )
+                      : ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: imagePaths.length + 1,
+                          itemBuilder: (context, index) {
+                            if (index == imagePaths.length) {
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: InkWell(
+                                  onTap: _pickImage,
+                                  child: Container(
+                                    width: 150,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Icon(Icons.add_photo_alternate,
+                                        size: 50, color: Colors.grey),
+                                  ),
+                                ),
+                              );
+                            }
+                            return Stack(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: imagePaths[index].startsWith('http')
+                                        ? Image.network(
+                                            imagePaths[index],
+                                            width: 150,
+                                            height: 200,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : Image.file(
+                                            File(imagePaths[index]),
+                                            width: 150,
+                                            height: 200,
+                                            fit: BoxFit.cover,
+                                          ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 0,
+                                  right: 0,
+                                  child: IconButton(
+                                    icon: Icon(Icons.remove_circle,
+                                        color: Colors.red),
+                                    onPressed: () {
+                                      imagePaths.removeAt(index);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                )),
             SizedBox(height: 16),
 
             // Form Fields
@@ -277,7 +305,52 @@ class _EditProductScreenState extends State<EditProductScreen> {
             SizedBox(height: 24),
 
             ElevatedButton(
-              onPressed: isLoading ? null : _updateProduct,
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      if (_formKey.currentState!.validate()) {
+                        setState(() => isLoading = true);
+                        try {
+                          final imageUrls = await _uploadImages();
+
+                          final updatedData = {
+                            'name': nameController.text,
+                            'description': descriptionController.text,
+                            'price': double.parse(priceController.text),
+                            'stock': int.parse(stockController.text),
+                            'category': selectedCategory,
+                            'weight': int.parse(weightController.text),
+                            'length': int.parse(lengthController.text),
+                            'width': int.parse(widthController.text),
+                            'height': int.parse(heightController.text),
+                            'image_url': imageUrls,
+                          };
+
+                          await supabase
+                              .from('products')
+                              .update(updatedData)
+                              .eq('id', widget.product['id']);
+
+                          Get.back(result: true);
+                          Get.snackbar(
+                            'Sukses',
+                            'Produk berhasil diperbarui',
+                            backgroundColor: Colors.green,
+                            colorText: Colors.white,
+                          );
+                        } catch (e) {
+                          print('Error updating product: $e');
+                          Get.snackbar(
+                            'Error',
+                            'Gagal memperbarui produk',
+                            backgroundColor: Colors.red,
+                            colorText: Colors.white,
+                          );
+                        } finally {
+                          setState(() => isLoading = false);
+                        }
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 padding: EdgeInsets.symmetric(vertical: 16),

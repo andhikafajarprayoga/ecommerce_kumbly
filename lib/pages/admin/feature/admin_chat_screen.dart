@@ -157,13 +157,35 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   String _formatTime(String timestamp) {
     final date = DateTime.parse(timestamp).toLocal();
     final now = DateTime.now();
+    final difference = now.difference(date);
 
+    // Jika hari ini
     if (date.year == now.year &&
         date.month == now.month &&
         date.day == now.day) {
-      return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
 
-    return '${date.day}/${date.month}/${date.year}';
+    // Jika kemarin
+    if (difference.inDays == 1) {
+      return 'Kemarin';
+    }
+
+    // Jika dalam minggu ini (7 hari terakhir)
+    if (difference.inDays < 7) {
+      final List<String> days = [
+        'Sen',
+        'Sel',
+        'Rab',
+        'Kam',
+        'Jum',
+        'Sab',
+        'Min'
+      ];
+      return days[date.weekday - 1];
+    }
+
+    // Jika lebih dari seminggu
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 }

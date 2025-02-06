@@ -14,6 +14,7 @@ import 'package:kumbly_ecommerce/pages/merchant/order/shipping_management_screen
 import 'package:kumbly_ecommerce/pages/merchant/order/cancellation_requests_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/profile/edit_store_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/hotel/hotel_management_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/hotel/hotel_bookings_screen.dart';
 
 class MerchantHomeScreen extends StatefulWidget {
   final String sellerId;
@@ -26,6 +27,9 @@ class MerchantHomeScreen extends StatefulWidget {
 class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
   final ProductController productController = Get.find<ProductController>();
   int _selectedIndex = 0;
+  PageController _pageController = PageController();
+  int _currentBannerIndex = 0;
+  int unreadNotifications = 0; // Ganti dengan logika notifikasi yang sebenarnya
 
   @override
   Widget build(BuildContext context) {
@@ -79,13 +83,21 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
   }
 }
 
-class _HomeMenu extends StatelessWidget {
+class _HomeMenu extends StatefulWidget {
+  @override
+  _HomeMenuState createState() => _HomeMenuState();
+}
+
+class _HomeMenuState extends State<_HomeMenu> {
   final supabase = Supabase.instance.client;
   final storeName = ''.obs;
   final needToShip = '0'.obs;
   final shipping = '0'.obs;
   final cancelled = '0'.obs;
   final completed = '0'.obs;
+
+  PageController _pageController = PageController();
+  int _currentBannerIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -150,8 +162,9 @@ class _HomeMenu extends StatelessWidget {
                       ),
                     ),
                     ElevatedButton.icon(
-                      icon: const Icon(Icons.swap_horiz, size: 18),
-                      label: const Text('Jadi Pembeli'),
+                      icon: const Icon(Icons.swap_horiz,
+                          size: 14, color: Colors.white),
+                      label: const Text('Jadi Pembeli?'),
                       onPressed: () {
                         Get.dialog(
                           AlertDialog(
@@ -206,74 +219,6 @@ class _HomeMenu extends StatelessWidget {
                 height: 150,
                 margin:
                     const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-                child: Stack(
-                  children: [
-                    PageView(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.primary,
-                                AppTheme.primary.withOpacity(0.8)
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              'Selamat Datang di Toko Anda',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Positioned(
-                      bottom: 8,
-                      left: 0,
-                      right: 0,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Order Status Section
-              Container(
-                padding: const EdgeInsets.all(20),
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
-                      spreadRadius: 1,
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
                 child: Column(
                   children: [
                     Row(
@@ -413,8 +358,16 @@ class _HomeMenu extends StatelessWidget {
                         _buildMenuItem(
                           context: context,
                           icon: Icons.hotel,
-                          label: 'penginapan',
+                          label: 'Hotel',
                           onTap: () => Get.to(() => HotelManagementScreen()),
+                        ),
+                        _buildMenuItem(
+                          context: context,
+                          icon: Icons.book_online,
+                          label: 'Book Hotel',
+                          onTap: () => Get.to(() => HotelBookingsScreen(
+                                hotelId: '',
+                              )),
                         ),
                       ],
                     ),

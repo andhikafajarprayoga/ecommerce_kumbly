@@ -460,7 +460,7 @@ class CategoryIcon extends StatelessWidget {
   }
 }
 
-// Memperbarui ProductCard untuk gaya Shopee
+
 class ProductCard extends StatelessWidget {
   final Map<String, dynamic> product;
 

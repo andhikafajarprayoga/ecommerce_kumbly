@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../controllers/product_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
+import '../../../theme/app_theme.dart';
 
 class AddProductScreen extends StatelessWidget {
   AddProductScreen({super.key});
@@ -110,7 +111,7 @@ class AddProductScreen extends StatelessWidget {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.blue,
+        backgroundColor: AppTheme.primary,
         title: const Text(
           'Tambah Produk',
           style: TextStyle(
@@ -126,14 +127,24 @@ class AddProductScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.blue,
+                color: AppTheme.primary,
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
                 ),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    'Foto Produk',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 12),
                   Obx(() => imagePaths.isNotEmpty
                       ? Column(
                           children: [
@@ -306,13 +317,25 @@ class AddProductScreen extends StatelessWidget {
                         Expanded(
                           child: _buildTextField(
                             controller: weightController,
-                            label: 'Berat (gram)',
-                            hint: 'Masukkan berat',
+                            label: 'Berat (kg)',
+                            hint: 'Contoh: 1kg = 1',
                             icon: Icons.scale,
-                            keyboardType: TextInputType.number,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Berat tidak boleh kosong';
+                              }
+                              try {
+                                final weight = double.parse(value);
+                                if (weight <= 0) {
+                                  return 'Berat harus lebih dari 0';
+                                }
+                                // Convert kg to grams and update controller
+                                weightController.text =
+                                    (weight * 1000).toString();
+                              } catch (e) {
+                                return 'Masukkan angka yang valid';
                               }
                               return null;
                             },
@@ -358,7 +381,7 @@ class AddProductScreen extends StatelessWidget {
                     ElevatedButton(
                       onPressed: saveProduct,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
+                        backgroundColor: AppTheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -369,6 +392,7 @@ class AddProductScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -393,6 +417,7 @@ class AddProductScreen extends StatelessWidget {
     String? Function(String?)? validator,
   }) {
     return Container(
+      margin: EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -411,12 +436,17 @@ class AddProductScreen extends StatelessWidget {
         keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
+          labelStyle: TextStyle(color: AppTheme.primary),
           hintText: hint,
           prefixText: prefixText,
-          prefixIcon: Icon(icon),
+          prefixIcon: Icon(icon, color: AppTheme.primary),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: AppTheme.primary),
           ),
           filled: true,
           fillColor: Colors.white,
