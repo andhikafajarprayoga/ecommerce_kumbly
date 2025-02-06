@@ -238,7 +238,7 @@ class _FindScreenState extends State<FindScreen> {
                   ),
                   child: Icon(Icons.location_on, color: AppTheme.primary),
                 ),
-                title: Text('Terdekat'),
+                title: Text('Terdekat dengan alamat pengiriman'),
                 onTap: () {
                   _sortByDistance();
                   Get.back();
@@ -639,7 +639,7 @@ class _FindScreenState extends State<FindScreen> {
               ),
             ),
             IconButton(
-              icon: Icon(Icons.filter_list, color: Colors.white),
+              icon: Icon(Icons.tune, color: Colors.white),
               onPressed: _showFilterBottomSheet,
             ),
           ],
