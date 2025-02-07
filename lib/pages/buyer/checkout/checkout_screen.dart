@@ -40,6 +40,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double discountAmount = 0; // Tambahkan variabel untuk menyimpan jumlah diskon
   List<Map<String, dynamic>> availableDiscountVouchers = [];
   bool isLoadingVouchers = false;
+  List<Map<String, dynamic>> userAddresses = [];
+  String? selectedAddress;
+  bool isLoadingAddresses = false;
 
   @override
   void initState() {
@@ -47,6 +50,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     fetchPaymentMethods();
     fetchShippingRates();
     fetchAvailableVouchers();
+    fetchUserAddresses();
   }
 
   Future<void> fetchPaymentMethods() async {
@@ -99,6 +103,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => isLoadingVouchers = false);
   }
 
+  Future<void> fetchUserAddresses() async {
+    setState(() => isLoadingAddresses = true);
+    try {
+      final response = await supabase
+          .from('users')
+          .select('address, address2, address3, address4')
+          .eq('id', supabase.auth.currentUser!.id)
+          .single();
+
+      setState(() {
+        userAddresses = [];
+        if (response['address'] != null) userAddresses.add(response['address']);
+        if (response['address2'] != null)
+          userAddresses.add(response['address2']);
+        if (response['address3'] != null)
+          userAddresses.add(response['address3']);
+        if (response['address4'] != null)
+          userAddresses.add(response['address4']);
+
+        if (userAddresses.isNotEmpty) {
+          selectedAddress = userAddresses[0].toString();
+          widget.data['shipping_address'] = selectedAddress;
+        }
+      });
+    } catch (e) {
+      print('Error fetching addresses: $e');
+    }
+    setState(() => isLoadingAddresses = false);
+  }
+
   Future<void> handleConfirmOrder() async {
     // Validasi alamat
     if (widget.data['shipping_address'] == null ||
@@ -138,11 +172,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final isCOD =
           selectedMethod['name'].toString().toLowerCase().contains('cod');
 
+      // Parse alamat menjadi string yang rapi
+      String formattedAddress = '';
+
+      // Bersihkan string dan konversi ke Map
+      String cleanAddress =
+          selectedAddress!.replaceAll('{', '').replaceAll('}', '');
+
+      Map<String, String> addressMap = {};
+      cleanAddress.split(',').forEach((pair) {
+        var keyValue = pair.split(':');
+        if (keyValue.length == 2) {
+          addressMap[keyValue[0].trim()] = keyValue[1].trim();
+        }
+      });
+
+      // Format alamat menjadi string yang rapi
+      formattedAddress = [
+        addressMap['street'],
+        if (addressMap['village']?.isNotEmpty == true)
+          "Desa ${addressMap['village']}",
+        if (addressMap['district']?.isNotEmpty == true)
+          "Kec. ${addressMap['district']}",
+        addressMap['city'],
+        addressMap['province'],
+        addressMap['postal_code']
+      ].where((e) => e != null && e.isNotEmpty).join(', ');
+
       final params = {
         'p_buyer_id': supabase.auth.currentUser!.id,
-        'p_payment_method_id':
-            int.parse(paymentMethod ?? '1'), // Default ke ID 1 untuk COD
-        'p_shipping_address': widget.data['shipping_address'],
+        'p_payment_method_id': int.parse(paymentMethod ?? '1'),
+        'p_shipping_address': formattedAddress,
         'p_items': widget.data['items']
             .map((item) => {
                   'product_id': item['products']['id'],
@@ -890,66 +950,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Column(
               children: [
                 // Alamat Pengiriman
-                Card(
-                  elevation: 0.5,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.location_on,
-                                color: AppTheme.primary, size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'Alamat Pengiriman',
-                              style: TextStyle(
-                                  fontSize: 14, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        Divider(height: 16),
-                        GestureDetector(
-                          onTap: () async {
-                            final updatedAddress =
-                                await Get.to(() => EditAddressScreen(
-                                      initialAddress:
-                                          widget.data['shipping_address'],
-                                      onSave: (newAddress) {
-                                        setState(() {
-                                          widget.data['shipping_address'] =
-                                              newAddress;
-                                        });
-                                      },
-                                    ));
-                            if (updatedAddress != null) {
-                              setState(() {
-                                widget.data['shipping_address'] =
-                                    updatedAddress;
-                              });
-                            }
-                          },
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  widget.data['shipping_address'],
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                              ),
-                              Icon(Icons.edit,
-                                  color: AppTheme.primary, size: 16),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                _buildShippingAddressCard(),
                 SizedBox(height: 8),
 
                 // Opsi Pengiriman
@@ -1103,6 +1104,141 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Widget _buildShippingAddressCard() {
+    return Card(
+      elevation: 0.5,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.location_on, color: AppTheme.primary, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'Alamat Pengiriman',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            Divider(height: 16),
+            if (isLoadingAddresses)
+              Center(child: CircularProgressIndicator())
+            else
+              InkWell(
+                onTap: () {
+                  showModalBottomSheet(
+                    context: context,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(15)),
+                    ),
+                    builder: (context) => Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Pilih Alamat',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          ...userAddresses
+                              .map((address) => ListTile(
+                                    title: Text(
+                                      parseAddress(
+                                          Map<String, dynamic>.from(address)),
+                                      style: TextStyle(fontSize: 13),
+                                    ),
+                                    selected:
+                                        selectedAddress == address.toString(),
+                                    onTap: () {
+                                      setState(() {
+                                        selectedAddress = address.toString();
+                                        widget.data['shipping_address'] =
+                                            selectedAddress;
+                                      });
+                                      Navigator.pop(context);
+                                    },
+                                  ))
+                              .toList(),
+                          Divider(),
+                          ListTile(
+                            leading: Icon(Icons.add, color: AppTheme.primary),
+                            title: Text('Tambah Alamat Baru'),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              final updatedAddress =
+                                  await Get.to(() => EditAddressScreen(
+                                        initialAddress: '',
+                                        onSave: (newAddress) {
+                                          setState(() {
+                                            widget.data['shipping_address'] =
+                                                newAddress;
+                                          });
+                                        },
+                                      ));
+                              if (updatedAddress != null) {
+                                setState(() {
+                                  widget.data['shipping_address'] =
+                                      updatedAddress;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (selectedAddress != null)
+                              Text(
+                                parseAddress(Map<String, dynamic>.from(
+                                    userAddresses.firstWhere((addr) =>
+                                        addr.toString() == selectedAddress))),
+                                style: TextStyle(fontSize: 13),
+                              )
+                            else
+                              Text(
+                                'Pilih alamat pengiriman',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPaymentSummary() {
     return Card(
       elevation: 0.5,
@@ -1189,5 +1325,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool isAddressValid() {
     return widget.data['shipping_address'] != null &&
         widget.data['shipping_address'].toString().trim().isNotEmpty;
+  }
+
+  String parseAddress(Map<String, dynamic> addressJson) {
+    try {
+      List<String> addressParts = [];
+
+      if (addressJson['street'] != null)
+        addressParts.add(addressJson['street']);
+      if (addressJson['village'] != null)
+        addressParts.add("Desa ${addressJson['village']}");
+      if (addressJson['district'] != null)
+        addressParts.add("Kec. ${addressJson['district']}");
+      if (addressJson['city'] != null) addressParts.add(addressJson['city']);
+      if (addressJson['province'] != null)
+        addressParts.add(addressJson['province']);
+      if (addressJson['postal_code'] != null)
+        addressParts.add(addressJson['postal_code']);
+
+      return addressParts.join(', ');
+    } catch (e) {
+      print('Error parsing address: $e');
+      return addressJson.toString();
+    }
   }
 }
