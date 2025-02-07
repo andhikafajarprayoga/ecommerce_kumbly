@@ -30,6 +30,43 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
   PageController _pageController = PageController();
   int _currentBannerIndex = 0;
   int unreadNotifications = 0; // Ganti dengan logika notifikasi yang sebenarnya
+  final RxInt _unreadChatsCount = 0.obs;
+  late Stream<int> _unreadChatsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupUnreadChatsStream();
+  }
+
+  void _setupUnreadChatsStream() {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // Stream untuk chat_messages dengan realtime updates
+    _unreadChatsStream = Supabase.instance.client
+        .from('chat_messages')
+        .stream(primaryKey: ['id'])
+        .execute()
+        .map((messages) {
+          // Filter pesan yang belum dibaca dan bukan dari user saat ini
+          final unreadMessages = messages
+              .where((msg) => !msg['is_read'] && msg['sender_id'] != userId);
+
+          // Hitung jumlah room unik dengan pesan belum dibaca
+          final unreadRooms =
+              unreadMessages.map((msg) => msg['room_id']).toSet();
+
+          return unreadRooms.length;
+        })
+        .asBroadcastStream(); // Memastikan stream bisa didengarkan oleh multiple listeners
+
+    // Subscribe ke stream untuk update badge
+    _unreadChatsStream.listen(
+      (count) => _unreadChatsCount.value = count,
+      onError: (error) => print('Error in chat stream: $error'),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,16 +89,45 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
           ],
         ),
         child: BottomNavigationBar(
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
+          items: [
+            const BottomNavigationBarItem(
               icon: Icon(Icons.home_rounded),
               label: 'Home',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_rounded),
+              icon: Stack(
+                children: [
+                  const Icon(Icons.chat_bubble_rounded),
+                  Obx(() => _unreadChatsCount.value > 0
+                      ? Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(1),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 12,
+                              minHeight: 12,
+                            ),
+                            child: Text(
+                              _unreadChatsCount.value.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : const SizedBox()),
+                ],
+              ),
               label: 'Chat',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
               label: 'Profile',
             ),

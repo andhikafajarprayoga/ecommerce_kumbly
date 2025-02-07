@@ -12,8 +12,9 @@ import 'package:intl/intl.dart';
 import 'chat/chat_screen.dart';
 import 'dart:convert';
 import 'hotel/hotel_screen.dart';
-import 'package:rxdart/rxdart.dart';
+import 'package:rxdart/rxdart.dart' hide Rx;
 import '../../controllers/cart_controller.dart';
+import 'dart:async';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -33,8 +34,10 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final TextEditingController minPriceController = TextEditingController();
   final TextEditingController maxPriceController = TextEditingController();
   RxInt cartCount = 0.obs;
-  RxInt unreadChatCount = 0.obs;
+  final RxInt _unreadChatsCount = 0.obs;
+  late Stream<int> _unreadChatsStream;
   final CartController cartController = Get.put(CartController());
+  StreamSubscription? _chatSubscription;
 
   @override
   void initState() {
@@ -43,8 +46,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     fetchBanners();
     fetchCartCount();
     listenToCartChanges();
-    fetchUnreadChats();
-    listenToUnreadChats();
+    _setupUnreadChatsStream();
+  }
+
+  @override
+  void dispose() {
+    _chatSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> fetchBanners() async {
@@ -93,33 +101,47 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         });
   }
 
-  Future<void> fetchUnreadChats() async {
-    try {
-      final response = await supabase
-          .from('chat_messages')
-          .select('id')
-          .eq('receiver_id', supabase.auth.currentUser!.id)
-          .eq('is_read', false)
-          .count();
+  void _setupUnreadChatsStream() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
 
-      unreadChatCount.value = response.count ?? 0;
-    } catch (e) {
-      print('Error fetching unread chats: $e');
-    }
-  }
+    _chatSubscription?.cancel();
 
-  void listenToUnreadChats() {
-    final myUserId = supabase.auth.currentUser!.id;
-    supabase
-        .from('chat_messages')
-        .stream(primaryKey: ['id'])
-        .order('created_at')
-        .listen((List<Map<String, dynamic>> data) {
-          unreadChatCount.value = data
-              .where((msg) =>
-                  msg['receiver_id'] == myUserId && msg['is_read'] == false)
-              .length;
-        });
+    // Stream untuk chat_rooms
+    final roomStream = supabase
+        .from('chat_rooms')
+        .stream(primaryKey: ['id']).eq('buyer_id', userId);
+
+    // Stream untuk chat_messages
+    final messageStream =
+        supabase.from('chat_messages').stream(primaryKey: ['id']);
+
+    // Combine kedua stream
+    _chatSubscription = CombineLatestStream(
+      [roomStream, messageStream],
+      (values) async {
+        final rooms = values[0] as List<Map<String, dynamic>>;
+        final messages = values[1] as List<Map<String, dynamic>>;
+        final roomIds = rooms.map((room) => room['id']).toList();
+
+        if (roomIds.isEmpty) return 0;
+
+        final unreadMessages = messages.where((msg) =>
+            roomIds.contains(msg['room_id']) &&
+            msg['is_read'] == false &&
+            msg['sender_id'] != userId);
+
+        final unreadRooms = unreadMessages.map((msg) => msg['room_id']).toSet();
+
+        return unreadRooms.length;
+      },
+    ).listen(
+      (Future<int> countFuture) async {
+        final count = await countFuture;
+        _unreadChatsCount.value = count;
+      },
+      onError: (error) => print('Error in chat stream: $error'),
+    );
   }
 
   void _onItemTapped(int index) {
@@ -260,52 +282,41 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 0.2),
-                  child: Stack(
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.chat_outlined, color: Colors.white),
-                        onPressed: () => Get.to(() => ChatScreen()),
-                      ),
-                      Obx(() => unreadChatCount.value > 0
-                          ? Positioned(
-                              right: 2,
-                              top: 2,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                      color: Colors.white, width: 1.5),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 4,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.chat_outlined, color: Colors.white),
+                      onPressed: () => Get.to(() => ChatScreen()),
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Obx(() => _unreadChatsCount.value > 0
+                          ? Container(
+                              padding: EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              constraints: BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '${_unreadChatsCount.value}',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                constraints: BoxConstraints(
-                                  minWidth: 18,
-                                  minHeight: 18,
-                                ),
-                                child: Text(
-                                  '${unreadChatCount.value}',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
+                                textAlign: TextAlign.center,
                               ),
                             )
                           : SizedBox()),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             )

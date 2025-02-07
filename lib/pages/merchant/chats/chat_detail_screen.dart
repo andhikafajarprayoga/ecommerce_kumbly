@@ -24,6 +24,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final RxList<Map<String, dynamic>> _messages = <Map<String, dynamic>>[].obs;
   final ScrollController _scrollController = ScrollController();
+  bool _isFirstLoad = true;
 
   @override
   void initState() {
@@ -34,11 +35,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      if (_isFirstLoad) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        _isFirstLoad = false;
+      } else {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     }
   }
 
@@ -107,6 +113,75 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
+  Widget _buildMessageBubble({
+    required String message,
+    required bool isMine,
+    required String time,
+    required bool isRead,
+  }) {
+    return Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
+        margin: EdgeInsets.only(
+          bottom: 8,
+          left: isMine ? 50 : 0,
+          right: isMine ? 0 : 50,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: isMine ? AppTheme.primary : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              message,
+              style: TextStyle(
+                color: isMine ? Colors.white : Colors.black,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  time,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color:
+                        isMine ? Colors.white.withOpacity(0.7) : Colors.black54,
+                  ),
+                ),
+                if (isMine) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    isRead ? Icons.done_all : Icons.done,
+                    size: 12,
+                    color: Colors.white70,
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -155,9 +230,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 itemCount: _messages.length,
-                reverse: true,
                 itemBuilder: (context, index) {
-                  final message = _messages[_messages.length - 1 - index];
+                  final message = _messages[index];
                   final isCurrentUser =
                       message['sender_id'] == widget.currentUserId;
                   final DateTime dateTime =
@@ -165,57 +239,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   final String time =
                       '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
 
-                  return Align(
-                    alignment: isCurrentUser
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.75,
-                      ),
-                      margin: EdgeInsets.only(
-                        bottom: 8,
-                        left: isCurrentUser ? 50 : 0,
-                        right: isCurrentUser ? 0 : 50,
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isCurrentUser ? AppTheme.primary : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            message['message'],
-                            style: TextStyle(
-                              color:
-                                  isCurrentUser ? Colors.white : Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            time,
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: isCurrentUser
-                                  ? Colors.white.withOpacity(0.7)
-                                  : Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  return _buildMessageBubble(
+                    message: message['message'],
+                    isMine: isCurrentUser,
+                    time: time,
+                    isRead: message['is_read'] ?? false,
                   );
                 },
               );

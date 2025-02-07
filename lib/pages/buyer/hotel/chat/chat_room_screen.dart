@@ -23,9 +23,9 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   final supabase = Supabase.instance.client;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  List<Map<String, dynamic>> messages = [];
   late Stream<List<Map<String, dynamic>>> _messagesStream;
   String? otherUserName;
+  bool _isFirstLoad = true;
 
   @override
   void initState() {
@@ -41,8 +41,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         .stream(primaryKey: ['id'])
         .eq('room_id', widget.roomId)
         .order('created_at', ascending: true)
-        .map((events) =>
-            events.map((event) => event as Map<String, dynamic>).toList());
+        .map((List<Map<String, dynamic>> data) => data);
   }
 
   Future<void> _fetchOtherUserName() async {
@@ -65,15 +64,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
   }
 
   Future<void> _markMessagesAsRead() async {
-    try {
-      await supabase
-          .from('chat_messages')
-          .update({'is_read': true})
-          .eq('room_id', widget.roomId)
-          .neq('sender_id', supabase.auth.currentUser!.id);
-    } catch (e) {
-      print('Error marking messages as read: $e');
-    }
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    await supabase
+        .from('chat_messages')
+        .update({'is_read': true})
+        .eq('room_id', widget.roomId)
+        .neq('sender_id', userId)
+        .eq('is_read', false);
   }
 
   Future<void> _sendMessage() async {
@@ -84,10 +83,11 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
         'room_id': widget.roomId,
         'sender_id': supabase.auth.currentUser!.id,
         'message': _messageController.text.trim(),
+        'is_read': false,
       });
 
       _messageController.clear();
-      _scrollToBottom();
+      FocusScope.of(context).unfocus();
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -100,11 +100,16 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      if (_isFirstLoad) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        _isFirstLoad = false;
+      } else {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     }
   }
 
@@ -145,14 +150,16 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
                 final messages = snapshot.data!;
 
-                WidgetsBinding.instance
-                    .addPostFrameCallback((_) => _scrollToBottom());
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (_isFirstLoad) {
+                    _scrollToBottom();
+                  }
+                });
 
                 return ListView.builder(
                   controller: _scrollController,
                   padding: EdgeInsets.all(8),
                   itemCount: messages.length,
-                  reverse: false,
                   itemBuilder: (context, index) {
                     final message = messages[index];
                     final isMe =
