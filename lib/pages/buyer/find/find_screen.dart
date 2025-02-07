@@ -177,75 +177,6 @@ class _FindScreenState extends State<FindScreen> {
               ),
               Divider(),
               Text(
-                'Urutkan',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 8),
-              ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.trending_up, color: AppTheme.primary),
-                ),
-                title: Text('Terlaris'),
-                onTap: () {
-                  productController.sortBySales();
-                  Get.back();
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.arrow_upward, color: AppTheme.primary),
-                ),
-                title: Text('Harga Terendah'),
-                onTap: () {
-                  productController.sortByPriceAsc();
-                  Get.back();
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.arrow_downward, color: AppTheme.primary),
-                ),
-                title: Text('Harga Tertinggi'),
-                onTap: () {
-                  productController.sortByPriceDesc();
-                  Get.back();
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.location_on, color: AppTheme.primary),
-                ),
-                title: Text('Terdekat dengan alamat pengiriman'),
-                onTap: () {
-                  _sortByDistance();
-                  Get.back();
-                },
-              ),
-              Divider(),
-              Text(
                 'Rentang Harga',
                 style: TextStyle(
                   fontSize: 14,
@@ -319,6 +250,75 @@ class _FindScreenState extends State<FindScreen> {
                     ),
                   ),
                 ],
+              ),
+              Divider(),
+              Text(
+                'Urutkan',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 8),
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.trending_up, color: AppTheme.primary),
+                ),
+                title: Text('Terlaris'),
+                onTap: () {
+                  productController.sortBySales();
+                  Get.back();
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.arrow_upward, color: AppTheme.primary),
+                ),
+                title: Text('Harga Terendah'),
+                onTap: () {
+                  productController.sortByPriceAsc();
+                  Get.back();
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.arrow_downward, color: AppTheme.primary),
+                ),
+                title: Text('Harga Tertinggi'),
+                onTap: () {
+                  productController.sortByPriceDesc();
+                  Get.back();
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryLight.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.location_on, color: AppTheme.primary),
+                ),
+                title: Text('Terdekat dengan alamat pengiriman'),
+                onTap: () {
+                  _sortByDistance();
+                  Get.back();
+                },
               ),
               SizedBox(height: 16),
               SizedBox(

@@ -512,12 +512,14 @@ class _HotelScreenState extends State<HotelScreen> {
                                         ),
                                         // Price
                                         Text(
-                                          NumberFormat.currency(
-                                            locale: 'id',
-                                            symbol: 'Rp ',
-                                            decimalDigits: 0,
-                                          ).format(_getLowestPrice(
-                                              hotel['room_types'])),
+                                          hotel['room_types'] != null
+                                              ? NumberFormat.currency(
+                                                  locale: 'id',
+                                                  symbol: 'Rp ',
+                                                  decimalDigits: 0,
+                                                ).format(_getLowestPrice(
+                                                  hotel['room_types']))
+                                              : 'Harga tidak tersedia',
                                           style: TextStyle(
                                             color: AppTheme.primary,
                                             fontWeight: FontWeight.bold,

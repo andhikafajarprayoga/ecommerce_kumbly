@@ -12,6 +12,7 @@ import 'package:latlong2/latlong.dart' as latlong2; // Tambahkan alias
 import 'hotel_management_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'manage_room_types_screen.dart';
 
 class AddEditHotelScreen extends StatefulWidget {
   final Map<String, dynamic>? hotel;
@@ -132,7 +133,7 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
     } on TimeoutException catch (_) {
       Get.snackbar(
         'Peringatan',
-        'Waktu pengambilan alamat habis. Silakan coba lagi.',
+        'Waktu pengambilan alamat habis. Silakan coba lagi.', 
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -242,10 +243,19 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
             .toList(),
         'image_url': allImageUrls,
         'merchant_id': supabase.auth.currentUser!.id,
+        'room_types': [], // Inisialisasi array kosong untuk room_types
       };
 
+      String hotelId;
       if (widget.hotel == null) {
-        await supabase.from('hotels').insert(hotelData);
+        // Jika menambah hotel baru
+        final response = await supabase
+            .from('hotels')
+            .insert(hotelData)
+            .select('id')
+            .single();
+        hotelId = response['id'];
+
         Get.snackbar(
           'Sukses',
           'Hotel berhasil ditambahkan',
@@ -253,10 +263,13 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
           colorText: Colors.white,
         );
       } else {
+        // Jika mengedit hotel yang sudah ada
         await supabase
             .from('hotels')
             .update(hotelData)
             .eq('id', widget.hotel!['id']);
+        hotelId = widget.hotel!['id'];
+
         Get.snackbar(
           'Sukses',
           'Hotel berhasil diupdate',
@@ -265,8 +278,8 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
         );
       }
 
-      // Kembali ke HotelManagementScreen
-      Get.offAll(() => HotelManagementScreen());
+      // Langsung arahkan ke halaman manage room types
+      Get.off(() => ManageRoomTypesScreen(hotelId: hotelId));
     } catch (e) {
       print('Error saving hotel: $e');
       Get.snackbar(
