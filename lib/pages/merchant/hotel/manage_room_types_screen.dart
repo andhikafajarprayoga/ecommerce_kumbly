@@ -204,7 +204,8 @@ class _ManageRoomTypesScreenState extends State<ManageRoomTypesScreen> {
                 ? Center(child: CircularProgressIndicator())
                 : hotel == null
                     ? Center(child: Text('Hotel tidak ditemukan'))
-                    : (hotel!['room_types'] as List).isEmpty
+                    : (hotel!['room_types'] == null ||
+                            (hotel!['room_types'] as List).isEmpty)
                         ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
