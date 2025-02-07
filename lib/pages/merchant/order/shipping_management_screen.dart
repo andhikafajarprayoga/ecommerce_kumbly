@@ -34,37 +34,26 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
       final response = await supabase
           .from('orders')
           .select('''
-          *,
-          order_items (
-            id,
-            quantity,
-            price,
-            product:products (
-              id,
-              name,
-              image_url,
-              description
+            id, 
+            status, 
+            total_amount, 
+            shipping_address, 
+            courier_handover_photo,
+            order_items (
+              quantity,
+              price,
+              product:products (
+                id,
+                name,
+                image_url,
+                description
+              )
             )
-          )
-        ''')
+          ''')
           .eq('merchant_id', currentUserId)
-          .or('status.eq.pending,status.eq.processing,status.eq.shipping')
-          .order('created_at', ascending: false);
+          .or('status.eq.pending,status.eq.processing,status.eq.shipping');
 
       orders.value = List<Map<String, dynamic>>.from(response);
-
-      // Debug prints
-      print('Response length: ${orders.value.length}');
-      print('First order: ${orders.value.firstOrNull}');
-      if (orders.value.isNotEmpty) {
-        print('Order items: ${orders.value.first['order_items']}');
-        if (orders.value.first['order_items'] != null) {
-          final items = orders.value.first['order_items'] as List;
-          if (items.isNotEmpty) {
-            print('First product: ${items.first['product']}');
-          }
-        }
-      }
     } catch (e) {
       print('Error fetching orders: $e');
     }
@@ -72,20 +61,16 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
 
   Future<void> _updateOrderStatus(String orderId, String currentStatus) async {
     try {
-      if (currentStatus != 'pending') {
-        Get.snackbar(
-          'Peringatan',
-          'Status ini hanya bisa diubah oleh kurir',
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-        );
-        return;
-      }
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
 
-      // Hanya update status ke processing tanpa foto
-      await supabase.from('orders').update({
-        'status': 'processing',
-      }).eq('id', orderId);
+      await supabase
+          .from('orders')
+          .update({'status': 'processing'})
+          .eq('id', orderId)
+          .eq('merchant_id', userId);
+
+      await _fetchOrders(); // Refresh data setelah update
 
       Get.snackbar(
         'Sukses',
@@ -93,8 +78,6 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
-
-      _fetchOrders();
     } catch (e) {
       print('Error updating order: $e');
       Get.snackbar(

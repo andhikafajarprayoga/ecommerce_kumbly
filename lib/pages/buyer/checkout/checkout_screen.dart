@@ -1119,7 +1119,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 12),
-            _buildPaymentDetail('Total Harga', widget.data['total_amount']),
+            _buildPaymentDetail(
+                'Total Harga', widget.data['total_amount'].toDouble()),
             _buildPaymentDetail('Biaya Penanganan', adminFee),
             _buildPaymentDetail('Ongkos Kirim', shippingCost,
                 note:
@@ -1130,7 +1131,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             Divider(height: 16),
             _buildPaymentDetail(
               'Total Pembayaran',
-              (widget.data['total_amount'] + adminFee + shippingCost) -
+              (widget.data['total_amount'].toDouble() +
+                      adminFee +
+                      shippingCost) -
                   (discountAmount > shippingCost
                       ? shippingCost
                       : discountAmount),
