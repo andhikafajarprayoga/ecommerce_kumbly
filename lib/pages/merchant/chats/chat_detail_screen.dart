@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:kumbly_ecommerce/theme/app_theme.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String roomId;
@@ -121,13 +122,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         title: Row(
           children: [
             CircleAvatar(
-              backgroundColor: Colors.blue[100],
+              backgroundColor: AppTheme.primary.withOpacity(0.1),
               child: Text(
                 widget.userName.isNotEmpty
                     ? widget.userName[0].toUpperCase()
                     : "?",
-                style: const TextStyle(
-                  color: Colors.blue,
+                style: TextStyle(
+                  color: AppTheme.primary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -182,7 +183,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: isCurrentUser ? Colors.blue : Colors.white,
+                        color: isCurrentUser ? AppTheme.primary : Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
@@ -255,8 +256,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primary,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(

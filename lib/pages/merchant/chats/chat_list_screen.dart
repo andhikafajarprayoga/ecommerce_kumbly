@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/controllers/chatrooms_controller.dart';
 import 'package:kumbly_ecommerce/pages/merchant/chats/chat_detail_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:kumbly_ecommerce/theme/app_theme.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -111,14 +112,14 @@ class _ChatListScreenState extends State<ChatListScreen> {
               child: ListTile(
                 contentPadding: const EdgeInsets.all(12),
                 leading: CircleAvatar(
-                  backgroundColor: Colors.blue[100],
+                  backgroundColor: AppTheme.primary.withOpacity(0.1),
                   radius: 25,
                   child: Text(
                     initial,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                      color: AppTheme.primary,
                     ),
                   ),
                 ),
@@ -138,7 +139,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       _formatTimestamp(chat["last_message_time"]),
                       style: TextStyle(
                         fontSize: 12,
-                        color: unreadCount > 0 ? Colors.blue : Colors.grey[600],
+                        color: unreadCount > 0
+                            ? AppTheme.primary
+                            : Colors.grey[600],
                         fontWeight: unreadCount > 0
                             ? FontWeight.bold
                             : FontWeight.normal,
@@ -166,8 +169,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                     if (unreadCount > 0)
                       Container(
                         padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Colors.blue,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primary,
                           shape: BoxShape.circle,
                         ),
                         child: Text(

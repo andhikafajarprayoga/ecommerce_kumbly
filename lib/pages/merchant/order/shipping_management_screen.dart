@@ -349,7 +349,8 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
               child: ElevatedButton.icon(
                 onPressed: () =>
                     _showConfirmationDialog(order['id'], order['status']),
-                icon: const Icon(Icons.local_shipping, size: 18),
+                icon: const Icon(Icons.local_shipping,
+                    size: 18, color: Colors.white),
                 label: const Text(
                   'Siapkan Pesanan',
                   style: TextStyle(color: Colors.white),
@@ -364,10 +365,12 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () => _showProcessingRequiredDialog(),
-                icon: const Icon(Icons.camera_alt, size: 18),
-                label: const Text('Foto Serah Terima'),
+                icon:
+                    const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+                label: const Text('Foto pengiriman',
+                    style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.grey,
+                  backgroundColor: const Color.fromARGB(255, 104, 104, 104),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
