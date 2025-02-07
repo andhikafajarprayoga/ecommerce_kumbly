@@ -16,11 +16,13 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
   final supabase = Supabase.instance.client;
   RxList<Map<String, dynamic>> hotels = <Map<String, dynamic>>[].obs;
   RxBool isLoading = true.obs;
+  RxMap<String, int> bookingCounts = <String, int>{}.obs;
 
   @override
   void initState() {
     super.initState();
     _fetchHotels();
+    _fetchBookingCounts();
   }
 
   Future<void> _fetchHotels() async {
@@ -44,6 +46,25 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
     } catch (e) {
       print('Error fetching hotels: $e');
       isLoading.value = false;
+    }
+  }
+
+  Future<void> _fetchBookingCounts() async {
+    try {
+      final response = await supabase
+          .from('hotel_bookings')
+          .select('hotel_id, status')
+          .or('status.eq.pending,status.eq.confirmed');
+
+      Map<String, int> counts = {};
+      for (var booking in response) {
+        String hotelId = booking['hotel_id'];
+        counts[hotelId] = (counts[hotelId] ?? 0) + 1;
+      }
+
+      bookingCounts.value = counts;
+    } catch (e) {
+      print('Error fetching booking counts: $e');
     }
   }
 
@@ -80,165 +101,358 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kelola Hotel'),
+        title: Text('Kelola Hotel', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.add),
-            onPressed: () =>
-                Get.to(() => AddEditHotelScreen())?.then((_) => _fetchHotels()),
-          ),
-        ],
+        elevation: 0,
       ),
-      body: Obx(() {
-        if (isLoading.value) {
-          return Center(child: CircularProgressIndicator());
-        }
-
-        if (hotels.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Belum ada hotel'),
-                SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => Get.to(() => AddEditHotelScreen())
-                      ?.then((_) => _fetchHotels()),
-                  icon: Icon(Icons.add),
-                  label: Text('Tambah Hotel'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                  ),
+      body: Column(
+        children: [
+          // Tombol Tambah Hotel
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            child: ElevatedButton.icon(
+              onPressed: () => Get.to(() => AddEditHotelScreen())
+                  ?.then((_) => _fetchHotels()),
+              icon: Icon(Icons.add, color: Colors.white),
+              label: Text(
+                'Tambah Hotel',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-              ],
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                padding: EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
             ),
-          );
-        }
+          ),
 
-        return ListView.builder(
-          padding: EdgeInsets.all(16),
-          itemCount: hotels.length,
-          itemBuilder: (context, index) {
-            final hotel = hotels[index];
-            return Card(
-              margin: EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Hotel Image
-                  if (hotel['image_url'] != null &&
-                      (hotel['image_url'] as List).isNotEmpty)
-                    AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Image.network(
-                        hotel['image_url'][0],
-                        fit: BoxFit.cover,
+          // List Hotel
+          Expanded(
+            child: Obx(() {
+              if (isLoading.value) {
+                return Center(child: CircularProgressIndicator());
+              }
+
+              if (hotels.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.hotel_outlined,
+                        size: 80,
+                        color: Colors.grey[400],
                       ),
-                    ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Belum ada hotel',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Mulai tambahkan hotel Anda',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
 
-                  Padding(
-                    padding: EdgeInsets.all(16),
+              return ListView.builder(
+                padding: EdgeInsets.all(16),
+                itemCount: hotels.length,
+                itemBuilder: (context, index) {
+                  final hotel = hotels[index];
+                  return Card(
+                    elevation: 3,
+                    margin: EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Stack(
                           children: [
-                            Expanded(
-                              child: Text(
-                                hotel['name'],
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                            ClipRRect(
+                              borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(12)),
+                              child: AspectRatio(
+                                aspectRatio: 16 / 9,
+                                child: Image.network(
+                                  hotel['image_url'][0],
+                                  fit: BoxFit.cover,
                                 ),
                               ),
                             ),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: Icon(Icons.edit, color: Colors.blue),
-                                  onPressed: () => Get.to(() =>
-                                          AddEditHotelScreen(hotel: hotel))
-                                      ?.then((_) => _fetchHotels()),
-                                ),
-                                IconButton(
-                                  icon: Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: Text('Konfirmasi'),
-                                      content: Text(
-                                          'Yakin ingin menghapus hotel ini?'),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Get.back(),
-                                          child: Text('Batal'),
+                            if (bookingCounts[hotel['id']] != null)
+                              Positioned(
+                                top: 8,
+                                left: 8,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.notifications_active,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        '${bookingCounts[hotel['id']]} Booking',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
                                         ),
-                                        ElevatedButton(
-                                          onPressed: () {
-                                            Get.back();
-                                            _deleteHotel(hotel['id']);
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Row(
+                                children: [
+                                  _buildActionButton(
+                                    icon: Icons.edit,
+                                    color: Colors.blue,
+                                    onPressed: () => Get.to(() =>
+                                            AddEditHotelScreen(hotel: hotel))
+                                        ?.then((_) => _fetchHotels()),
+                                  ),
+                                  SizedBox(width: 5),
+                                  _buildActionButton(
+                                    icon: Icons.delete,
+                                    color: Colors.red,
+                                    onPressed: () => _showDeleteDialog(hotel),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Hotel Info
+                        Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      hotel['name'],
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.star,
+                                          size: 16,
+                                          color: Colors.amber,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          '${hotel['rating']?.toStringAsFixed(1) ?? 'N/A'}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primary,
                                           ),
-                                          child: Text('Hapus'),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Tipe Kamar: ${(hotel['room_types'] ?? []).length}',
-                          style: TextStyle(color: AppTheme.textHint),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Rating: ${hotel['rating']?.toStringAsFixed(1) ?? 'N/A'}',
-                          style: TextStyle(color: AppTheme.textHint),
-                        ),
-                        SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () {
-                                  print(
-                                      'Debug hotel id before navigation: ${hotel['id']}'); // Debug print
-                                  _navigateToBookings(hotel['id']);
-                                },
-                                child: Text('Lihat Booking'),
+                                ],
                               ),
-                            ),
-                            SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => Get.to(() =>
-                                    ManageRoomTypesScreen(
-                                        hotelId: hotel['id'])),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primary,
-                                ),
-                                child: Text('Kelola Kamar'),
+                              SizedBox(height: 12),
+                              _buildInfoRow(
+                                icon: Icons.meeting_room,
+                                label: 'Tipe Kamar',
+                                value: '${(hotel['room_types'] ?? []).length}',
                               ),
-                            ),
-                          ],
+                              SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildActionCard(
+                                      icon: Icons.book_online,
+                                      label: 'Lihat Booking',
+                                      onTap: () =>
+                                          _navigateToBookings(hotel['id']),
+                                    ),
+                                  ),
+                                  SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildActionCard(
+                                      icon: Icons.meeting_room,
+                                      label: 'Kelola Kamar',
+                                      onTap: () => Get.to(() =>
+                                          ManageRoomTypesScreen(
+                                              hotelId: hotel['id'])),
+                                      isPrimary: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                  );
+                },
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: color),
+        onPressed: onPressed,
+        constraints: BoxConstraints.tightFor(width: 40, height: 40),
+        padding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(color: Colors.grey[600]),
+        ),
+        Text(
+          value,
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isPrimary = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isPrimary ? AppTheme.primary : Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: isPrimary ? Colors.white : AppTheme.primary,
+            ),
+            SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: isPrimary ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w500,
               ),
-            );
-          },
-        );
-      }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(Map<String, dynamic> hotel) {
+    Get.dialog(
+      AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: Text('Konfirmasi Hapus'),
+        content: Text('Yakin ingin menghapus hotel ${hotel['name']}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              _deleteHotel(hotel['id']);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text('Hapus'),
+          ),
+        ],
+      ),
     );
   }
 }

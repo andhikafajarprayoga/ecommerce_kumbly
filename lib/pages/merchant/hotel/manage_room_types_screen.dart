@@ -159,98 +159,211 @@ class _ManageRoomTypesScreenState extends State<ManageRoomTypesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kelola Tipe Kamar'),
-        backgroundColor: AppTheme.primary,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.add),
-            onPressed: () => _showAddEditRoomDialog(),
+        title: Text(
+          'Kelola Tipe Kamar',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.normal,
           ),
-        ],
+        ),
+        backgroundColor: AppTheme.primary,
+        elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
-      body: isLoading
-          ? Center(child: CircularProgressIndicator())
-          : hotel == null
-              ? Center(child: Text('Hotel tidak ditemukan'))
-              : ListView.builder(
-                  padding: EdgeInsets.all(16),
-                  itemCount: (hotel!['room_types'] as List?)?.length ?? 0,
-                  itemBuilder: (context, index) {
-                    final roomType = (hotel!['room_types'] as List)[index];
-                    return Card(
-                      margin: EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Column(
+        children: [
+          // Tombol Tambah Tipe Kamar
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            child: ElevatedButton.icon(
+              onPressed: () => _showAddEditRoomDialog(),
+              icon: Icon(Icons.add, color: Colors.white),
+              label: Text(
+                'Tambah Tipe Kamar',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.normal,
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+
+          // List Tipe Kamar
+          Expanded(
+            child: isLoading
+                ? Center(child: CircularProgressIndicator())
+                : hotel == null
+                    ? Center(child: Text('Hotel tidak ditemukan'))
+                    : (hotel!['room_types'] as List).isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                Icon(
+                                  Icons.hotel_outlined,
+                                  size: 80,
+                                  color: Colors.grey[400],
+                                ),
+                                SizedBox(height: 16),
                                 Text(
-                                  roomType['type'],
+                                  'Belum ada tipe kamar',
                                   style: TextStyle(
                                     fontSize: 18,
+                                    color: Colors.grey[600],
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon:
-                                          Icon(Icons.edit, color: Colors.blue),
-                                      onPressed: () => _showAddEditRoomDialog(
-                                          roomType, index),
-                                    ),
-                                    IconButton(
-                                      icon:
-                                          Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () {
-                                        final currentRoomTypes =
-                                            List.from(hotel!['room_types']);
-                                        currentRoomTypes.removeAt(index);
-                                        _updateRoomTypes(currentRoomTypes);
-                                      },
-                                    ),
-                                  ],
+                                SizedBox(height: 8),
+                                Text(
+                                  'Mulai tambahkan tipe kamar',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                  ),
                                 ),
                               ],
                             ),
-                            SizedBox(height: 8),
-                            Text(
-                              NumberFormat.currency(
-                                locale: 'id',
-                                symbol: 'Rp ',
-                                decimalDigits: 0,
-                              ).format(roomType['price_per_night']),
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppTheme.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            Text('Kapasitas: ${roomType['capacity']} orang'),
-                            Text(
-                                'Kamar tersedia: ${roomType['available_rooms']}'),
-                            SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: (roomType['amenities'] as List)
-                                  .map((amenity) {
-                                return Chip(
-                                  label: Text(amenity),
-                                  backgroundColor: Colors.grey[100],
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+                          )
+                        : ListView.builder(
+                            padding: EdgeInsets.all(16),
+                            itemCount: (hotel!['room_types'] as List).length,
+                            itemBuilder: (context, index) {
+                              final roomType =
+                                  (hotel!['room_types'] as List)[index];
+                              return Card(
+                                margin: EdgeInsets.only(bottom: 16),
+                                elevation: 3,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Padding(
+                                  padding: EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              roomType['type'],
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                icon: Icon(Icons.edit,
+                                                    color: Colors.blue),
+                                                onPressed: () =>
+                                                    _showAddEditRoomDialog(
+                                                        roomType, index),
+                                              ),
+                                              IconButton(
+                                                icon: Icon(Icons.delete,
+                                                    color: Colors.red),
+                                                onPressed: () {
+                                                  final currentRoomTypes =
+                                                      List.from(
+                                                          hotel!['room_types']);
+                                                  currentRoomTypes
+                                                      .removeAt(index);
+                                                  _updateRoomTypes(
+                                                      currentRoomTypes);
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 12),
+                                      Text(
+                                        NumberFormat.currency(
+                                          locale: 'id',
+                                          symbol: 'Rp ',
+                                          decimalDigits: 0,
+                                        ).format(roomType['price_per_night']),
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: AppTheme.primary,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      SizedBox(height: 12),
+                                      _buildInfoRow(Icons.person, 'Kapasitas',
+                                          '${roomType['capacity']} orang'),
+                                      SizedBox(height: 8),
+                                      _buildInfoRow(
+                                          Icons.meeting_room,
+                                          'Kamar tersedia',
+                                          '${roomType['available_rooms']}'),
+                                      SizedBox(height: 12),
+                                      Text(
+                                        'Fasilitas:',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.grey[700],
+                                        ),
+                                      ),
+                                      SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children:
+                                            (roomType['amenities'] as List)
+                                                .map((amenity) {
+                                          return Chip(
+                                            label: Text(
+                                              amenity,
+                                              style: TextStyle(fontSize: 12),
+                                            ),
+                                            backgroundColor: AppTheme.primary
+                                                .withOpacity(0.1),
+                                            labelStyle: TextStyle(
+                                                color: AppTheme.primary),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(color: Colors.grey[600]),
+        ),
+        Text(
+          value,
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+      ],
     );
   }
 }

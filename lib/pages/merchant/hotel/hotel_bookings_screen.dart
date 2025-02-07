@@ -111,7 +111,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Daftar Booking'),
+        title: Text('Daftar Booking', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
       ),
       body: Obx(() {

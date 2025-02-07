@@ -284,7 +284,8 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.hotel == null ? 'Tambah Hotel' : 'Edit Hotel'),
+        title: Text(widget.hotel == null ? 'Tambah Hotel' : 'Edit Hotel',
+            style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
       ),
       body: Form(

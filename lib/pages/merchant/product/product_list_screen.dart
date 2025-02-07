@@ -36,13 +36,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
           'Daftar Produk',
           style: TextStyle(
             color: Colors.white,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.normal,
           ),
         ),
         actions: [
           IconButton(
             icon: const Icon(
-              Icons.add_circle_outline_rounded,
+              Icons.add,
               color: Colors.white,
             ),
             onPressed: () => Get.to(() => AddProductScreen()),

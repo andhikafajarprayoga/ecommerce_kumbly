@@ -143,7 +143,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Edit Toko'),
+        title: Text('Edit Toko', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
       ),
       body: _isLoading
