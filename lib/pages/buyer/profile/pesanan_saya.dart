@@ -395,27 +395,37 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
   }
 
   Widget _buildFilterChips() {
-    return Obx(() => SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              _filterChip('Semua', 'all'),
-              _filterChip('Menunggu Pembayaran', 'pending'),
-              _filterChip('Dikonfirmasi', 'confirmed'),
-              _filterChip('Selesai', 'completed'),
-              _filterChip('Dibatalkan', 'cancelled'),
-            ],
-          ),
-        ));
+    return Container(
+      color: Colors.white,
+      child: Obx(() => SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                _filterChip('Semua', 'all'),
+                _filterChip('Menunggu Pembayaran', 'pending'),
+                _filterChip('Dikonfirmasi', 'confirmed'),
+                _filterChip('Selesai', 'completed'),
+                _filterChip('Dibatalkan', 'cancelled'),
+              ],
+            ),
+          )),
+    );
   }
 
   Widget _filterChip(String label, String value) {
+    final isSelected = selectedFilter.value == value;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
-        selected: selectedFilter.value == value,
+        selected: isSelected,
         label: Text(label),
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : Colors.grey[800],
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+        backgroundColor: Colors.grey[200],
+        selectedColor: AppTheme.primary,
         onSelected: (bool selected) {
           selectedFilter.value = value;
           orderController.filterOrders(value);
@@ -594,51 +604,125 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
 
   Widget _buildHotelBookingCard(Map<String, dynamic> booking) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         children: [
-          ListTile(
-            title: Text(
-              'Booking ID: ${formatOrderId(booking['id'])}',
-              style: AppTheme.textTheme.titleMedium,
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withOpacity(0.05),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
             ),
-            trailing: _buildStatusChip(booking['status']),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.hotel, color: AppTheme.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Booking ID: ${formatOrderId(booking['id'])}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                _buildStatusChip(booking['status']),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 _buildInfoRow(
-                  Icons.hotel,
+                  Icons.business,
                   'Hotel',
                   booking['hotel_name'] ?? 'Unknown Hotel',
                 ),
+                const SizedBox(height: 12),
                 _buildInfoRow(
                   Icons.person,
                   'Tamu',
                   booking['guest_name'],
                 ),
-                _buildInfoRow(
-                  Icons.calendar_today,
-                  'Check-in',
-                  DateFormat('dd MMM yyyy')
-                      .format(DateTime.parse(booking['check_in'])),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildInfoRow(
+                        Icons.calendar_today,
+                        'Check-in',
+                        DateFormat('dd MMM yyyy')
+                            .format(DateTime.parse(booking['check_in'])),
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildInfoRow(
+                        Icons.calendar_today,
+                        'Check-out',
+                        DateFormat('dd MMM yyyy')
+                            .format(DateTime.parse(booking['check_out'])),
+                      ),
+                    ),
+                  ],
                 ),
+                const Divider(height: 24),
                 _buildInfoRow(
-                  Icons.calendar_today,
-                  'Check-out',
-                  DateFormat('dd MMM yyyy')
-                      .format(DateTime.parse(booking['check_out'])),
-                ),
-                _buildInfoRow(
-                  Icons.attach_money,
+                  Icons.payments,
                   'Total Pembayaran',
                   formatCurrency(booking['total_price']),
+                  isHighlighted: true,
                 ),
               ],
             ),
           ),
-          if (booking['status'] == 'pending') _buildBookingActions(booking),
+          if (booking['status'] == 'pending')
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade200),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => _showCancelBookingDialog(booking),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: const Text('Batalkan'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      // Navigate to payment page
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                    child: const Text(
+                      'Bayar Sekarang',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -657,28 +741,6 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
           color: getStatusColor(status),
           fontWeight: FontWeight.w600,
         ),
-      ),
-    );
-  }
-
-  Widget _buildBookingActions(Map<String, dynamic> booking) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          TextButton(
-            onPressed: () => _showCancelBookingDialog(booking),
-            child: const Text('Batalkan Booking'),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () {
-              // Navigate to payment page
-            },
-            child: const Text('Bayar Sekarang'),
-          ),
-        ],
       ),
     );
   }
@@ -712,14 +774,15 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(IconData icon, String label, String value,
+      {bool isHighlighted = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(
           icon,
-          size: 18,
-          color: AppTheme.textSecondary,
+          size: 20,
+          color: isHighlighted ? AppTheme.primary : Colors.grey[600],
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -728,16 +791,19 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             children: [
               Text(
                 label,
-                style: AppTheme.textTheme.bodySmall,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 value,
-                style: AppTheme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
+                  color: isHighlighted ? AppTheme.primary : null,
                 ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
               ),
             ],
           ),
