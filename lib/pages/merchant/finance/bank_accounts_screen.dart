@@ -25,6 +25,7 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
           .from('merchant_bank_accounts')
           .select()
           .eq('is_active', true)
+          .eq('merchant_id', supabase.auth.currentUser!.id)
           .order('created_at');
 
       setState(() {

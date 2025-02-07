@@ -74,7 +74,8 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.merchant['store_name']),
+        title: Text(widget.merchant['store_name'],
+            style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
       ),
       body: Column(
@@ -82,11 +83,23 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
           // Store Info
           Container(
             padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 30,
-                  child: Icon(Icons.store, size: 30),
+                  backgroundColor: AppTheme.primary.withOpacity(0.1),
+                  child: Icon(Icons.store, size: 30, color: AppTheme.primary),
                 ),
                 SizedBox(width: 16),
                 Expanded(
@@ -104,7 +117,11 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                       Text(
                         widget.merchant['store_description'] ??
                             'Tidak ada deskripsi',
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 13,
+                          height: 1.3,
+                        ),
                       ),
                     ],
                   ),
@@ -114,14 +131,28 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
           ),
 
           // TabBar
-          TabBar(
-            controller: _tabController,
-            labelColor: AppTheme.primary,
-            unselectedLabelColor: Colors.grey,
-            tabs: [
-              Tab(text: 'Produk'),
-              Tab(text: 'Hotel'),
-            ],
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey[200]!),
+              ),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              labelColor: AppTheme.primary,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: AppTheme.primary,
+              indicatorWeight: 3,
+              labelStyle: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              tabs: [
+                Tab(text: 'Produk'),
+                Tab(text: 'Hotel'),
+              ],
+            ),
           ),
 
           // TabBarView
@@ -132,11 +163,31 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                 // Products Tab
                 Obx(() {
                   if (productController.isLoading.value) {
-                    return Center(child: CircularProgressIndicator());
+                    return Center(
+                        child: CircularProgressIndicator(
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                    ));
                   }
 
                   if (productController.products.isEmpty) {
-                    return Center(child: Text('Tidak ada produk'));
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.shopping_bag_outlined,
+                              size: 50, color: Colors.grey[400]),
+                          SizedBox(height: 16),
+                          Text(
+                            'Tidak ada produk',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   }
 
                   return GridView.builder(
@@ -144,8 +195,8 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 0.65,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
                     ),
                     itemCount: productController.products.length,
                     itemBuilder: (context, index) {
@@ -158,65 +209,192 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                 // Hotels Tab
                 Obx(() {
                   if (productController.isLoading.value) {
-                    return Center(child: CircularProgressIndicator());
+                    return Center(
+                        child: CircularProgressIndicator(
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                    ));
                   }
 
                   if (productController.hotels.isEmpty) {
-                    return Center(child: Text('Tidak ada hotel'));
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.hotel_outlined,
+                              size: 50, color: Colors.grey[400]),
+                          SizedBox(height: 16),
+                          Text(
+                            'Tidak ada hotel',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   }
 
                   return ListView.builder(
-                    padding: EdgeInsets.all(16),
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     itemCount: productController.hotels.length,
                     itemBuilder: (context, index) {
                       final hotel = productController.hotels[index];
                       final imageUrls =
                           List<String>.from(hotel['image_url'] ?? []);
-                      String cleanAddress =
-                          hotel['address'].toString().replaceAll('"', '');
+                      String cleanAddress = hotel['address']
+                          .toString()
+                          .replaceAll('"', '')
+                          .replaceAll('{', '')
+                          .replaceAll('}', '');
+
+                      List<String> addressParts = cleanAddress.split(',');
+                      List<String> formattedParts = [];
+
+                      for (String part in addressParts) {
+                        var keyValue = part.trim().split(':');
+                        if (keyValue.length == 2) {
+                          var key = keyValue[0].trim();
+                          var value = keyValue[1].trim();
+
+                          switch (key) {
+                            case 'street':
+                              if (value.isNotEmpty) formattedParts.add(value);
+                              break;
+                            case 'district':
+                              if (value.isNotEmpty)
+                                formattedParts.add('Kecamatan $value');
+                              break;
+                            case 'city':
+                              if (value.isNotEmpty) formattedParts.add(value);
+                              break;
+                            case 'province':
+                              if (value.isNotEmpty) formattedParts.add(value);
+                              break;
+                            case 'postal_code':
+                              if (value.isNotEmpty) formattedParts.add(value);
+                              break;
+                          }
+                        }
+                      }
+
+                      String formattedAddress = formattedParts.join(', ');
 
                       return Card(
+                        margin: EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 2,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (imageUrls.isNotEmpty)
-                              Image.network(
-                                imageUrls.first,
-                                height: 150,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                            ListTile(
-                              title: Text(hotel['name']),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              Stack(
                                 children: [
-                                  Text(cleanAddress),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(12)),
+                                    child: Image.network(
+                                      imageUrls.first,
+                                      height: 150,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
                                   if (hotel['rating'] != null)
-                                    Row(
-                                      children: [
-                                        Icon(Icons.star,
-                                            size: 16, color: Colors.amber),
-                                        Text(' ${hotel['rating']}'),
-                                      ],
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.7),
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.star,
+                                                size: 16, color: Colors.amber),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              '${hotel['rating']}',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                 ],
                               ),
-                              trailing: Icon(Icons.chevron_right),
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    hotel['name'],
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  SizedBox(height: 8),
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.location_on_outlined,
+                                          size: 16, color: Colors.grey[600]),
+                                      SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          formattedAddress,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.grey[600],
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            InkWell(
                               onTap: () async {
                                 try {
-                                  // Fetch merchant data terlebih dahulu
                                   final merchantData = await supabase
                                       .from('merchants')
                                       .select('store_address')
                                       .eq('id', widget.merchant['id'])
                                       .single();
 
-                                  // Navigate to hotel detail dengan data lengkap
+                                  String storeAddress =
+                                      merchantData['store_address']
+                                          .toString()
+                                          .replaceAll('"', '')
+                                          .replaceAll('{', '')
+                                          .replaceAll('}', '');
+
                                   Get.to(() => HotelDetailScreen(
                                         hotel: {
                                           ...hotel,
-                                          'merchants': merchantData
+                                          'merchants': {
+                                            ...merchantData,
+                                            'store_address': storeAddress
+                                          }
                                         },
                                       ));
                                 } catch (e) {
@@ -229,6 +407,34 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                                   );
                                 }
                               },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(color: Colors.grey[200]!),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Lihat Detail',
+                                      style: TextStyle(
+                                        color: AppTheme.primary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.chevron_right,
+                                      color: AppTheme.primary,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
                         ),

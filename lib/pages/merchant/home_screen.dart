@@ -432,7 +432,7 @@ class _HomeMenuState extends State<_HomeMenu> {
                         _buildMenuItem(
                           context: context,
                           icon: Icons.account_balance,
-                          label: 'Rekening Bank',
+                          label: 'Rekening',
                           onTap: () {
                             Get.to(() => BankAccountsScreen());
                           },
