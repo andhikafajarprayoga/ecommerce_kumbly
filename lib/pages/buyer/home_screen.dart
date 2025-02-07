@@ -217,28 +217,40 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                   child: Stack(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.shopping_cart, color: Colors.white),
+                        icon: Icon(Icons.shopping_cart_outlined,
+                            color: Colors.white),
                         onPressed: () => Get.to(() => CartScreen()),
                       ),
                       Obx(() => cartController.cartItems.isNotEmpty
                           ? Positioned(
-                              right: 8,
-                              top: 8,
+                              right: 2,
+                              top: 2,
                               child: Container(
-                                padding: EdgeInsets.all(4),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: const Color.fromARGB(255, 0, 0, 0),
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                      color: Colors.white, width: 1.5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
                                 constraints: BoxConstraints(
-                                  minWidth: 16,
-                                  minHeight: 16,
+                                  minWidth: 18,
+                                  minHeight: 18,
                                 ),
                                 child: Text(
                                   '${cartController.cartItems.length}',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -258,23 +270,34 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                       ),
                       Obx(() => unreadChatCount.value > 0
                           ? Positioned(
-                              right: 8,
-                              top: 8,
+                              right: 2,
+                              top: 2,
                               child: Container(
-                                padding: EdgeInsets.all(4),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color.fromARGB(255, 0, 0, 0),
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                      color: Colors.white, width: 1.5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
                                 constraints: BoxConstraints(
-                                  minWidth: 16,
-                                  minHeight: 16,
+                                  minWidth: 18,
+                                  minHeight: 18,
                                 ),
                                 child: Text(
                                   '${unreadChatCount.value}',
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -403,8 +426,14 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                             productController.fetchProducts();
                           } else {
                             productController.currentCategory.value = 'fashion';
-                            productController.filterByMainCategory(
-                                ['Pakaian Pria', 'Sepatu & Sandal']);
+                            productController.filterByMainCategory([
+                              'Pakaian Pria',
+                              'Sepatu & Sandal',
+                              'Tas & Dompet',
+                              'Aksesoris',
+                              'Jam Tangan & Perhiasan',
+                              'Pakaian Wanita'
+                            ]);
                           }
                         },
                       ),

@@ -100,38 +100,164 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
     }
 
     Get.dialog(
-      AlertDialog(
-        title: Text('Konfirmasi Booking'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Apakah Anda yakin ingin melakukan booking?'),
-            SizedBox(height: 8),
-            Text('Total pembayaran: ${NumberFormat.currency(
-              locale: 'id',
-              symbol: 'Rp ',
-              decimalDigits: 0,
-            ).format(_totalWithAdmin)}'),
-          ],
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text('Batal'),
+        child: Container(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon dan Title
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.hotel_rounded,
+                  size: 48,
+                  color: AppTheme.primary,
+                ),
+              ),
+              SizedBox(height: 24),
+              Text(
+                'Konfirmasi Booking',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 16),
+
+              // Rincian Booking
+              Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildConfirmationRow(
+                      'Hotel',
+                      widget.hotel['name'],
+                      Icons.business,
+                    ),
+                    Divider(height: 16),
+                    _buildConfirmationRow(
+                      'Tipe Kamar',
+                      widget.roomType['type'],
+                      Icons.hotel,
+                    ),
+                    Divider(height: 16),
+                    _buildConfirmationRow(
+                      'Total Pembayaran',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(_totalWithAdmin),
+                      Icons.payments,
+                      isHighlighted: true,
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 24),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Get.back(),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        side: BorderSide(color: AppTheme.primary),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Batal',
+                        style: TextStyle(
+                          color: AppTheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        Get.back();
+                        await _submitBooking();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        'Konfirmasi',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Get.back();
-              await _submitBooking();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-            ),
-            child: Text('Ya, Booking Sekarang'),
-          ),
-        ],
+        ),
       ),
+      barrierDismissible: false,
+    );
+  }
+
+  Widget _buildConfirmationRow(String label, String value, IconData icon,
+      {bool isHighlighted = false}) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 20,
+          color: isHighlighted ? AppTheme.primary : Colors.grey[600],
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight:
+                      isHighlighted ? FontWeight.bold : FontWeight.normal,
+                  color: isHighlighted ? AppTheme.primary : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -177,7 +303,10 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Booking Hotel'),
+        title: Text('Booking Hotel',
+            style: TextStyle(
+              color: Colors.white,
+            )),
         backgroundColor: AppTheme.primary,
       ),
       body: Form(
@@ -187,6 +316,10 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
           children: [
             // Hotel & Room Info
             Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Column(
@@ -195,22 +328,36 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                     Text(
                       widget.hotel['name'],
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        color: AppTheme.primary,
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Tipe Kamar: ${widget.roomType['type']}',
-                      style: TextStyle(fontSize: 16),
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.hotel, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Text(
+                          'Tipe Kamar: ${widget.roomType['type']}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'Harga per malam: ${NumberFormat.currency(
-                        locale: 'id',
-                        symbol: 'Rp ',
-                        decimalDigits: 0,
-                      ).format(widget.roomType['price_per_night'])}',
-                      style: TextStyle(fontSize: 16),
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.money, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Text(
+                          'Harga per malam: ${NumberFormat.currency(
+                            locale: 'id',
+                            symbol: 'Rp ',
+                            decimalDigits: 0,
+                          ).format(widget.roomType['price_per_night'])}',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -323,70 +470,71 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
 
             // Payment Method Selection
             Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Metode Pembayaran',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 16),
-                    ...paymentMethods
-                        .map((method) => Column(
-                              children: [
-                                RadioListTile<int>(
-                                  value: method['id'],
-                                  groupValue: selectedPaymentMethodId,
-                                  title: Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(method['name']),
-                                      Text(
-                                        '+ ${NumberFormat.currency(
-                                          locale: 'id',
-                                          symbol: 'Rp ',
-                                          decimalDigits: 0,
-                                        ).format(method['admin'])}',
-                                        style: TextStyle(
-                                          color: AppTheme.primary,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  subtitle: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (method['description'] != null)
-                                        Text(method['description']),
-                                      if (method['account_number'] != null)
-                                        Text(
-                                            'No. Rekening: ${method['account_number']}'),
-                                      if (method['account_name'] != null)
-                                        Text('A.N: ${method['account_name']}'),
-                                    ],
-                                  ),
-                                  onChanged: _updateSelectedPaymentMethod,
+                    DropdownButtonFormField<int>(
+                      value: selectedPaymentMethodId,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        hintText: 'Pilih metode pembayaran',
+                      ),
+                      items: paymentMethods.map((method) {
+                        return DropdownMenuItem<int>(
+                          value: method['id'],
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(method['name']),
+                              Text(
+                                ' + ${NumberFormat.currency(
+                                  locale: 'id',
+                                  symbol: 'Rp ',
+                                  decimalDigits: 0,
+                                ).format(method['admin'])}',
+                                style: TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.normal,
                                 ),
-                                Divider(),
-                              ],
-                            ))
-                        .toList(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: _updateSelectedPaymentMethod,
+                      validator: (value) =>
+                          value == null ? 'Pilih metode pembayaran' : null,
+                    ),
                   ],
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            SizedBox(height: 15),
 
-            // Total Payment Details
+            // Payment Details
             Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Column(
@@ -395,68 +543,37 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                     Text(
                       'Rincian Pembayaran',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Total Malam'),
-                        Text('$_totalNights malam'),
-                      ],
+                    SizedBox(height: 16),
+                    _buildPaymentRow('Total Malam', '$_totalNights malam'),
+                    _buildPaymentRow(
+                      'Harga Kamar',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(_totalPrice),
                     ),
-                    SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Harga Kamar'),
-                        Text(
-                          NumberFormat.currency(
-                            locale: 'id',
-                            symbol: 'Rp ',
-                            decimalDigits: 0,
-                          ).format(_totalPrice),
-                        ),
-                      ],
+                    _buildPaymentRow(
+                      'Biaya Admin',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(_adminFee),
                     ),
-                    if (selectedPaymentMethodId != null) ...[
-                      SizedBox(height: 4),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Biaya Admin'),
-                          Text(
-                            NumberFormat.currency(
-                              locale: 'id',
-                              symbol: 'Rp ',
-                              decimalDigits: 0,
-                            ).format(_adminFee),
-                          ),
-                        ],
-                      ),
-                    ],
-                    Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Total Pembayaran',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          NumberFormat.currency(
-                            locale: 'id',
-                            symbol: 'Rp ',
-                            decimalDigits: 0,
-                          ).format(_totalWithAdmin),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primary,
-                          ),
-                        ),
-                      ],
+                    Divider(thickness: 1),
+                    _buildPaymentRow(
+                      'Total Pembayaran',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(_totalWithAdmin),
+                      isTotal: true,
                     ),
                   ],
                 ),
@@ -465,24 +582,55 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
             SizedBox(height: 24),
 
             // Submit Button
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _showConfirmationDialog,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
+            ElevatedButton(
+              onPressed: _isLoading ? null : _showConfirmationDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: _isLoading
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text(
-                        'Booking Sekarang',
-                        style: TextStyle(fontSize: 16),
-                      ),
+                elevation: 2,
               ),
+              child: _isLoading
+                  ? CircularProgressIndicator(color: Colors.white)
+                  : Text(
+                      'Booking Sekarang',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentRow(String label, String value, {bool isTotal = false}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isTotal ? AppTheme.primary : null,
+            ),
+          ),
+        ],
       ),
     );
   }

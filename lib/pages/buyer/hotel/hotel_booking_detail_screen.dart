@@ -108,55 +108,123 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Status Booking Card
             Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Booking Berhasil!',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primary,
-                      ),
+                    Row(
+                      children: [
+                        Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.check_circle,
+                            color: AppTheme.primary,
+                            size: 24,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Booking Berhasil!',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primary,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Booking ID: ${widget.booking['id']}',
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    SizedBox(height: 16),
+                    _buildDetailRow('Booking ID', widget.booking['id']),
                     Divider(height: 24),
                     _buildDetailRow(
-                        'Check-in',
-                        DateFormat('dd MMM yyyy').format(
-                            DateTime.parse(widget.booking['check_in']))),
+                      'Check-in',
+                      DateFormat('dd MMM yyyy').format(
+                        DateTime.parse(widget.booking['check_in']),
+                      ),
+                      icon: Icons.calendar_today,
+                    ),
                     _buildDetailRow(
-                        'Check-out',
-                        DateFormat('dd MMM yyyy').format(
-                            DateTime.parse(widget.booking['check_out']))),
-                    _buildDetailRow('Jumlah Malam',
-                        '${widget.booking['total_nights']} malam'),
+                      'Check-out',
+                      DateFormat('dd MMM yyyy').format(
+                        DateTime.parse(widget.booking['check_out']),
+                      ),
+                      icon: Icons.calendar_today,
+                    ),
                     _buildDetailRow(
-                        'Total Pembayaran',
-                        NumberFormat.currency(
-                          locale: 'id',
-                          symbol: 'Rp ',
-                          decimalDigits: 0,
-                        ).format(widget.booking['total_price'])),
-                    _buildDetailRow(
-                        'Status', widget.booking['status'].toUpperCase()),
-                    if (paymentMethodName != null)
-                      _buildDetailRow('Metode Pembayaran', paymentMethodName!),
+                      'Jumlah Malam',
+                      '${widget.booking['total_nights']} malam',
+                      icon: Icons.nights_stay,
+                    ),
                   ],
                 ),
               ),
             ),
             SizedBox(height: 16),
 
-            // Payment Proof Section
+            // Payment Info Card
             Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Informasi Pembayaran',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    _buildDetailRow(
+                      'Total Pembayaran',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(widget.booking['total_price']),
+                      icon: Icons.payments,
+                      isHighlighted: true,
+                    ),
+                    _buildDetailRow(
+                      'Status',
+                      widget.booking['status'].toUpperCase(),
+                      icon: Icons.info,
+                      statusColor: _getStatusColor(widget.booking['status']),
+                    ),
+                    if (paymentMethodName != null)
+                      _buildDetailRow(
+                        'Metode Pembayaran',
+                        paymentMethodName!,
+                        icon: Icons.payment,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 16),
+
+            // Payment Proof Card
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Column(
@@ -170,35 +238,62 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
                       ),
                     ),
                     SizedBox(height: 16),
-                    if (widget.booking['image_url'] != null)
-                      Image.network(
-                        widget.booking['image_url'],
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      )
-                    else
-                      Container(
-                        height: 200,
-                        width: double.infinity,
-                        color: Colors.grey[200],
-                        child: Center(
-                          child: Text('Belum ada bukti pembayaran'),
-                        ),
-                      ),
-                    SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: widget.booking['image_url'] != null
+                          ? Image.network(
+                              widget.booking['image_url'],
+                              height: 200,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              height: 200,
+                              width: double.infinity,
+                              color: Colors.grey[200],
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.image_not_supported,
+                                    size: 48,
+                                    color: Colors.grey[400],
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Belum ada bukti pembayaran',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
                     if (widget.booking['status'] == 'pending')
-                      SizedBox(
-                        width: double.infinity,
+                      Padding(
+                        padding: EdgeInsets.only(top: 16),
                         child: ElevatedButton.icon(
                           onPressed: isUploading ? null : _uploadPaymentProof,
-                          icon: Icon(Icons.upload),
-                          label: Text(isUploading
-                              ? 'Mengunggah...'
-                              : 'Upload Bukti Pembayaran'),
+                          icon: Icon(
+                            Icons.upload_file,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            isUploading
+                                ? 'Mengunggah...'
+                                : 'Upload Bukti Pembayaran',
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primary,
                             padding: EdgeInsets.symmetric(vertical: 12),
+                            minimumSize: Size(double.infinity, 45),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
                       ),
@@ -207,8 +302,13 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
               ),
             ),
 
+            // Guest Info Card
             SizedBox(height: 16),
             Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Column(
@@ -221,13 +321,24 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 8),
-                    _buildDetailRow('Nama', widget.booking['guest_name']),
-                    _buildDetailRow('Telepon', widget.booking['guest_phone']),
+                    SizedBox(height: 16),
+                    _buildDetailRow(
+                      'Nama',
+                      widget.booking['guest_name'],
+                      icon: Icons.person,
+                    ),
+                    _buildDetailRow(
+                      'Telepon',
+                      widget.booking['guest_phone'],
+                      icon: Icons.phone,
+                    ),
                     if (widget.booking['special_requests'] != null &&
                         widget.booking['special_requests'].isNotEmpty)
-                      _buildDetailRow('Permintaan Khusus',
-                          widget.booking['special_requests']),
+                      _buildDetailRow(
+                        'Permintaan Khusus',
+                        widget.booking['special_requests'],
+                        icon: Icons.note,
+                      ),
                   ],
                 ),
               ),
@@ -238,14 +349,37 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return Colors.orange;
+      case 'confirmed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildDetailRow(String label, String value,
+      {IconData? icon, bool isHighlighted = false, Color? statusColor}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 20,
+              color: statusColor ??
+                  (isHighlighted ? AppTheme.primary : Colors.grey[600]),
+            ),
+            SizedBox(width: 8),
+          ],
           SizedBox(
-            width: 140,
+            width: 120,
             child: Text(
               label,
               style: TextStyle(
@@ -257,7 +391,8 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
             child: Text(
               value,
               style: TextStyle(
-                fontWeight: FontWeight.w500,
+                fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w500,
+                color: statusColor,
               ),
             ),
           ),

@@ -103,23 +103,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
               Obx(() => cartController.cartItems.isNotEmpty
                   ? Positioned(
-                      right: 8,
-                      top: 8,
+                      right: 2,
+                      top: 2,
                       child: Container(
-                        padding: EdgeInsets.all(4),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: const Color.fromARGB(255, 0, 0, 0),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
                         ),
                         constraints: BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
+                          minWidth: 18,
+                          minHeight: 18,
                         ),
                         child: Text(
                           '${cartController.cartItems.length}',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
                         ),

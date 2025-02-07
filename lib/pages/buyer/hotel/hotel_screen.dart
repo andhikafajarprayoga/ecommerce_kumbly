@@ -89,199 +89,284 @@ class _HotelScreenState extends State<HotelScreen> {
       context: context,
       isScrollControlled: true,
       enableDrag: true,
-      barrierColor: Colors.black54,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
-            return Padding(
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
               padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom),
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.85,
-                child: Drawer(
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Filter',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: EdgeInsets.only(top: 8),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Filter',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
                               ),
-                              IconButton(
-                                icon: Icon(Icons.close),
-                                onPressed: () => Navigator.pop(context),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+
+                        // Sort Section
+                        Text(
+                          'Urutkan',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[200]!),
+                          ),
+                          child: Column(
+                            children: [
+                              RadioListTile<String>(
+                                title: Text('Harga Tertinggi'),
+                                value: 'price_high',
+                                groupValue: sortBy,
+                                onChanged: (value) {
+                                  setModalState(() => sortBy = value);
+                                },
+                                activeColor: AppTheme.primary,
+                              ),
+                              Divider(height: 1),
+                              RadioListTile<String>(
+                                title: Text('Harga Terendah'),
+                                value: 'price_low',
+                                groupValue: sortBy,
+                                onChanged: (value) {
+                                  setModalState(() => sortBy = value);
+                                },
+                                activeColor: AppTheme.primary,
                               ),
                             ],
                           ),
-                          Divider(),
-                          Text(
-                            'Urutkan',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
+                        ),
+                        SizedBox(height: 16),
+
+                        // Price Range Section
+                        Text(
+                          'Rentang Harga',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                           ),
-                          RadioListTile<String>(
-                            title: Text('Harga Tertinggi'),
-                            value: 'price_high',
-                            groupValue: sortBy,
-                            onChanged: (value) {
-                              setModalState(() => sortBy = value);
-                            },
-                            activeColor: AppTheme.primary,
+                        ),
+                        SizedBox(height: 8),
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[200]!),
                           ),
-                          RadioListTile<String>(
-                            title: Text('Harga Terendah'),
-                            value: 'price_low',
-                            groupValue: sortBy,
-                            onChanged: (value) {
-                              setModalState(() => sortBy = value);
-                            },
-                            activeColor: AppTheme.primary,
-                          ),
-                          Divider(),
-                          Text(
-                            'Rentang Harga',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          TextField(
-                            controller: _minPriceController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: 'Harga Minimum',
-                              prefixText: 'Rp ',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                            ),
-                            onChanged: (value) {
-                              if (value.isNotEmpty) {
-                                // Hapus semua karakter non-digit
-                                String numericValue =
-                                    value.replaceAll(RegExp(r'[^0-9]'), '');
-                                if (numericValue.isNotEmpty) {
-                                  // Format angka dengan koma
-                                  String formatted =
-                                      formatter.format(int.parse(numericValue));
-                                  _minPriceController.value = TextEditingValue(
-                                    text: formatted,
-                                    selection: TextSelection.collapsed(
-                                        offset: formatted.length),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                          SizedBox(height: 8),
-                          TextField(
-                            controller: _maxPriceController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: 'Harga Maksimum',
-                              prefixText: 'Rp ',
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                            ),
-                            onChanged: (value) {
-                              if (value.isNotEmpty) {
-                                // Hapus semua karakter non-digit
-                                String numericValue =
-                                    value.replaceAll(RegExp(r'[^0-9]'), '');
-                                if (numericValue.isNotEmpty) {
-                                  // Format angka dengan koma
-                                  String formatted =
-                                      formatter.format(int.parse(numericValue));
-                                  _maxPriceController.value = TextEditingValue(
-                                    text: formatted,
-                                    selection: TextSelection.collapsed(
-                                        offset: formatted.length),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                          Divider(),
-                          SwitchListTile(
-                            title: Text('Lokasi Terdekat'),
-                            value: _isNearestActive,
-                            onChanged: _currentPosition == null
-                                ? null
-                                : (value) {
-                                    setModalState(() {
-                                      _isNearestActive = value;
-                                    });
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: [
+                                TextField(
+                                  controller: _minPriceController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: 'Harga Minimum',
+                                    prefixText: 'Rp ',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onChanged: (value) {
+                                    if (value.isNotEmpty) {
+                                      // Hapus semua karakter non-digit
+                                      String numericValue = value.replaceAll(
+                                          RegExp(r'[^0-9]'), '');
+                                      if (numericValue.isNotEmpty) {
+                                        // Format angka dengan koma
+                                        String formatted = formatter
+                                            .format(int.parse(numericValue));
+                                        _minPriceController.value =
+                                            TextEditingValue(
+                                          text: formatted,
+                                          selection: TextSelection.collapsed(
+                                              offset: formatted.length),
+                                        );
+                                      }
+                                    }
                                   },
-                            activeColor: AppTheme.primary,
-                          ),
-                          if (_currentPosition == null)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text(
-                                'Aktifkan lokasi untuk menggunakan fitur ini',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
                                 ),
-                              ),
-                            ),
-                          SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                _isPriceFilterActive =
-                                    _minPriceController.text.isNotEmpty ||
-                                        _maxPriceController.text.isNotEmpty;
-                                if (_isPriceFilterActive) {
-                                  // Hapus koma sebelum parsing
-                                  _minPrice = double.tryParse(
-                                          _minPriceController.text
-                                              .replaceAll(',', '')) ??
-                                      0;
-                                  _maxPrice = double.tryParse(
-                                          _maxPriceController.text
-                                              .replaceAll(',', '')) ??
-                                      10000000;
-                                }
-                                Navigator.pop(context);
-                                _fetchHotels(search: _searchController.text);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primary,
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                              ),
-                              child: Text('Terapkan',
-                                  style: TextStyle(color: Colors.white)),
+                                SizedBox(height: 12),
+                                TextField(
+                                  controller: _maxPriceController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    labelText: 'Harga Maksimum',
+                                    prefixText: 'Rp ',
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onChanged: (value) {
+                                    if (value.isNotEmpty) {
+                                      // Hapus semua karakter non-digit
+                                      String numericValue = value.replaceAll(
+                                          RegExp(r'[^0-9]'), '');
+                                      if (numericValue.isNotEmpty) {
+                                        // Format angka dengan koma
+                                        String formatted = formatter
+                                            .format(int.parse(numericValue));
+                                        _maxPriceController.value =
+                                            TextEditingValue(
+                                          text: formatted,
+                                          selection: TextSelection.collapsed(
+                                              offset: formatted.length),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(height: 16),
+
+                        // Location Section
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[200]!),
+                          ),
+                          child: Column(
+                            children: [
+                              SwitchListTile(
+                                title: Text(
+                                  'Lokasi Terdekat',
+                                  style: TextStyle(fontWeight: FontWeight.w500),
+                                ),
+                                value: _isNearestActive,
+                                onChanged: _currentPosition == null
+                                    ? null
+                                    : (value) {
+                                        setModalState(() {
+                                          _isNearestActive = value;
+                                        });
+                                      },
+                                activeColor: AppTheme.primary,
+                              ),
+                              if (_currentPosition == null)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 16,
+                                    right: 16,
+                                    bottom: 12,
+                                  ),
+                                  child: Text(
+                                    'Aktifkan lokasi untuk menggunakan fitur ini',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 24),
+
+                        // Apply Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              _isPriceFilterActive =
+                                  _minPriceController.text.isNotEmpty ||
+                                      _maxPriceController.text.isNotEmpty;
+                              if (_isPriceFilterActive) {
+                                // Hapus koma sebelum parsing
+                                _minPrice = double.tryParse(_minPriceController
+                                        .text
+                                        .replaceAll(',', '')) ??
+                                    0;
+                                _maxPrice = double.tryParse(_maxPriceController
+                                        .text
+                                        .replaceAll(',', '')) ??
+                                    10000000;
+                              }
+                              Navigator.pop(context);
+                              _fetchHotels(search: _searchController.text);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              'Terapkan',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
+                ],
               ),
             );
           },
         );
       },
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.horizontal(left: Radius.circular(0)),
-      ),
     );
   }
 
@@ -549,7 +634,7 @@ class _HotelScreenState extends State<HotelScreen> {
         }
       }
 
-       hotels.value = filteredHotels;
+      hotels.value = filteredHotels;
     } catch (e) {
       print('Error in _fetchHotels: $e');
       Get.snackbar(
