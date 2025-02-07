@@ -21,16 +21,20 @@ class ProductController extends GetxController {
 
   Future<void> fetchProducts() async {
     try {
+      isLoading.value = true;
       final response = await supabase
           .from('products')
-          .select('*') // Ambil semua data products tanpa join dulu
-          .order('created_at', ascending: false);
+          .select()
+          .order('created_at',
+              ascending: false) // Urutkan berdasarkan yang terbaru
+          .limit(20); // Batasi 20 produk saja untuk tampilan awal
 
-      if (response != null) {
-        products.value = response;
-      }
+      print('Fetched products: $response'); // Debug print
+      products.assignAll(response);
     } catch (e) {
       print('Error fetching products: $e');
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -200,6 +204,27 @@ class ProductController extends GetxController {
       products.value = List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
       print('Error filtering other categories: $e');
+    }
+  }
+
+  void filterByMainCategory(List<String> categories) async {
+    try {
+      isLoading.value = true;
+      print('Filtering by categories: $categories'); // Debug print
+
+      final response = await supabase
+          .from('products')
+          .select()
+          .inFilter('category', categories); // Hapus pengecekan is_active
+
+      print('Filter response: $response'); // Debug print
+      print('Number of filtered products: ${response.length}'); // Debug print
+
+      products.assignAll(response);
+    } catch (e) {
+      print('Error filtering products: $e'); // Debug print error
+    } finally {
+      isLoading.value = false;
     }
   }
 }

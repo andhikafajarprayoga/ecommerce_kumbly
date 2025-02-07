@@ -391,6 +391,11 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                       CategoryIcon(
                         icon: Icons.checkroom_outlined,
                         label: 'Fashion',
+                        subCategories: [
+                          'Tas & Dompet',
+                          'Pakaian Pria',
+                          'Sepatu & Sandal'
+                        ],
                         onTap: () {
                           if (productController.currentCategory.value ==
                               'fashion') {
@@ -398,28 +403,41 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                             productController.fetchProducts();
                           } else {
                             productController.currentCategory.value = 'fashion';
-                            productController.filterByCategory('fashion');
+                            productController.filterByMainCategory(
+                                ['Pakaian Pria', 'Sepatu & Sandal']);
                           }
                         },
                       ),
                       CategoryIcon(
-                        icon: Icons.phone_android_outlined,
-                        label: 'Elektronik',
+                        icon: Icons.home_outlined,
+                        label: 'Perabotan',
+                        subCategories: [
+                          'Peralatan Dapur',
+                          'Furniture',
+                          'Dekorasi Rumah',
+                          'Alat Kebersihan'
+                        ],
                         onTap: () {
                           if (productController.currentCategory.value ==
-                              'elektronik') {
+                              'perabotan') {
                             productController.currentCategory.value = '';
                             productController.fetchProducts();
                           } else {
                             productController.currentCategory.value =
-                                'elektronik';
-                            productController.filterByCategory('elektronik');
+                                'perabotan';
+                            productController.filterByMainCategory([
+                              'Peralatan Dapur',
+                              'Furniture',
+                              'Dekorasi Rumah',
+                              'Alat Kebersihan'
+                            ]);
                           }
                         },
                       ),
                       CategoryIcon(
-                        icon: Icons.watch_outlined,
+                        icon: Icons.local_mall_outlined,
                         label: 'Aksesoris',
+                        subCategories: ['Tas & Dompet'],
                         onTap: () {
                           if (productController.currentCategory.value ==
                               'aksesoris') {
@@ -428,23 +446,19 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                           } else {
                             productController.currentCategory.value =
                                 'aksesoris';
-                            productController.filterByCategory('aksesoris');
+                            productController
+                                .filterByMainCategory(['Tas & Dompet']);
                           }
                         },
                       ),
                       CategoryIcon(
                         icon: Icons.more_horiz,
                         label: 'Lainnya',
-                        onTap: () {
-                          if (productController.currentCategory.value ==
-                              'lainnya') {
-                            productController.currentCategory.value = '';
-                            productController.fetchProducts();
-                          } else {
-                            productController.currentCategory.value = 'lainnya';
-                            productController.filterOtherCategories();
-                          }
-                        },
+                        subCategories: [],
+                        onTap: () => showModalBottomSheet(
+                          context: context,
+                          builder: (context) => CategoryListModal(),
+                        ),
                       ),
                     ],
                   ),
@@ -492,76 +506,61 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
 class CategoryIcon extends StatelessWidget {
   final IconData icon;
   final String label;
+  final List<String> subCategories;
   final VoidCallback onTap;
   final ProductController productController = Get.find<ProductController>();
 
   CategoryIcon({
     required this.icon,
     required this.label,
+    required this.subCategories,
     required this.onTap,
   });
-
-  String _getCategoryValue() {
-    switch (label.toLowerCase()) {
-      case 'fashion':
-        return 'fashion';
-      case 'elektronik':
-        return 'elektronik';
-      case 'aksesoris':
-        return 'aksesoris';
-      case 'lainnya':
-        return 'lainnya';
-      default:
-        return '';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final isSelected =
-          productController.currentCategory.value == _getCategoryValue() &&
-              productController.currentCategory.value.isNotEmpty;
+          productController.currentCategory.value == label.toLowerCase();
+
       return GestureDetector(
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: Duration(milliseconds: 300),
-          child: Column(
-            children: [
-              AnimatedContainer(
-                duration: Duration(milliseconds: 300),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.primary
-                      : AppTheme.primaryLight.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppTheme.primary.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: Offset(0, 4),
-                          )
-                        ]
-                      : [],
-                ),
-                child: Icon(icon,
-                    size: 30,
-                    color: isSelected ? Colors.white : AppTheme.primary),
+        child: Column(
+          children: [
+            AnimatedContainer(
+              duration: Duration(milliseconds: 300),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? AppTheme.primary
+                    : AppTheme.primaryLight.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primary.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        )
+                      ]
+                    : [],
               ),
-              const SizedBox(height: 8),
-              AnimatedDefaultTextStyle(
-                duration: Duration(milliseconds: 300),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? AppTheme.primary : AppTheme.textPrimary,
-                ),
-                child: Text(label),
+              child: Icon(
+                icon,
+                size: 30,
+                color: isSelected ? Colors.white : AppTheme.primary,
               ),
-            ],
-          ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? AppTheme.primary : AppTheme.textPrimary,
+              ),
+            ),
+          ],
         ),
       );
     });
@@ -700,5 +699,138 @@ class ProductCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class CategoryListModal extends StatelessWidget {
+  final ProductController productController = Get.find<ProductController>();
+
+  final Map<String, List<String>> categoryMap = {
+    'Elektronik & Gadget': [
+      'Smartphone & Aksesoris',
+      'Laptop & PC',
+      'Kamera & Aksesoris',
+      'Smartwatch & Wearable Tech',
+      'Peralatan Gaming',
+    ],
+    'Fashion & Aksesoris': [
+      'Pakaian Pria',
+      'Pakaian Wanita',
+      'Sepatu & Sandal',
+      'Tas & Dompet',
+      'Jam Tangan & Perhiasan',
+    ],
+    'Kesehatan & Kecantikan': [
+      'Skincare',
+      'Make-up',
+      'Parfum',
+      'Suplemen & Vitamin',
+      'Alat Kesehatan',
+    ],
+    'Makanan & Minuman': [
+      'Makanan Instan',
+      'Minuman Kemasan',
+      'Camilan & Snack',
+      'Bahan Makanan',
+    ],
+    'Rumah Tangga & Perabotan': [
+      'Peralatan Dapur',
+      'Furniture',
+      'Dekorasi Rumah',
+      'Alat Kebersihan',
+    ],
+    'Otomotif & Aksesoris': [
+      'Suku Cadang Kendaraan',
+      'Aksesoris Mobil & Motor',
+      'Helm & Perlengkapan Berkendara',
+    ],
+    'Hobi & Koleksi': [
+      'Buku & Majalah',
+      'Alat Musik',
+      'Action Figure & Koleksi',
+      'Olahraga & Outdoor',
+    ],
+    'Bayi & Anak': [
+      'Pakaian Bayi & Anak',
+      'Mainan Anak',
+      'Perlengkapan Bayi',
+    ],
+    'Keperluan Industri & Bisnis': [
+      'Alat Teknik & Mesin',
+      'Perlengkapan Kantor',
+      'Peralatan Keamanan',
+    ],
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Semua Kategori',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 16),
+          Expanded(
+            child: ListView.builder(
+              itemCount: categoryMap.length,
+              itemBuilder: (context, index) {
+                String mainCategory = categoryMap.keys.elementAt(index);
+                List<String> subCategories = categoryMap[mainCategory]!;
+
+                return ExpansionTile(
+                  leading: Icon(_getCategoryIcon(mainCategory)),
+                  title: Text(mainCategory),
+                  children: subCategories
+                      .map((subCategory) => ListTile(
+                            contentPadding: EdgeInsets.only(left: 72),
+                            title: Text(subCategory),
+                            onTap: () {
+                              print(
+                                  'Selected sub-category: $subCategory'); // Debug print
+                              productController
+                                  .filterByMainCategory([subCategory]);
+                              Get.back();
+                            },
+                          ))
+                      .toList(),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Elektronik & Gadget':
+        return Icons.devices;
+      case 'Fashion & Aksesoris':
+        return Icons.checkroom;
+      case 'Kesehatan & Kecantikan':
+        return Icons.spa;
+      case 'Makanan & Minuman':
+        return Icons.fastfood;
+      case 'Rumah Tangga & Perabotan':
+        return Icons.home;
+      case 'Otomotif & Aksesoris':
+        return Icons.directions_car;
+      case 'Hobi & Koleksi':
+        return Icons.sports_esports;
+      case 'Bayi & Anak':
+        return Icons.child_care;
+      case 'Keperluan Industri & Bisnis':
+        return Icons.business;
+      default:
+        return Icons.category;
+    }
   }
 }

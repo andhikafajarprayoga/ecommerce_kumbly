@@ -39,7 +39,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
     descriptionController.text = widget.product['description'] ?? '';
     stockController.text = widget.product['stock'].toString();
     categoryController.text = widget.product['category'] ?? '';
-    weightController.text = (widget.product['weight'] ?? 1000).toString();
+    // Konversi gram ke kg untuk ditampilkan
+    final weightInGrams = widget.product['weight'] ?? 0;
+    weightController.text = (weightInGrams / 1000).toString();
     lengthController.text = (widget.product['length'] ?? 0).toString();
     widthController.text = (widget.product['width'] ?? 0).toString();
     heightController.text = (widget.product['height'] ?? 0).toString();
@@ -305,7 +307,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                           child: _buildTextField(
                             controller: weightController,
                             label: 'Berat (kg)',
-                            hint: 'Contoh: 0.2',
+                            hint: 'Contoh: 1.5',
                             icon: Icons.scale,
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
@@ -319,8 +321,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
                                   return 'Berat harus lebih dari 0';
                                 }
                                 // Convert kg to grams and update controller
-                                weightController.text =
-                                    (weight * 1000).toString();
+                                final gramWeight = (weight * 1000).round();
+                                weightController.text = gramWeight.toString();
                               } catch (e) {
                                 return 'Masukkan angka yang valid';
                               }

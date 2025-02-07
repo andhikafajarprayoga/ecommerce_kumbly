@@ -36,8 +36,6 @@ void main() async {
       GetPage(name: '/admin/home_screen', page: () => AdminHomeScreen()),
       GetPage(name: '/courier/home_screen', page: () => CourierHomeScreen()),
       GetPage(name: '/branch/home_screen', page: () => BranchHomeScreen()),
-      
-
     ],
   ));
 }

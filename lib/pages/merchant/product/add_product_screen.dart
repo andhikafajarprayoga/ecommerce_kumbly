@@ -16,8 +16,7 @@ class AddProductScreen extends StatelessWidget {
   final TextEditingController priceController = TextEditingController();
   final TextEditingController stockController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
-  final TextEditingController weightController =
-      TextEditingController(text: '1000');
+  final TextEditingController weightController = TextEditingController();
   final TextEditingController lengthController =
       TextEditingController(text: '0');
   final TextEditingController widthController =
@@ -26,6 +25,66 @@ class AddProductScreen extends StatelessWidget {
       TextEditingController(text: '0');
   final RxList<String> imagePaths = <String>[].obs;
   final supabase = Supabase.instance.client;
+
+  final Map<String, List<String>> categoryMap = {
+    'Elektronik & Gadget': [
+      'Smartphone & Aksesoris',
+      'Laptop & PC',
+      'Kamera & Aksesoris',
+      'Smartwatch & Wearable Tech',
+      'Peralatan Gaming',
+    ],
+    'Fashion & Aksesoris': [
+      'Pakaian Pria',
+      'Pakaian Wanita',
+      'Sepatu & Sandal',
+      'Tas & Dompet',
+      'Jam Tangan & Perhiasan',
+    ],
+    'Kesehatan & Kecantikan': [
+      'Skincare',
+      'Make-up',
+      'Parfum',
+      'Suplemen & Vitamin',
+      'Alat Kesehatan',
+    ],
+    'Makanan & Minuman': [
+      'Makanan Instan',
+      'Minuman Kemasan',
+      'Camilan & Snack',
+      'Bahan Makanan',
+    ],
+    'Rumah Tangga & Perabotan': [
+      'Peralatan Dapur',
+      'Furniture',
+      'Dekorasi Rumah',
+      'Alat Kebersihan',
+    ],
+    'Otomotif & Aksesoris': [
+      'Suku Cadang Kendaraan',
+      'Aksesoris Mobil & Motor',
+      'Helm & Perlengkapan Berkendara',
+    ],
+    'Hobi & Koleksi': [
+      'Buku & Majalah',
+      'Alat Musik',
+      'Action Figure & Koleksi',
+      'Olahraga & Outdoor',
+    ],
+    'Bayi & Anak': [
+      'Pakaian Bayi & Anak',
+      'Mainan Anak',
+      'Perlengkapan Bayi',
+    ],
+    'Keperluan Industri & Bisnis': [
+      'Alat Teknik & Mesin',
+      'Perlengkapan Kantor',
+      'Peralatan Keamanan',
+    ],
+  };
+
+  final RxString selectedMainCategory = ''.obs;
+  final RxString selectedSubCategory = ''.obs;
 
   Future<void> pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -259,7 +318,7 @@ class AddProductScreen extends StatelessWidget {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
                     _buildTextField(
                       controller: descriptionController,
                       label: 'Deskripsi',
@@ -267,12 +326,12 @@ class AddProductScreen extends StatelessWidget {
                       icon: Icons.description_outlined,
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
                     _buildTextField(
                       controller: priceController,
                       label: 'Harga',
                       hint: 'Masukkan harga produk',
-                      icon: Icons.attach_money_outlined,
+                      icon: Icons.money,
                       keyboardType: TextInputType.number,
                       prefixText: 'Rp ',
                       validator: (value) {
@@ -282,7 +341,7 @@ class AddProductScreen extends StatelessWidget {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
                     _buildTextField(
                       controller: stockController,
                       label: 'Stok',
@@ -296,19 +355,14 @@ class AddProductScreen extends StatelessWidget {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 20),
-                    _buildTextField(
-                      controller: categoryController,
-                      label: 'Kategori',
-                      hint: 'Masukkan kategori produk',
-                      icon: Icons.category_outlined,
-                    ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
+                    _buildCategoryDropdown(),
+                    const SizedBox(height: 10),
                     Text(
                       'Dimensi & Berat',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.normal,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -318,7 +372,7 @@ class AddProductScreen extends StatelessWidget {
                           child: _buildTextField(
                             controller: weightController,
                             label: 'Berat (kg)',
-                            hint: 'Contoh: 1kg = 1',
+                            hint: 'Contoh: 1.5',
                             icon: Icons.scale,
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
@@ -331,9 +385,9 @@ class AddProductScreen extends StatelessWidget {
                                 if (weight <= 0) {
                                   return 'Berat harus lebih dari 0';
                                 }
-                                // Convert kg to grams and update controller
-                                weightController.text =
-                                    (weight * 1000).toString();
+                                // Konversi kg ke gram sebelum menyimpan
+                                final gramWeight = (weight * 1000).round();
+                                weightController.text = gramWeight.toString();
                               } catch (e) {
                                 return 'Masukkan angka yang valid';
                               }
@@ -377,9 +431,97 @@ class AddProductScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.orange[700],
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Dimensi & Berat akan mempengaruhi biaya pengiriman. Pastikan data yang dimasukkan sudah benar.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.orange[900],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 30),
                     ElevatedButton(
-                      onPressed: saveProduct,
+                      onPressed: () async {
+                        if (_formKey.currentState!.validate()) {
+                          if (imagePaths.isEmpty || imagePaths.length < 2) {
+                            Get.snackbar(
+                              'Perhatian',
+                              'Harap unggah minimal 2 foto produk',
+                              backgroundColor: Colors.orange,
+                              colorText: Colors.white,
+                              icon: const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.white,
+                              ),
+                            );
+                            return;
+                          }
+
+                          try {
+                            Get.dialog(
+                              const Center(child: CircularProgressIndicator()),
+                              barrierDismissible: false,
+                            );
+
+                            List<String> imageUrls = [];
+                            if (imagePaths.isNotEmpty) {
+                              imageUrls = await uploadImages(imagePaths);
+                            }
+
+                            await supabase.from('products').insert({
+                              'seller_id': supabase.auth.currentUser!.id,
+                              'name': nameController.text,
+                              'description': descriptionController.text,
+                              'price': int.parse(priceController.text
+                                  .replaceAll(RegExp(r'[^\d]'), '')),
+                              'stock': int.parse(stockController.text),
+                              'category': categoryController.text,
+                              'image_url': imageUrls,
+                              'weight': int.parse(weightController.text),
+                              'length': int.parse(lengthController.text),
+                              'width': int.parse(widthController.text),
+                              'height': int.parse(heightController.text),
+                              'created_at': DateTime.now().toIso8601String(),
+                            });
+
+                            Get.back(); // Tutup loading
+                            Get.back(); // Kembali ke halaman sebelumnya
+                            Get.snackbar(
+                              'Sukses',
+                              'Produk berhasil ditambahkan',
+                              backgroundColor: Colors.green,
+                              colorText: Colors.white,
+                            );
+                          } catch (e) {
+                            Get.back(); // Tutup loading
+                            Get.snackbar(
+                              'Error',
+                              'Gagal menambahkan produk: $e',
+                              backgroundColor: Colors.red,
+                              colorText: Colors.white,
+                            );
+                          }
+                        }
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primary,
                         padding: const EdgeInsets.symmetric(vertical: 15),
@@ -394,6 +536,32 @@ class AddProductScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.blue[700],
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Unggah minimal 2 foto produk dari sudut yang berbeda',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.blue[900],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -453,6 +621,125 @@ class AddProductScreen extends StatelessWidget {
         ),
         validator: validator,
       ),
+    );
+  }
+
+  Widget _buildCategoryDropdown() {
+    return Column(
+      children: [
+        Container(
+          margin: EdgeInsets.only(bottom: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 5,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Obx(() => DropdownButtonFormField<String>(
+                value: selectedMainCategory.value.isEmpty
+                    ? null
+                    : selectedMainCategory.value,
+                decoration: InputDecoration(
+                  labelText: 'Kategori Utama',
+                  labelStyle: TextStyle(color: AppTheme.primary),
+                  prefixIcon:
+                      Icon(Icons.category_outlined, color: AppTheme.primary),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: AppTheme.primary),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                items: categoryMap.keys.map((String category) {
+                  return DropdownMenuItem<String>(
+                    value: category,
+                    child: Text(category),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    selectedMainCategory.value = newValue;
+                    selectedSubCategory.value = '';
+                    categoryController.text = '';
+                  }
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Pilih kategori utama';
+                  }
+                  return null;
+                },
+              )),
+        ),
+        Obx(() => selectedMainCategory.value.isNotEmpty
+            ? Container(
+                margin: EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: DropdownButtonFormField<String>(
+                  value: selectedSubCategory.value.isEmpty
+                      ? null
+                      : selectedSubCategory.value,
+                  decoration: InputDecoration(
+                    labelText: 'Sub Kategori',
+                    labelStyle: TextStyle(color: AppTheme.primary),
+                    prefixIcon: Icon(Icons.subdirectory_arrow_right,
+                        color: AppTheme.primary),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: AppTheme.primary),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  items: categoryMap[selectedMainCategory.value]
+                      ?.map((String subCategory) {
+                    return DropdownMenuItem<String>(
+                      value: subCategory,
+                      child: Text(subCategory),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      selectedSubCategory.value = newValue;
+                      categoryController.text = newValue;
+                    }
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Pilih sub kategori';
+                    }
+                    return null;
+                  },
+                ),
+              )
+            : SizedBox()),
+      ],
     );
   }
 }

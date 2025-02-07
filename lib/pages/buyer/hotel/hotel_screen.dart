@@ -549,7 +549,7 @@ class _HotelScreenState extends State<HotelScreen> {
         }
       }
 
-      hotels.value = filteredHotels;
+       hotels.value = filteredHotels;
     } catch (e) {
       print('Error in _fetchHotels: $e');
       Get.snackbar(
