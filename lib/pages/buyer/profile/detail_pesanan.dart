@@ -28,11 +28,15 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
     switch (status.toLowerCase()) {
       case 'pending':
         return Colors.orange;
+      case 'pending_cancellation':
+        return Colors.orange.shade700;
       case 'processing':
         return Colors.blue;
-      case 'shipped':
-        return Colors.green;
+      case 'shipping':
+        return Colors.blue.shade700;
       case 'delivered':
+        return Colors.green;
+      case 'completed':
         return Colors.green.shade700;
       case 'cancelled':
         return Colors.red;
@@ -121,6 +125,73 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Progress Status
+                  Row(
+                    children: [
+                      _buildStatusStep(
+                        icon: Icons.pending_actions,
+                        label: 'Menunggu',
+                        isActive: [
+                          'pending',
+                          'processing',
+                          'shipping',
+                          'delivered',
+                          'completed'
+                        ].contains(status.toLowerCase()),
+                        isCompleted: [
+                          'processing',
+                          'shipping',
+                          'delivered',
+                          'completed'
+                        ].contains(status.toLowerCase()),
+                      ),
+                      _buildStatusLine(
+                        isActive: [
+                          'processing',
+                          'shipping',
+                          'delivered',
+                          'completed'
+                        ].contains(status.toLowerCase()),
+                      ),
+                      _buildStatusStep(
+                        icon: Icons.inventory_2,
+                        label: 'Dikemas',
+                        isActive: [
+                          'processing',
+                          'shipping',
+                          'delivered',
+                          'completed'
+                        ].contains(status.toLowerCase()),
+                        isCompleted: ['shipping', 'delivered', 'completed']
+                            .contains(status.toLowerCase()),
+                      ),
+                      _buildStatusLine(
+                        isActive: ['shipping', 'delivered', 'completed']
+                            .contains(status.toLowerCase()),
+                      ),
+                      _buildStatusStep(
+                        icon: Icons.local_shipping,
+                        label: 'Dikirim',
+                        isActive: ['shipping', 'delivered', 'completed']
+                            .contains(status.toLowerCase()),
+                        isCompleted: ['delivered', 'completed']
+                            .contains(status.toLowerCase()),
+                      ),
+                      _buildStatusLine(
+                        isActive: ['delivered', 'completed']
+                            .contains(status.toLowerCase()),
+                      ),
+                      _buildStatusStep(
+                        icon: Icons.check_circle,
+                        label: 'Selesai',
+                        isActive: ['delivered', 'completed']
+                            .contains(status.toLowerCase()),
+                        isCompleted:
+                            ['completed'].contains(status.toLowerCase()),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -637,6 +708,51 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
         colorText: Colors.white,
       );
     }
+  }
+
+  Widget _buildStatusStep({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required bool isCompleted,
+  }) {
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isActive ? AppTheme.primary : Colors.grey[300],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isCompleted ? Icons.check : icon,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: AppTheme.textTheme.bodySmall?.copyWith(
+              color: isActive ? AppTheme.primary : Colors.grey,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusLine({required bool isActive}) {
+    return Expanded(
+      child: Container(
+        height: 2,
+        color: isActive ? AppTheme.primary : Colors.grey[300],
+      ),
+    );
   }
 }
 
