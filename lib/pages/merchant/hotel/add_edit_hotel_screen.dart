@@ -133,7 +133,7 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
     } on TimeoutException catch (_) {
       Get.snackbar(
         'Peringatan',
-        'Waktu pengambilan alamat habis. Silakan coba lagi.', 
+        'Waktu pengambilan alamat habis. Silakan coba lagi.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -224,16 +224,12 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
 
     try {
       setState(() => _isLoading = true);
-
       final List<String> newImageUrls = await _uploadImages();
       final allImageUrls = [..._imageUrls, ...newImageUrls];
-
       final hotelData = {
         'name': _nameController.text,
         'description': _descriptionController.text,
-        'address': {
-          'full_address': _selectedAddress,
-        },
+        'address': {'full_address': _selectedAddress},
         'latitude': _latitude,
         'longitude': _longitude,
         'facilities': _facilitiesController.text
@@ -243,51 +239,32 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
             .toList(),
         'image_url': allImageUrls,
         'merchant_id': supabase.auth.currentUser!.id,
-        'room_types': [], // Inisialisasi array kosong untuk room_types
       };
 
       String hotelId;
       if (widget.hotel == null) {
-        // Jika menambah hotel baru
         final response = await supabase
             .from('hotels')
             .insert(hotelData)
             .select('id')
             .single();
         hotelId = response['id'];
-
-        Get.snackbar(
-          'Sukses',
-          'Hotel berhasil ditambahkan',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        Get.off(() => ManageRoomTypesScreen(
+            hotelId: hotelId)); // Ke room type untuk hotel baru
       } else {
-        // Jika mengedit hotel yang sudah ada
-        await supabase
-            .from('hotels')
-            .update(hotelData)
-            .eq('id', widget.hotel!['id']);
         hotelId = widget.hotel!['id'];
-
-        Get.snackbar(
-          'Sukses',
-          'Hotel berhasil diupdate',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        await supabase.from('hotels').update(hotelData).eq('id', hotelId);
+        Get.off(() =>
+            HotelManagementScreen()); // Kembali ke daftar hotel untuk update
       }
 
-      // Langsung arahkan ke halaman manage room types
-      Get.off(() => ManageRoomTypesScreen(hotelId: hotelId));
+      Get.snackbar('Sukses',
+          'Hotel berhasil ${widget.hotel == null ? 'ditambahkan' : 'diupdate'}',
+          backgroundColor: Colors.green, colorText: Colors.white);
     } catch (e) {
       print('Error saving hotel: $e');
-      Get.snackbar(
-        'Error',
-        'Gagal menyimpan hotel: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      Get.snackbar('Error', 'Gagal menyimpan hotel: $e',
+          backgroundColor: Colors.red, colorText: Colors.white);
     } finally {
       setState(() => _isLoading = false);
     }

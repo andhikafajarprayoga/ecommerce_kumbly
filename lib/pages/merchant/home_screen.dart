@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/pages/merchant/chats/chat_list_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/finance/bank_accounts_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/product/product_list_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/profile/profile_screen.dart';
 import '../../controllers/product_controller.dart';
@@ -427,6 +428,14 @@ class _HomeMenuState extends State<_HomeMenu> {
                           icon: Icons.hotel,
                           label: 'Hotel',
                           onTap: () => Get.to(() => HotelManagementScreen()),
+                        ),
+                        _buildMenuItem(
+                          context: context,
+                          icon: Icons.account_balance,
+                          label: 'Rekening Bank',
+                          onTap: () {
+                            Get.to(() => BankAccountsScreen());
+                          },
                         ),
                       ],
                     ),
