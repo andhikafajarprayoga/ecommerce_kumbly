@@ -4,6 +4,8 @@ import '../../../controllers/reports_controller.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../pages/admin/laporan-pembayaran/payment_detail_screen.dart';
+import 'withdrawal_screen.dart';
+import '../../../theme/app_theme.dart';
 
 class ReportsScreen extends StatefulWidget {
   @override
@@ -67,6 +69,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
           children: [
             _buildFilterSection(),
             _buildSummaryCards(),
+            SizedBox(height: 16),
+            _buildWithdrawalButton(),
             Expanded(
               child: Obx(() {
                 if (controller.isLoading.value) {
@@ -176,12 +180,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
       scrollDirection: Axis.horizontal,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 16),
-        child: Obx(() => Row(
-              children: [
-                SizedBox(
-                  width: MediaQuery.of(Get.context!).size.width *
-                      0.44, // 44% dari lebar layar
-                  child: Card(
+        child: Row(
+          children: [
+            SizedBox(
+              width: MediaQuery.of(Get.context!).size.width * 0.44,
+              child: Obx(() => Card(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -239,13 +242,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ],
                       ),
                     ),
-                  ),
-                ),
-                SizedBox(width: 12),
-                SizedBox(
-                  width: MediaQuery.of(Get.context!).size.width *
-                      0.44, // 44% dari lebar layar
-                  child: Card(
+                  )),
+            ),
+            SizedBox(width: 12),
+            SizedBox(
+              width: MediaQuery.of(Get.context!).size.width * 0.44,
+              child: Obx(() => Card(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -263,7 +265,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
-                                  Icons.payments,
+                                  Icons.payments_outlined,
                                   color: Colors.green,
                                   size: 20,
                                 ),
@@ -304,10 +306,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         ],
                       ),
                     ),
-                  ),
-                ),
-              ],
-            )),
+                  )),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -417,6 +419,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildWithdrawalButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () {
+            Get.to(
+                () => WithdrawalScreen(balance: controller.totalIncome.value));
+          },
+          child: Text('Cairkan Dana'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            padding: EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
