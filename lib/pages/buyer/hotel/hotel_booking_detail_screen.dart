@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kumbly_ecommerce/screens/home_screen.dart';
 import '../../../theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import '../home_screen.dart';
 
 class HotelBookingDetailScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -60,19 +62,15 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
           'payment_proofs/${widget.booking['id']}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final File file = File(image.path);
 
-      // Upload ke bucket 'hotel-bookings'
       await supabase.storage.from('hotel-bookings').upload(path, file);
 
-      // Dapatkan public URL yang benar
       final String publicUrl =
           supabase.storage.from('hotel-bookings').getPublicUrl(path);
 
-      // Update booking record
       await supabase
           .from('hotel_bookings')
           .update({'image_url': publicUrl}).eq('id', widget.booking['id']);
 
-      // Update local state
       setState(() {
         widget.booking['image_url'] = publicUrl;
       });
@@ -83,8 +81,14 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
+
+      // Tambahkan delay sebentar sebelum kembali ke BuyerHomeScreen
+      await Future.delayed(Duration(seconds: 2));
+
+      // Kembali ke BuyerHomeScreen dengan tab hotel (index 2)
+      Get.off(() => BuyerHomeScreen(), arguments: {'selectedIndex': 2});
     } catch (e) {
-      print('Error uploading payment proof: $e'); // Tambahkan log error
+      print('Error uploading payment proof: $e');
       Get.snackbar(
         'Error',
         'Gagal mengunggah bukti pembayaran: $e',
@@ -100,8 +104,15 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Detail Booking'),
+        title: Text(
+          'Detail Booking',
+          style: TextStyle(color: Colors.white),
+        ),
         backgroundColor: AppTheme.primary,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Get.back(),
+        ),
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
@@ -192,12 +203,45 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
                     ),
                     SizedBox(height: 16),
                     _buildDetailRow(
-                      'Total Pembayaran',
+                      'Total Harga Kamar',
                       NumberFormat.currency(
                         locale: 'id',
                         symbol: 'Rp ',
                         decimalDigits: 0,
                       ).format(widget.booking['total_price']),
+                      icon: Icons.hotel,
+                    ),
+                    _buildDetailRow(
+                      'Biaya Admin',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(widget.booking['admin_fee']),
+                      icon: Icons.payment,
+                    ),
+                    _buildDetailRow(
+                      'Biaya Aplikasi',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(widget.booking['app_fee']),
+                      icon: Icons.apps,
+                    ),
+                    Divider(height: 16),
+                    _buildDetailRow(
+                      'Total Pembayaran',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(((widget.booking['total_price'] as num?) ?? 0)
+                              .toDouble() +
+                          ((widget.booking['admin_fee'] as num?) ?? 0)
+                              .toDouble() +
+                          ((widget.booking['app_fee'] as num?) ?? 0)
+                              .toDouble()),
                       icon: Icons.payments,
                       isHighlighted: true,
                     ),

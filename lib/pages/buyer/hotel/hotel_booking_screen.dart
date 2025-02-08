@@ -29,6 +29,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
   int _totalNights = 0;
   double _totalPrice = 0;
   double _adminFee = 0;
+  double _appFee = 0;
   double _totalWithAdmin = 0;
 
   final _guestNameController = TextEditingController();
@@ -46,6 +47,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
     _selectedCheckOut = DateTime.now().add(Duration(days: 1));
     _calculateTotal();
     fetchPaymentMethods();
+    fetchAppFee();
   }
 
   void _calculateTotal() {
@@ -58,7 +60,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
   }
 
   void _calculateTotalWithAdmin() {
-    _totalWithAdmin = _totalPrice + _adminFee;
+    _totalWithAdmin = _totalPrice + _adminFee + _appFee;
   }
 
   Future<void> fetchPaymentMethods() async {
@@ -75,6 +77,23 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
       });
     } catch (e) {
       print('Error fetching payment methods: $e');
+    }
+  }
+
+  Future<void> fetchAppFee() async {
+    try {
+      final response = await supabase
+          .from('admin_fees')
+          .select()
+          .eq('is_active', true)
+          .single();
+
+      setState(() {
+        _appFee = (response['fee'] as num).toDouble();
+        _calculateTotalWithAdmin();
+      });
+    } catch (e) {
+      print('Error fetching app fee: $e');
     }
   }
 
@@ -277,6 +296,8 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
             'check_out': _selectedCheckOut!.toIso8601String(),
             'total_nights': _totalNights,
             'total_price': _totalPrice,
+            'admin_fee': _adminFee,
+            'app_fee': _appFee,
             'guest_name': _guestNameController.text,
             'guest_phone': _guestPhoneController.text,
             'special_requests': _specialRequestController.text,
@@ -286,8 +307,11 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
           .select()
           .single();
 
+      print('Booking data: ${response.toString()}');
+
       Get.to(() => HotelBookingDetailScreen(booking: response));
     } catch (e) {
+      print('Error submitting booking: $e');
       Get.snackbar(
         'Error',
         'Gagal membuat booking: $e',
@@ -308,6 +332,10 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
               color: Colors.white,
             )),
         backgroundColor: AppTheme.primary,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Get.back(),
+        ),
       ),
       body: Form(
         key: _formKey,
@@ -564,6 +592,14 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                         symbol: 'Rp ',
                         decimalDigits: 0,
                       ).format(_adminFee),
+                    ),
+                    _buildPaymentRow(
+                      'Biaya Aplikasi',
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(_appFee),
                     ),
                     Divider(thickness: 1),
                     _buildPaymentRow(
