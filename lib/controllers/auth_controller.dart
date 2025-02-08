@@ -1,6 +1,8 @@
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:kumbly_ecommerce/pages/branch/register_branch_screen.dart';
+import 'package:kumbly_ecommerce/pages/branch/home_screen.dart';
 
 class AuthController extends GetxController {
   final supabase = Supabase.instance.client;
@@ -104,9 +106,8 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<bool> signIn({required String email, required String password}) async {
+  Future<bool> signIn(String email, String password) async {
     try {
-      isLoading.value = true;
       final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -114,14 +115,45 @@ class AuthController extends GetxController {
 
       if (response.user != null) {
         currentUser.value = response.user;
-        return true;
+
+        // Ambil data user untuk cek role
+        final userData = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', response.user!.id)
+            .single();
+
+        print('User Role: ${userData['role']}'); // Debug print
+
+        if (userData['role'] == 'branch') {
+          // Cek apakah sudah terdaftar di branches
+          final branchData = await supabase
+              .from('branches')
+              .select()
+              .eq('user_id', response.user!.id)
+              .maybeSingle();
+
+          print('Branch Data: $branchData'); // Debug print
+
+          if (branchData == null) {
+            Get.offAll(() => const RegisterBranchScreen());
+            return true;
+          } else {
+            Get.offAll(() => const BranchHomeScreen());
+            return true;
+          }
+        }
       }
-      return false;
+      return true;
     } catch (e) {
-      print('Error signing in: $e');
+      print('Login Error: $e'); // Debug print
+      Get.snackbar(
+        'Error',
+        'Login gagal: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
       return false;
-    } finally {
-      isLoading.value = false;
     }
   }
 
@@ -249,5 +281,24 @@ class AuthController extends GetxController {
     currentUser.value = supabase.auth.currentUser;
     userRole.value = userData['role'] ?? '';
     isMerchant.value = userData['role'] == 'seller';
+  }
+
+  Future<void> checkBranchRegistration() async {
+    try {
+      final branch = await supabase
+          .from('branches')
+          .select()
+          .eq('user_id', currentUser.value!.id)
+          .maybeSingle();
+
+      if (branch == null) {
+        Get.offAll(() => const RegisterBranchScreen());
+      } else {
+        Get.offAll(() => const BranchHomeScreen());
+      }
+    } catch (e) {
+      print('Error checking branch registration: $e');
+      Get.offAll(() => const RegisterBranchScreen());
+    }
   }
 }

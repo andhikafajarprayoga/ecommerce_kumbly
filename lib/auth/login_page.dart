@@ -65,13 +65,11 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _handleLogin(BuildContext context) async {
-    if (!_formKey.currentState!.validate()) return;
-
-    try {
+  Future<void> _handleLogin() async {
+    if (_formKey.currentState!.validate()) {
       final result = await authController.signIn(
-        email: emailController.text.trim(),
-        password: passwordController.text,
+        emailController.text,
+        passwordController.text,
       );
 
       if (result == true) {
@@ -110,15 +108,6 @@ class _LoginPageState extends State<LoginPage> {
           margin: const EdgeInsets.all(16),
         );
       }
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Terjadi kesalahan saat login: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
     }
   }
 
@@ -336,7 +325,7 @@ class _LoginPageState extends State<LoginPage> {
                               child: ElevatedButton(
                                 onPressed: authController.isLoading.value
                                     ? null
-                                    : () => _handleLogin(context),
+                                    : () => _handleLogin(),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.transparent,
                                   shadowColor: Colors.transparent,
