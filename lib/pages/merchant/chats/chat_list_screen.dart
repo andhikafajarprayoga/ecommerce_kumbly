@@ -57,24 +57,23 @@ class _ChatListScreenState extends State<ChatListScreen> {
             // Hitung unread messages
             final unreadCount = messages
                 .where((msg) =>
-                        msg['room_id'] == room['id'] &&
-                        !msg['is_read'] &&
-                        msg['sender_id'] == room['buyer_id'] // Pesan dari buyer
-                    )
+                    msg['room_id'] == room['id'] &&
+                    !msg['is_read'] &&
+                    msg['sender_id'] == room['buyer_id'])
                 .length;
 
-            print(
-                'Debug: Room ${room['id']} unread count: $unreadCount'); // Debug
-
             room['unread_count'] = unreadCount;
-            final sortedMessages = messages
+
+            // Ambil pesan terakhir dan waktunya
+            final lastMessage = messages
                 .where((msg) => msg['room_id'] == room['id'])
                 .toList()
               ..sort((a, b) => b['created_at'].compareTo(a['created_at']));
 
-            room['last_message'] = sortedMessages.isNotEmpty
-                ? sortedMessages.first['message']
-                : 'Belum ada pesan';
+            if (lastMessage.isNotEmpty) {
+              room['last_message'] = lastMessage.first['message'];
+              room['last_message_time'] = lastMessage.first['created_at'];
+            }
 
             validRooms.add(room);
           } catch (e) {
@@ -89,15 +88,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   Future<void> _markAsRead(String roomId, String buyerId) async {
     try {
-      print(
-          'Debug: Marking messages as read for room: $roomId, buyer: $buyerId');
-
       final result = await supabase
           .from('chat_messages')
           .update({'is_read': true}).match(
               {'room_id': roomId, 'sender_id': buyerId, 'is_read': false});
-
-      print('Debug: Update result: $result');
 
       // Refresh stream untuk memperbarui unread count
       setState(() {
@@ -261,33 +255,28 @@ class _ChatListScreenState extends State<ChatListScreen> {
     final DateTime now = DateTime.now();
     final difference = now.difference(dateTime);
 
-    // Hari ini
+    // Jika lebih dari seminggu yang lalu
+    if (difference.inDays >= 7) {
+      return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}';
+    }
+
+    // Jika hari ini
     if (dateTime.year == now.year &&
         dateTime.month == now.month &&
         dateTime.day == now.day) {
       return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     }
 
-    // Kemarin
-    if (difference.inDays == 1) {
+    // Jika kemarin
+    final yesterday = now.subtract(const Duration(days: 1));
+    if (dateTime.year == yesterday.year &&
+        dateTime.month == yesterday.month &&
+        dateTime.day == yesterday.day) {
       return 'Kemarin';
     }
 
-    // Minggu ini
-    if (difference.inDays < 7) {
-      final List<String> days = [
-        'Sen',
-        'Sel',
-        'Rab',
-        'Kam',
-        'Jum',
-        'Sab',
-        'Min'
-      ];
-      return days[dateTime.weekday - 1];
-    }
-
-    // Format tanggal
-    return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}';
+    // Jika dalam minggu ini (kurang dari 7 hari)
+    final List<String> days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+    return days[dateTime.weekday % 7];
   }
 }

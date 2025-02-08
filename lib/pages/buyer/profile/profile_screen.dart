@@ -347,32 +347,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           .stream(primaryKey: ['id']).eq(
                               'buyer_id', supabase.auth.currentUser!.id),
                       builder: (context, ordersSnapshot) {
-                        print(
-                            'Orders snapshot: ${ordersSnapshot.data?.length}');
-                        print('Orders error: ${ordersSnapshot.error}');
-
                         return StreamBuilder(
                           stream: supabase
                               .from('hotel_bookings')
                               .stream(primaryKey: ['id']).eq(
                                   'user_id', supabase.auth.currentUser!.id),
                           builder: (context, hotelsSnapshot) {
-                            print(
-                                'Hotels snapshot: ${hotelsSnapshot.data?.length}');
-                            print('Hotels error: ${hotelsSnapshot.error}');
-
                             int totalOrders = 0;
 
                             if (ordersSnapshot.hasData &&
                                 ordersSnapshot.data != null) {
-                              totalOrders += ordersSnapshot.data!.length;
-                            }
-                            if (hotelsSnapshot.hasData &&
-                                hotelsSnapshot.data != null) {
-                              totalOrders += hotelsSnapshot.data!.length;
+                              final activeOrders =
+                                  ordersSnapshot.data!.where((order) {
+                                final status =
+                                    order['status'].toString().toLowerCase();
+                                return status != 'completed' &&
+                                    status != 'cancelled' &&
+                                    status != 'delivered';
+                              });
+                              totalOrders += activeOrders.length;
                             }
 
-                            print('Total orders: $totalOrders');
+                            if (hotelsSnapshot.hasData &&
+                                hotelsSnapshot.data != null) {
+                              final activeBookings =
+                                  hotelsSnapshot.data!.where((booking) {
+                                final status =
+                                    booking['status'].toString().toLowerCase();
+                                return status != 'completed' &&
+                                    status != 'cancelled';
+                              });
+                              totalOrders += activeBookings.length;
+                            }
 
                             return totalOrders > 0
                                 ? Container(
