@@ -72,15 +72,23 @@ class AccountDeletionController extends GetxController {
 
   Future<void> processRequest(String id, String status, String? notes) async {
     try {
-      await _supabase.from('account_deletion_requests').update({
-        'status': status,
-        'processed_at': DateTime.now().toIso8601String(),
-        'processed_by': _supabase.auth.currentUser!.id,
-        'admin_notes': notes,
-      }).eq('id', id);
+      print('Processing request: ID=$id, status=$status'); // Debug log
 
-      await fetchDeletionRequests();
-      Get.back(); // Close dialog if any
+      final response = await _supabase
+          .from('account_deletion_requests')
+          .update({
+            'status': status,
+            'processed_at': DateTime.now().toIso8601String(),
+            'processed_by': _supabase.auth.currentUser!.id,
+            'admin_notes': notes,
+          })
+          .eq('id', id)
+          .select(); // Tambahkan .select() untuk melihat response
+
+      print('Update response: $response'); // Debug log
+
+      await fetchDeletionRequests(); // Refresh data
+      Get.back();
       Get.snackbar(
         'Sukses',
         'Status permintaan berhasil diperbarui',
@@ -88,9 +96,10 @@ class AccountDeletionController extends GetxController {
         colorText: Colors.white,
       );
     } catch (e) {
+      print('Error updating status: $e'); // Debug log
       Get.snackbar(
         'Error',
-        'Gagal memperbarui status',
+        'Gagal memperbarui status: ${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
