@@ -31,11 +31,12 @@ class ActiveDelivery {
 
   factory ActiveDelivery.fromJson(Map<String, dynamic> json) {
     final merchant = json['merchant'] as Map<String, dynamic>?;
+    final buyer = json['buyer'] as Map<String, dynamic>?;
 
     return ActiveDelivery(
       id: json['id'],
       buyerId: json['buyer_id'],
-      buyerName: json['buyer']?['full_name'],
+      buyerName: buyer?['full_name'],
       merchantId: json['merchant_id'] ?? '',
       merchantName: merchant?['store_name'],
       status: json['status'],

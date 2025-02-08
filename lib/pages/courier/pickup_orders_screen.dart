@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../controllers/active_delivery_controller.dart';
 import 'package:intl/intl.dart';
 import '../../models/active_delivery.dart';
+import 'dart:convert';
 
 class PickupOrdersScreen extends StatelessWidget {
   final controller = Get.put(ActiveDeliveryController());
@@ -33,6 +34,30 @@ class PickupOrdersScreen extends StatelessWidget {
           itemCount: processingOrders.length,
           itemBuilder: (context, index) {
             final order = processingOrders[index];
+
+            // Parse alamat merchant dari JSON string
+            Map<String, dynamic>? merchantAddressJson;
+            try {
+              if (order.merchantAddress != null) {
+                merchantAddressJson = jsonDecode(order.merchantAddress!);
+              }
+            } catch (e) {
+              print('Error parsing merchant address: $e');
+            }
+
+            // Format alamat merchant
+            String formattedMerchantAddress = '';
+            if (merchantAddressJson != null) {
+              formattedMerchantAddress = [
+                merchantAddressJson['street'],
+                merchantAddressJson['village'],
+                merchantAddressJson['district'],
+                merchantAddressJson['city'],
+                merchantAddressJson['province'],
+                merchantAddressJson['postal_code'],
+              ].where((e) => e != null).join(', ');
+            }
+
             return Card(
               margin: const EdgeInsets.only(bottom: 16),
               child: ListTile(
@@ -45,7 +70,7 @@ class PickupOrdersScreen extends StatelessWidget {
                   children: [
                     Text('Penjual: ${order.merchantName ?? "Tidak tersedia"}'),
                     Text(
-                        'Alamat Penjual: ${order.merchantAddress ?? "Tidak tersedia"}'),
+                        'Alamat Penjual: ${formattedMerchantAddress.isNotEmpty ? formattedMerchantAddress : "Tidak tersedia"}'),
                     Text('Telepon: ${order.merchantPhone ?? "Tidak tersedia"}'),
                     Text(
                         'Total: ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(order.totalAmount)}'),

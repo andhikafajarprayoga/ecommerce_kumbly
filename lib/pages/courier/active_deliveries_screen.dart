@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../controllers/active_delivery_controller.dart';
 import 'package:intl/intl.dart';
 import '../../models/active_delivery.dart';
+import 'dart:convert';
 
 class ActiveDeliveriesScreen extends StatelessWidget {
   final controller = Get.put(ActiveDeliveryController());
@@ -62,6 +63,30 @@ class ActiveDeliveriesScreen extends StatelessWidget {
       itemCount: deliveries.length,
       itemBuilder: (context, index) {
         final delivery = deliveries[index];
+
+        // Parse alamat merchant dari JSON string
+        Map<String, dynamic>? merchantAddressJson;
+        try {
+          if (delivery.merchantAddress != null) {
+            merchantAddressJson = jsonDecode(delivery.merchantAddress!);
+          }
+        } catch (e) {
+          print('Error parsing merchant address: $e');
+        }
+
+        // Format alamat merchant
+        String formattedMerchantAddress = '';
+        if (merchantAddressJson != null) {
+          formattedMerchantAddress = [
+            merchantAddressJson['street'],
+            merchantAddressJson['village'],
+            merchantAddressJson['district'],
+            merchantAddressJson['city'],
+            merchantAddressJson['province'],
+            merchantAddressJson['postal_code'],
+          ].where((e) => e != null).join(', ');
+        }
+
         return Card(
           margin: const EdgeInsets.only(bottom: 16),
           child: ListTile(
@@ -74,7 +99,11 @@ class ActiveDeliveriesScreen extends StatelessWidget {
               children: [
                 Text('Pembeli: ${delivery.buyerName ?? "Tidak tersedia"}'),
                 Text('Penjual: ${delivery.merchantName ?? "Tidak tersedia"}'),
-                Text('Alamat: ${delivery.shippingAddress}'),
+                Text(
+                    'Alamat Penjual: ${formattedMerchantAddress.isNotEmpty ? formattedMerchantAddress : "Tidak tersedia"}'),
+                Text(
+                    'Telepon Penjual: ${delivery.merchantPhone ?? "Tidak tersedia"}'),
+                Text('Alamat Pengiriman: ${delivery.shippingAddress}'),
                 Text(
                     'Total: ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(delivery.totalAmount)}'),
                 Text('Status: ${delivery.status}'),

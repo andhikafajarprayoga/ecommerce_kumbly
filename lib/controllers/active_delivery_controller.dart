@@ -6,6 +6,14 @@ import 'package:flutter/material.dart';
 class ActiveDeliveryController extends GetxController {
   final _supabase = Supabase.instance.client;
   final RxList<ActiveDelivery> activeDeliveries = <ActiveDelivery>[].obs;
+  final RxList<ActiveDelivery> pendingDeliveries = <ActiveDelivery>[].obs;
+  final RxList<ActiveDelivery> processingDeliveries = <ActiveDelivery>[].obs;
+  final RxList<ActiveDelivery> shippingDeliveries = <ActiveDelivery>[].obs;
+  final RxList<ActiveDelivery> deliveredDeliveries = <ActiveDelivery>[].obs;
+  final RxList<ActiveDelivery> completedDeliveries = <ActiveDelivery>[].obs;
+  final RxList<ActiveDelivery> cancelledDeliveries = <ActiveDelivery>[].obs;
+  final RxList<ActiveDelivery> pendingCancellationDeliveries =
+      <ActiveDelivery>[].obs;
   final RxBool isLoading = false.obs;
 
   @override
@@ -15,55 +23,61 @@ class ActiveDeliveryController extends GetxController {
   }
 
   Future<void> fetchActiveDeliveries() async {
-    isLoading.value = true;
     try {
-      // Ambil semua orders dengan berbagai status
-      final response =
-          await _supabase.from('orders').select().inFilter('status', [
-        'pending',
-        'pending_cancellation',
-        'processing',
-        'shipping',
-        'delivered',
-        'cancelled',
-        'completed'
-      ]).order('created_at', ascending: false);
+      isLoading.value = true;
 
-      print('Orders Response: $response');
+      // Ambil data orders dengan join ke users untuk data pembeli
+      final response = await _supabase.from('orders').select('''
+            *,
+            buyer:users!buyer_id (
+              full_name,
+              phone
+            )
+          ''').order('created_at', ascending: false);
 
-      // Ambil data users (buyer dan merchant)
-      final userIds = [
-        ...response.map((r) => r['buyer_id'].toString()),
-        ...response.map((r) => r['merchant_id'].toString()),
-      ].toSet().toList();
+      // Ambil data merchants untuk setiap order
+      final List<ActiveDelivery> deliveries = [];
+      for (var order in response) {
+        // Ambil data merchant untuk setiap order
+        final merchantResponse = await _supabase
+            .from('merchants')
+            .select('*')
+            .eq('id', order['merchant_id'])
+            .single();
 
-      final usersResponse = await _supabase
-          .from('users')
-          .select('id, full_name')
-          .inFilter('id', userIds);
+        deliveries.add(ActiveDelivery(
+          id: order['id'],
+          status: order['status'],
+          totalAmount: (order['total_amount'] as num).toDouble(),
+          shippingCost: (order['shipping_cost'] as num).toDouble(),
+          shippingAddress: order['shipping_address'],
+          buyerId: order['buyer_id'],
+          buyerName: order['buyer']['full_name'],
+          merchantId: order['merchant_id'],
+          createdAt: DateTime.parse(order['created_at']),
+          merchantName: merchantResponse['store_name'],
+          merchantAddress: merchantResponse['store_address'],
+          merchantPhone: merchantResponse['store_phone'],
+        ));
+      }
 
-      print('Users Response: $usersResponse');
-
-      // Buat map untuk lookup user data
-      final userMap = {
-        for (var user in usersResponse) user['id'].toString(): user['full_name']
-      };
-
-      // Gabungkan data
-      final enrichedResponse = response.map((order) {
-        return {
-          ...order,
-          'buyer': {'full_name': userMap[order['buyer_id'].toString()]},
-          'merchant': {'full_name': userMap[order['merchant_id'].toString()]},
-        };
-      }).toList();
-
-      activeDeliveries.value = enrichedResponse
-          .map<ActiveDelivery>((json) => ActiveDelivery.fromJson(json))
-          .toList();
+      // Update RxLists berdasarkan status
+      pendingDeliveries.value =
+          deliveries.where((d) => d.status == 'pending').toList();
+      processingDeliveries.value =
+          deliveries.where((d) => d.status == 'processing').toList();
+      shippingDeliveries.value =
+          deliveries.where((d) => d.status == 'shipping').toList();
+      deliveredDeliveries.value =
+          deliveries.where((d) => d.status == 'delivered').toList();
+      completedDeliveries.value =
+          deliveries.where((d) => d.status == 'completed').toList();
+      cancelledDeliveries.value =
+          deliveries.where((d) => d.status == 'cancelled').toList();
+      pendingCancellationDeliveries.value =
+          deliveries.where((d) => d.status == 'pending_cancellation').toList();
     } catch (e) {
       print('Error fetching deliveries: $e');
-      Get.snackbar('Error', 'Gagal memuat data pengiriman');
     } finally {
       isLoading.value = false;
     }
@@ -83,26 +97,6 @@ class ActiveDeliveryController extends GetxController {
       Get.snackbar('Error', 'Gagal memperbarui status');
     }
   }
-
-  // Helper methods untuk memfilter deliveries berdasarkan status
-  List<ActiveDelivery> getDeliveriesByStatus(String status) {
-    return activeDeliveries.where((d) => d.status == status).toList();
-  }
-
-  List<ActiveDelivery> get pendingDeliveries =>
-      getDeliveriesByStatus('pending');
-  List<ActiveDelivery> get processingDeliveries =>
-      getDeliveriesByStatus('processing');
-  List<ActiveDelivery> get shippingDeliveries =>
-      getDeliveriesByStatus('shipping');
-  List<ActiveDelivery> get deliveredDeliveries =>
-      getDeliveriesByStatus('delivered');
-  List<ActiveDelivery> get completedDeliveries =>
-      getDeliveriesByStatus('completed');
-  List<ActiveDelivery> get cancelledDeliveries =>
-      getDeliveriesByStatus('cancelled');
-  List<ActiveDelivery> get pendingCancellationDeliveries =>
-      getDeliveriesByStatus('pending_cancellation');
 
   Future<void> assignCourier(String orderId) async {
     try {
