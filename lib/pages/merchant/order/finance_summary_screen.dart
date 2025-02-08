@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import '../../../theme/app_theme.dart';
 
 class FinanceSummaryScreen extends StatefulWidget {
@@ -23,13 +24,41 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
   final selectedBankAccount = Rxn<Map<String, dynamic>>();
   final withdrawalAmount = TextEditingController();
   final bankAccounts = <Map<String, dynamic>>[].obs;
+  final merchantSaldo = 0.0.obs;
+  final withdrawalConfig = Rxn<Map<String, dynamic>>();
+  final withdrawalHistory = <Map<String, dynamic>>[].obs;
 
   @override
   void initState() {
     super.initState();
-    _fetchFinanceSummary();
-    _fetchHotelFinanceSummary();
-    _fetchBankAccounts();
+    // Inisialisasi locale data untuk Indonesia
+    initializeDateFormatting('id_ID', null).then((_) {
+      _fetchMerchantSaldo();
+      _fetchFinanceSummary();
+      _fetchHotelFinanceSummary();
+      _fetchBankAccounts();
+      _fetchWithdrawalConfig();
+      _fetchWithdrawalHistory();
+    });
+  }
+
+  Future<void> _fetchMerchantSaldo() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final response = await supabase
+          .from('saldo')
+          .select('saldo')
+          .eq('merchant_id', userId)
+          .single();
+
+      if (response != null) {
+        merchantSaldo.value = (response['saldo'] ?? 0.0).toDouble();
+      }
+    } catch (e) {
+      print('Error fetching merchant saldo: $e');
+    }
   }
 
   Future<void> _fetchFinanceSummary() async {
@@ -150,8 +179,80 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
     }
   }
 
-  double get totalAvailableBalance =>
-      completedAmount.value + hotelCompletedAmount.value;
+  Future<void> _fetchWithdrawalConfig() async {
+    try {
+      final response = await supabase
+          .from('withdrawal_configs')
+          .select()
+          .eq('is_active', true)
+          .single();
+
+      if (response != null) {
+        withdrawalConfig.value = response;
+      }
+    } catch (e) {
+      print('Error fetching withdrawal config: $e');
+    }
+  }
+
+  Future<void> _fetchWithdrawalHistory() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      print('DEBUG - Fetching withdrawal history for user: $userId');
+
+      final response = await supabase.from('withdrawal_requests').select('''
+            id,
+            amount,
+            status,
+            created_at,
+            fee_amount,
+            bank_account_id
+          ''').eq('merchant_id', userId).order('created_at', ascending: false);
+
+      print('DEBUG - Raw Response:');
+      print(response);
+
+      if (response != null) {
+        withdrawalHistory.value = List<Map<String, dynamic>>.from(response);
+        print('DEBUG - Withdrawal History Length: ${withdrawalHistory.length}');
+
+        // Print detail setiap item
+        withdrawalHistory.forEach((item) {
+          print('\nDEBUG - Withdrawal Item:');
+          print('ID: ${item['id']}');
+          print('Amount: ${item['amount']}');
+          print('Status: ${item['status']}');
+          print('Created At: ${item['created_at']}');
+          print('Fee Amount: ${item['fee_amount']}');
+          print('Bank Account ID: ${item['bank_account_id']}');
+        });
+      } else {
+        print('DEBUG - Response is null');
+      }
+    } catch (e) {
+      print('Error fetching withdrawal history: $e');
+      print('Error stack trace: ${StackTrace.current}');
+    }
+  }
+
+  double calculateFee() {
+    if (withdrawalConfig.value == null) return 0;
+    return (withdrawalConfig.value!['fee_fixed'] as num).toDouble();
+  }
+
+  double get totalAvailableBalance => merchantSaldo.value;
+
+  double calculateMaxWithdrawalAmount() {
+    if (withdrawalConfig.value == null || merchantSaldo.value <= 0) return 0;
+
+    final feeFixed = (withdrawalConfig.value!['fee_fixed'] as num).toDouble();
+
+    // Maksimal penarikan adalah saldo dikurangi biaya tetap
+    final maxAmount = merchantSaldo.value - feeFixed;
+    return maxAmount > 0 ? maxAmount : 0;
+  }
 
   Future<void> _submitWithdrawal() async {
     if (selectedBankAccount.value == null) {
@@ -165,29 +266,89 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
       return;
     }
 
-    if (amount > totalAvailableBalance) {
+    final fee = calculateFee();
+    final totalDeduction = amount + fee;
+
+    if (totalDeduction > merchantSaldo.value) {
       Get.snackbar('Error',
-          'Jumlah melebihi saldo yang tersedia (Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(totalAvailableBalance)})');
+          'Total pencairan termasuk biaya melebihi saldo yang tersedia');
       return;
     }
 
+    // Tampilkan konfirmasi dengan rincian biaya
+    final confirmed = await Get.dialog<bool>(
+      AlertDialog(
+        title: Text('Konfirmasi Pencairan'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Rincian Pencairan:'),
+            SizedBox(height: 8),
+            Text(
+                'Jumlah Pencairan: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(amount)}'),
+            Text(
+                'Biaya Admin: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(fee)}'),
+            Divider(),
+            Text(
+                'Total Pengurangan: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(totalDeduction)}',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Get.back(result: true),
+            child: Text('Lanjutkan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
     try {
+      // 1. Kurangi saldo merchant dengan total (amount + fee)
+      await supabase
+          .from('saldo')
+          .update({'saldo': merchantSaldo.value - totalDeduction}).eq(
+              'merchant_id', supabase.auth.currentUser!.id);
+
+      // 2. Buat permintaan penarikan dengan amount asli dan fee terpisah
       await supabase.from('withdrawal_requests').insert({
         'merchant_id': supabase.auth.currentUser!.id,
         'bank_account_id': selectedBankAccount.value!['id'],
-        'amount': amount,
+        'amount': amount, // Jumlah asli tanpa fee
+        'fee_amount': fee, // Fee admin terpisah
+        'status': 'pending'
       });
 
+      merchantSaldo.value -= totalDeduction;
+
       Get.back();
-      Get.snackbar('Sukses', 'Permintaan pencairan berhasil diajukan');
+      Get.snackbar(
+        'Sukses',
+        'Permintaan pencairan berhasil diajukan',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
       withdrawalAmount.clear();
       selectedBankAccount.value = null;
     } catch (e) {
       Get.snackbar('Error', 'Gagal mengajukan pencairan');
+      print('Error submitting withdrawal: $e');
+
+      // Refresh saldo untuk memastikan data tetap akurat
+      await _fetchMerchantSaldo();
     }
   }
 
   void _showWithdrawalBottomSheet() {
+    final maxWithdrawal = calculateMaxWithdrawalAmount();
+
     Get.bottomSheet(
       Container(
         padding: EdgeInsets.all(20),
@@ -207,14 +368,35 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
               ),
             ),
             SizedBox(height: 16),
-            Text(
-              'Saldo tersedia: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(totalAvailableBalance)}',
-              style: TextStyle(
-                fontSize: 16,
-                color: AppTheme.primary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Obx(() => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Saldo tersedia: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(merchantSaldo.value)}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppTheme.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Maksimal pencairan: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(maxWithdrawal)}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    if (withdrawalConfig.value != null)
+                      Text(
+                        'Biaya Admin: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(withdrawalConfig.value!['fee_fixed'])}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                  ],
+                )),
             SizedBox(height: 20),
             Obx(() => DropdownButtonFormField<Map<String, dynamic>>(
                   decoration: InputDecoration(
@@ -253,12 +435,11 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
                     keyboardType: TextInputType.number,
                     onChanged: (value) {
                       final amount = double.tryParse(value) ?? 0;
-                      if (amount > totalAvailableBalance) {
-                        withdrawalAmount.text =
-                            totalAvailableBalance.toString();
+                      if (amount > maxWithdrawal) {
+                        withdrawalAmount.text = maxWithdrawal.toString();
                         Get.snackbar(
                           'Peringatan',
-                          'Jumlah melebihi saldo yang tersedia',
+                          'Jumlah melebihi maksimal pencairan yang tersedia',
                           backgroundColor: Colors.orange,
                           colorText: Colors.white,
                           snackPosition: SnackPosition.TOP,
@@ -271,14 +452,14 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
                 SizedBox(width: 8),
                 TextButton(
                   onPressed: () {
-                    withdrawalAmount.text = totalAvailableBalance.toString();
+                    withdrawalAmount.text = maxWithdrawal.toString();
                   },
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 15),
                     backgroundColor: AppTheme.primary.withOpacity(0.1),
                   ),
                   child: Text(
-                    'Semua',
+                    'Maksimal',
                     style: TextStyle(
                       color: AppTheme.primary,
                       fontWeight: FontWeight.bold,
@@ -321,6 +502,32 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
       ),
       isScrollControlled: true,
     );
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'pending':
+        return 'Menunggu';
+      case 'completed':
+        return 'Selesai';
+      case 'rejected':
+        return 'Ditolak';
+      default:
+        return status;
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return Colors.orange;
+      case 'completed':
+        return Colors.green;
+      case 'rejected':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 
   @override
@@ -407,6 +614,103 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
                   _buildSummaryRow('Booking Dibatalkan',
                       hotelCancelledAmount.value, Colors.red),
                 ]),
+                SizedBox(height: 24),
+                Text(
+                  'Riwayat Pencairan',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 12),
+                if (withdrawalHistory.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Belum ada riwayat pencairan',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    itemCount: withdrawalHistory.length,
+                    itemBuilder: (context, index) {
+                      final item = withdrawalHistory[index];
+                      final createdAt = DateTime.parse(item['created_at']);
+
+                      return Card(
+                        margin: EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    DateFormat('dd MMM yyyy, HH:mm', 'id_ID')
+                                        .format(createdAt),
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _getStatusColor(item['status'])
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _getStatusText(item['status']),
+                                      style: TextStyle(
+                                        color: _getStatusColor(item['status']),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                'Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(item['amount'])}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (item['fee_amount'] != null &&
+                                  item['fee_amount'] > 0) ...[
+                                SizedBox(height: 4),
+                                Text(
+                                  'Biaya Admin: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(item['fee_amount'])}',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
               ],
             ),
           )),
