@@ -121,4 +121,51 @@ class ActiveDeliveryController extends GetxController {
       );
     }
   }
+
+  Future<void> fetchProcessingDeliveries() async {
+    try {
+      isLoading(true);
+
+      final currentUserId = _supabase.auth.currentUser!.id;
+      print('Current User ID: $currentUserId'); // Debug user ID
+
+      final response = await _supabase
+          .from('orders')
+          .select('''
+            id,
+            courier_id,
+            status,
+            merchant:users!merchant_id (
+              store_name,
+              store_address,
+              store_phone
+            )
+          ''')
+          .eq('status', 'processing')
+          .or('courier_id.is.null,courier_id.neq.$currentUserId') // Gunakan OR dengan PostgreSQL syntax
+          .order('created_at', ascending: false);
+
+      print('\n=== QUERY PARAMS ===');
+      print('Status: processing');
+      print(
+          'Courier condition: courier_id IS NULL OR courier_id != $currentUserId');
+
+      print('\n=== RAW RESPONSE ===');
+      response.forEach((order) {
+        print('''
+ID: ${order['id']}
+Courier ID: ${order['courier_id']}
+Status: ${order['status']}
+---------------------''');
+      });
+
+      processingDeliveries.value = response
+          .map<ActiveDelivery>((json) => ActiveDelivery.fromJson(json))
+          .toList();
+    } catch (e) {
+      print('Error: $e');
+    } finally {
+      isLoading(false);
+    }
+  }
 }

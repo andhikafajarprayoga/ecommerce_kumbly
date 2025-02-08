@@ -1,5 +1,6 @@
 class ActiveDelivery {
   final String id;
+  final String? courierId;
   final String buyerId;
   final String? buyerName;
   final String merchantId;
@@ -15,6 +16,7 @@ class ActiveDelivery {
 
   ActiveDelivery({
     required this.id,
+    this.courierId,
     required this.buyerId,
     this.buyerName,
     required this.merchantId,
@@ -30,23 +32,29 @@ class ActiveDelivery {
   });
 
   factory ActiveDelivery.fromJson(Map<String, dynamic> json) {
-    final merchant = json['merchant'] as Map<String, dynamic>?;
+    print('=== PARSING JSON ===');
+    print('ID: ${json['id']}');
+    print('Courier ID Raw: ${json['courier_id']}');
+    print('Courier ID Type: ${json['courier_id']?.runtimeType}');
+
+    final merchant = json['merchant'] ?? {};
     final buyer = json['buyer'] as Map<String, dynamic>?;
 
     return ActiveDelivery(
       id: json['id'],
+      courierId: json['courier_id']?.toString(),
       buyerId: json['buyer_id'],
       buyerName: buyer?['full_name'],
       merchantId: json['merchant_id'] ?? '',
-      merchantName: merchant?['store_name'],
+      merchantName: merchant['store_name'],
       status: json['status'],
       totalAmount: (json['total_amount'] as num).toDouble(),
       shippingAddress: json['shipping_address'],
       shippingCost: (json['shipping_cost'] as num).toDouble(),
       courierHandoverPhoto: json['courier_handover_photo'],
       createdAt: DateTime.parse(json['created_at']),
-      merchantAddress: merchant?['store_address'],
-      merchantPhone: merchant?['store_phone'],
+      merchantAddress: merchant['store_address'],
+      merchantPhone: merchant['store_phone'],
     );
   }
 }

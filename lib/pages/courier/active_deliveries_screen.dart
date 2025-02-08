@@ -54,7 +54,13 @@ class ActiveDeliveriesScreen extends StatelessWidget {
   Widget _buildDeliveryList(List<ActiveDelivery> deliveries) {
     if (deliveries.isEmpty) {
       return const Center(
-        child: Text('Tidak ada pengiriman'),
+        child: Text(
+          'Tidak ada pengiriman',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey,
+          ),
+        ),
       );
     }
 
@@ -88,38 +94,120 @@ class ActiveDeliveriesScreen extends StatelessWidget {
         }
 
         return Card(
+          elevation: 3,
           margin: const EdgeInsets.only(bottom: 16),
-          child: ListTile(
-            title: Text(
-              'Order #${delivery.id.substring(0, 8)}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Pembeli: ${delivery.buyerName ?? "Tidak tersedia"}'),
-                Text('Penjual: ${delivery.merchantName ?? "Tidak tersedia"}'),
-                Text(
-                    'Alamat Penjual: ${formattedMerchantAddress.isNotEmpty ? formattedMerchantAddress : "Tidak tersedia"}'),
-                Text(
-                    'Telepon Penjual: ${delivery.merchantPhone ?? "Tidak tersedia"}'),
-                Text('Alamat Pengiriman: ${delivery.shippingAddress}'),
-                Text(
-                    'Total: ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ').format(delivery.totalAmount)}'),
-                Text('Status: ${delivery.status}'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Order #${delivery.id.substring(0, 8)}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        delivery.status,
+                        style: TextStyle(
+                          color: Colors.blue.shade900,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildInfoRow(
+                    'Pembeli', delivery.buyerName ?? "Tidak tersedia"),
+                const SizedBox(height: 8),
+                _buildInfoRow(
+                    'Penjual', delivery.merchantName ?? "Tidak tersedia"),
+                const SizedBox(height: 8),
+                _buildInfoRow(
+                    'Alamat Penjual',
+                    formattedMerchantAddress.isNotEmpty
+                        ? formattedMerchantAddress
+                        : "Tidak tersedia"),
+                const SizedBox(height: 8),
+                _buildInfoRow('Telepon Penjual',
+                    delivery.merchantPhone ?? "Tidak tersedia"),
+                const SizedBox(height: 8),
+                _buildInfoRow('Alamat Pengiriman', delivery.shippingAddress),
+                const SizedBox(height: 8),
+                _buildInfoRow(
+                    'Total',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                    ).format(delivery.totalAmount)),
+                if (delivery.status == 'shipping') ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text('Upload Bukti Pengiriman'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: () {
+                        // Implementasi upload foto bukti pengiriman
+                      },
+                    ),
+                  ),
+                ],
               ],
             ),
-            trailing: delivery.status == 'shipping'
-                ? IconButton(
-                    icon: const Icon(Icons.camera_alt),
-                    onPressed: () {
-                      // Implementasi upload foto bukti pengiriman
-                    },
-                  )
-                : null,
           ),
         );
       },
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 120,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
