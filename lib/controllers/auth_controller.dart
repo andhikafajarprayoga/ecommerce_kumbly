@@ -3,27 +3,41 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 
 class AuthController extends GetxController {
-  final SupabaseClient _supabase = Supabase.instance.client;
-  final RxBool isLoading = false.obs;
-  final Rxn<User> currentUser = Rxn<User>();
+  final supabase = Supabase.instance.client;
+  final currentUser = Rxn<User>();
+  final isLoading = false.obs;
   final RxString userRole = ''.obs;
   var isMerchant = false.obs;
 
   @override
   void onInit() {
     super.onInit();
-    currentUser.value = _supabase.auth.currentUser;
-    _supabase.auth.onAuthStateChange.listen((event) {
-      currentUser.value = event.session?.user;
-      if (currentUser.value != null) {
-        _getUserRole();
+    // Listen untuk perubahan auth state
+    supabase.auth.onAuthStateChange.listen((data) {
+      final AuthChangeEvent event = data.event;
+      final Session? session = data.session;
+
+      switch (event) {
+        case AuthChangeEvent.signedIn:
+          currentUser.value = session?.user;
+          _getUserRole();
+          break;
+        case AuthChangeEvent.signedOut:
+          currentUser.value = null;
+          userRole.value = '';
+          break;
+        default:
+          break;
       }
     });
+
+    // Set initial user jika ada sesi aktif
+    currentUser.value = supabase.auth.currentUser;
   }
 
   Future<void> _getUserRole() async {
     try {
-      final userData = await _supabase
+      final userData = await supabase
           .from('users')
           .select('role')
           .eq('id', currentUser.value!.id)
@@ -50,13 +64,13 @@ class AuthController extends GetxController {
     try {
       isLoading.value = true;
 
-      final AuthResponse res = await _supabase.auth.signUp(
+      final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
       );
 
       if (res.user != null) {
-        await _supabase.from('users').insert({
+        await supabase.from('users').insert({
           'id': res.user!.id,
           'email': email,
           'role': role,
@@ -93,7 +107,7 @@ class AuthController extends GetxController {
   Future<bool> signIn({required String email, required String password}) async {
     try {
       isLoading.value = true;
-      final response = await _supabase.auth.signInWithPassword(
+      final response = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
@@ -113,7 +127,7 @@ class AuthController extends GetxController {
 
   Future<void> signOut() async {
     try {
-      await _supabase.auth.signOut();
+      await supabase.auth.signOut();
       userRole.value = '';
     } catch (e) {
       Get.snackbar('Error', e.toString());
@@ -128,13 +142,13 @@ class AuthController extends GetxController {
         barrierDismissible: false,
       );
 
-      final AuthResponse res = await _supabase.auth.signUp(
+      final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
       );
 
       if (res.user != null) {
-        await _supabase.from('users').insert({
+        await supabase.from('users').insert({
           'id': res.user!.id,
           'email': email,
           'role': 'buyer',
@@ -165,13 +179,13 @@ class AuthController extends GetxController {
         barrierDismissible: false,
       );
 
-      final AuthResponse res = await _supabase.auth.signInWithPassword(
+      final AuthResponse res = await supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
       if (res.user != null && res.user!.confirmedAt != null) {
-        final userData = await _supabase
+        final userData = await supabase
             .from('users')
             .select('role')
             .eq('id', res.user!.id)
@@ -226,13 +240,13 @@ class AuthController extends GetxController {
   }
 
   Future<void> refreshUser() async {
-    final userData = await _supabase
+    final userData = await supabase
         .from('users')
         .select('*')
-        .eq('id', _supabase.auth.currentUser!.id)
+        .eq('id', supabase.auth.currentUser!.id)
         .single();
 
-    currentUser.value = _supabase.auth.currentUser;
+    currentUser.value = supabase.auth.currentUser;
     userRole.value = userData['role'] ?? '';
     isMerchant.value = userData['role'] == 'seller';
   }

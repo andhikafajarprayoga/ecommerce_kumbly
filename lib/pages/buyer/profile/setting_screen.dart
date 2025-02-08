@@ -133,14 +133,6 @@ class SettingScreen extends StatelessWidget {
                     onTap: () => Get.to(() => ChangePasswordScreen()),
                   ),
                   _buildSettingItem(
-                    icon: Icons.notifications_outlined,
-                    title: 'Notifikasi',
-                    subtitle: 'Atur preferensi notifikasi',
-                    onTap: () {
-                      Get.to(() => NotificationScreen());
-                    },
-                  ),
-                  _buildSettingItem(
                     icon: Icons.privacy_tip_outlined,
                     title: 'Privasi',
                     subtitle: 'Kelola pengaturan privasi akun',

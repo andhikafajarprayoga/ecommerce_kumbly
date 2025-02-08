@@ -13,11 +13,57 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final supabase = Supabase.instance.client;
   final AuthController authController = Get.find<AuthController>();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isPasswordVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkCurrentSession();
+  }
+
+  Future<void> _checkCurrentSession() async {
+    try {
+      // Cek apakah ada sesi yang aktif
+      final currentSession = supabase.auth.currentSession;
+
+      if (currentSession != null) {
+        // Dapatkan data user
+        final userData = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', currentSession.user.id)
+            .single();
+
+        // Arahkan ke halaman sesuai role
+        switch (userData['role']) {
+          case 'admin':
+            Get.offAllNamed('/admin/home_screen');
+            break;
+          case 'courier':
+            Get.offAllNamed('/courier/home_screen');
+            break;
+          case 'branch':
+            Get.offAllNamed('/branch/home_screen');
+            break;
+          case 'buyer_seller':
+            Get.offAllNamed('/merchant/home_screen');
+            break;
+          case 'buyer':
+          default:
+            Get.offAllNamed('/buyer/home_screen');
+            break;
+        }
+      }
+    } catch (e) {
+      print('Error checking session: $e');
+      // Jika terjadi error, biarkan user di halaman login
+    }
+  }
 
   Future<void> _handleLogin(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
