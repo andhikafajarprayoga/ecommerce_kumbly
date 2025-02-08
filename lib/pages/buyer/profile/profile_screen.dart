@@ -11,6 +11,7 @@ import 'package:kumbly_ecommerce/pages/merchant/merchant_agreement_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/home_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:kumbly_ecommerce/pages/buyer/profile/delete_account_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -311,7 +312,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // Menu Items
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(15),
               child: Column(
                 children: [
                   _buildMenuCard(
@@ -334,7 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       }
                     },
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _buildMenuCard(
                     icon: Icons.shopping_bag_rounded,
                     title: 'Pesanan Saya',
@@ -411,6 +412,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Pengaturan',
                     subtitle: 'Atur preferensi akun',
                     onTap: () => Get.to(() => SettingScreen()),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildMenuCard(
+                    icon: Icons.account_circle_rounded,
+                    title: 'Hapus akun',
+                    subtitle: 'Ajukan penghapusan akun',
+                    onTap: () => Get.to(() => const DeleteAccountScreen()),
                   ),
                   const SizedBox(height: 16),
                   _buildMenuCard(

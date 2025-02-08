@@ -3,10 +3,10 @@ import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/about_app_screen.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/change_password_screen.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/help_screen.dart';
-import 'package:kumbly_ecommerce/pages/buyer/profile/notification_screen.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/privacy_screen.dart';
 import 'package:kumbly_ecommerce/pages/buyer/profile/terms_screen.dart';
 import '../../../theme/app_theme.dart';
+
 
 class SettingScreen extends StatelessWidget {
   const SettingScreen({super.key});
