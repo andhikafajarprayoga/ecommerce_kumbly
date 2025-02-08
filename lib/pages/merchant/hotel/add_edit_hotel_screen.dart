@@ -275,8 +275,10 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.hotel == null ? 'Tambah Hotel' : 'Edit Hotel',
-            style: TextStyle(color: Colors.white)),
+            style:
+                TextStyle(color: Colors.white, fontWeight: FontWeight.normal)),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Form(
         key: _formKey,

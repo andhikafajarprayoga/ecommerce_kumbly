@@ -113,6 +113,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
       appBar: AppBar(
         title: Text('Daftar Booking', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Obx(() {
         if (isLoading.value) {

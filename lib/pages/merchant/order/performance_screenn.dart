@@ -127,6 +127,7 @@ class _PerformanceScreenState extends State<PerformanceScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Performa', style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppTheme.primary,
       ),
       body: Obx(() => SingleChildScrollView(

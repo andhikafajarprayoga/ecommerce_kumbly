@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../../../theme/app_theme.dart';
+import 'withdrawal_detail_screen.dart';
 
 class FinanceSummaryScreen extends StatefulWidget {
   const FinanceSummaryScreen({Key? key}) : super(key: key);
@@ -537,10 +538,11 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
         title: const Text('Ringkasan Keuangan',
             style: TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.normal,
             )),
         backgroundColor: AppTheme.primary,
         elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Obx(() => SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -643,69 +645,79 @@ class _FinanceSummaryScreenState extends State<FinanceSummaryScreen> {
                     itemCount: withdrawalHistory.length,
                     itemBuilder: (context, index) {
                       final item = withdrawalHistory[index];
-                      final createdAt = DateTime.parse(item['created_at']);
+                      // Konversi UTC ke waktu lokal Indonesia
+                      final createdAtUTC = DateTime.parse(item['created_at']);
+                      final createdAt = createdAtUTC
+                          .add(Duration(hours: 7)); // Konversi ke WIB (UTC+7)
 
-                      return Card(
-                        margin: EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
+                      return InkWell(
+                        onTap: () {
+                          Get.to(
+                              () => WithdrawalDetailScreen(withdrawal: item));
+                        },
+                        child: Card(
+                          margin: EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      DateFormat('dd MMM yyyy, HH:mm', 'id_ID')
+                                          .format(createdAt),
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: _getStatusColor(item['status'])
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        _getStatusText(item['status']),
+                                        style: TextStyle(
+                                          color:
+                                              _getStatusColor(item['status']),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 12),
+                                Text(
+                                  'Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(item['amount'])}',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (item['fee_amount'] != null &&
+                                    item['fee_amount'] > 0) ...[
+                                  SizedBox(height: 4),
                                   Text(
-                                    DateFormat('dd MMM yyyy, HH:mm', 'id_ID')
-                                        .format(createdAt),
+                                    'Biaya Admin: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(item['fee_amount'])}',
                                     style: TextStyle(
                                       color: Colors.grey[600],
                                       fontSize: 14,
                                     ),
                                   ),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: _getStatusColor(item['status'])
-                                          .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      _getStatusText(item['status']),
-                                      style: TextStyle(
-                                        color: _getStatusColor(item['status']),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
                                 ],
-                              ),
-                              SizedBox(height: 12),
-                              Text(
-                                'Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(item['amount'])}',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (item['fee_amount'] != null &&
-                                  item['fee_amount'] > 0) ...[
-                                SizedBox(height: 4),
-                                Text(
-                                  'Biaya Admin: Rp ${NumberFormat.currency(locale: 'id_ID', symbol: '', decimalDigits: 0).format(item['fee_amount'])}',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
-                                  ),
-                                ),
                               ],
-                            ],
+                            ),
                           ),
                         ),
                       );

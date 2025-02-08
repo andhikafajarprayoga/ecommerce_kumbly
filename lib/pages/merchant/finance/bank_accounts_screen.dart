@@ -42,8 +42,11 @@ class _BankAccountsScreenState extends State<BankAccountsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Rekening Bank'),
+        title: Text('Rekening Bank',
+            style:
+                TextStyle(color: Colors.white, fontWeight: FontWeight.normal)),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())

@@ -145,6 +145,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       appBar: AppBar(
         title: Text('Edit Toko', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())

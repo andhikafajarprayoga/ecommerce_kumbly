@@ -31,6 +31,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
         elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppTheme.primary,
         title: const Text(
           'Daftar Produk',

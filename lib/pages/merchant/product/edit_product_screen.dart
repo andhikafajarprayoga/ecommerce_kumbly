@@ -104,6 +104,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppTheme.primary,
         title: const Text(
           'Edit Produk',

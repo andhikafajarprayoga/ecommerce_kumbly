@@ -104,6 +104,7 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
         title: Text('Kelola Hotel', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
         elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
