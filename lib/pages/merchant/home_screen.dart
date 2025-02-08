@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'dart:async';
 import 'package:kumbly_ecommerce/pages/merchant/chats/chat_list_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/finance/bank_accounts_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/product/product_list_screen.dart';
@@ -163,9 +164,76 @@ class _HomeMenuState extends State<_HomeMenu> {
   final shipping = '0'.obs;
   final cancelled = '0'.obs;
   final completed = '0'.obs;
+  final RxInt hotelBookingsCount = 0.obs;
+  late StreamSubscription hotelStreamSubscription;
+  late StreamSubscription bookingStreamSubscription;
 
   PageController _pageController = PageController();
   int _currentBannerIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    print('Debug: Starting _setupHotelBookingsStream');
+    _setupMerchantData();
+    _setupOrdersCount();
+    _setupHotelBookingsStream();
+  }
+
+  @override
+  void dispose() {
+    hotelStreamSubscription.cancel();
+    bookingStreamSubscription.cancel();
+    super.dispose();
+  }
+
+  void _setupMerchantData() {
+    _fetchMerchantData();
+  }
+
+  void _setupOrdersCount() {
+    _fetchOrdersCount();
+  }
+
+  void _setupHotelBookingsStream() {
+    final userId = supabase.auth.currentUser?.id;
+    print('Debug: Current userId: $userId');
+
+    if (userId == null) return;
+
+    try {
+      hotelStreamSubscription = supabase
+          .from('hotels')
+          .stream(primaryKey: ['id'])
+          .eq('merchant_id', userId)
+          .execute()
+          .listen((hotels) {
+            print('Debug: Hotels: $hotels');
+            final hotelIds = hotels.map((h) => h['id']).toList();
+            print('Debug: Hotel IDs: $hotelIds');
+
+            bookingStreamSubscription = supabase
+                .from('hotel_bookings')
+                .stream(primaryKey: ['id'])
+                .execute()
+                .listen((bookings) {
+                  final pendingBookings = bookings
+                      .where((booking) =>
+                          hotelIds.contains(booking['hotel_id']) &&
+                          booking['status'] == 'pending')
+                      .toList();
+
+                  print(
+                      'Debug: Pending bookings count: ${pendingBookings.length}');
+                  hotelBookingsCount.value = pendingBookings.length;
+                  print(
+                      'Debug: Badge count updated: ${hotelBookingsCount.value}');
+                });
+          });
+    } catch (e) {
+      print('Debug: Error: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -423,12 +491,14 @@ class _HomeMenuState extends State<_HomeMenu> {
                           label: 'Edit Toko',
                           onTap: () => Get.to(() => EditStoreScreen()),
                         ),
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.hotel,
-                          label: 'Hotel',
-                          onTap: () => Get.to(() => HotelManagementScreen()),
-                        ),
+                        Obx(() => _buildMenuItem(
+                              context: context,
+                              icon: Icons.hotel,
+                              label: 'Hotel',
+                              onTap: () =>
+                                  Get.to(() => HotelManagementScreen()),
+                              badgeCount: hotelBookingsCount.value,
+                            )),
                         _buildMenuItem(
                           context: context,
                           icon: Icons.account_balance,
@@ -474,28 +544,18 @@ class _HomeMenuState extends State<_HomeMenu> {
       }
 
       final currentUserId = currentUser.id;
-      print('====== DEBUG ORDERS DATA ======');
-      print('Current User ID (Merchant ID): $currentUserId');
-      print('User Email: ${currentUser.email}');
-      print('User Phone: ${currentUser.phone}');
 
       // Coba ambil semua orders terlebih dahulu
-      print('\nMengambil semua orders...');
+
       final allOrders = await supabase.from('orders').select('*');
-      print('Total semua orders di database: ${allOrders.length}');
 
       // Kemudian ambil orders untuk merchant specific
-      print('\nMengambil orders untuk merchant specific...');
+
       final response = await supabase
           .from('orders')
           .select('*')
           .eq('merchant_id', currentUserId)
           .order('created_at', ascending: false);
-
-      print('\nQuery Response Details:');
-      print('Response Type: ${response.runtimeType}');
-      print('Response Length: ${response.length}');
-      print('Raw Response: $response');
 
       if (response == null || response.isEmpty) {
         print('Tidak ada data orders yang ditemukan untuk merchant ini.');
@@ -507,17 +567,7 @@ class _HomeMenuState extends State<_HomeMenu> {
       int cancelledCount = 0;
       int completedCount = 0;
 
-      print('\nDetail setiap order:');
       for (var order in response) {
-        print('''
-Order Detail:
-  ID: ${order['id']}
-  Status: ${order['status']}
-  Merchant ID: ${order['merchant_id']}
-  Created At: ${order['created_at']}
-  Total Amount: ${order['total_amount']}
-''');
-
         switch (order['status']) {
           case 'pending':
           case 'processing':
@@ -534,13 +584,6 @@ Order Detail:
             break;
         }
       }
-
-      print('\nHasil Perhitungan:');
-      print('Need to Ship: $needToShipCount');
-      print('Shipping: $shippingCount');
-      print('Cancelled: $cancelledCount');
-      print('Completed: $completedCount');
-      print('====== END DEBUG ======\n');
 
       needToShip.value = needToShipCount.toString();
       shipping.value = shippingCount.toString();
@@ -601,23 +644,49 @@ Order Detail:
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    int? badgeCount,
   }) {
     return InkWell(
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: AppTheme.primary,
-              size: 24,
-            ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppTheme.primary,
+                  size: 24,
+                ),
+              ),
+              if (badgeCount != null && badgeCount > 0)
+                Positioned(
+                  right: -8,
+                  top: -8,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      badgeCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
           Text(

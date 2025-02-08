@@ -34,22 +34,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
 
     _chatRoomsStream = rx.Rx.combineLatest2(
-      // Stream untuk chat messages
-      supabase
-          .from('chat_messages')
-          .stream(primaryKey: ['id'])
-          .order('created_at')
-          .execute(),
-
-      // Stream untuk chat rooms
+      supabase.from('chat_messages').stream(primaryKey: ['id']).execute(),
       supabase
           .from('chat_rooms')
           .stream(primaryKey: ['id'])
           .eq('seller_id', widget.sellerId)
-          .order('created_at', ascending: false)
           .execute(),
-
-      // Combine streams
       (List<Map<String, dynamic>> messages,
           List<Map<String, dynamic>> rooms) async {
         List<Map<String, dynamic>> validRooms = [];
@@ -64,26 +54,27 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
             room['buyer_name'] = buyerData?['full_name'] ?? 'Unknown User';
 
-            // Ambil pesan terakhir dari stream messages
-            final lastMessage = messages
+            // Hitung unread messages
+            final unreadCount = messages
+                .where((msg) =>
+                        msg['room_id'] == room['id'] &&
+                        !msg['is_read'] &&
+                        msg['sender_id'] == room['buyer_id'] // Pesan dari buyer
+                    )
+                .length;
+
+            print(
+                'Debug: Room ${room['id']} unread count: $unreadCount'); // Debug
+
+            room['unread_count'] = unreadCount;
+            final sortedMessages = messages
                 .where((msg) => msg['room_id'] == room['id'])
                 .toList()
               ..sort((a, b) => b['created_at'].compareTo(a['created_at']));
 
-            if (lastMessage.isNotEmpty) {
-              room['last_message'] = lastMessage.first['message'];
-              room['last_message_time'] = lastMessage.first['created_at'];
-            } else {
-              room['last_message'] = 'Belum ada pesan';
-              room['last_message_time'] = room['created_at'];
-            }
-
-            room['unread_count'] = messages
-                .where((msg) =>
-                    msg['room_id'] == room['id'] &&
-                    !msg['is_read'] &&
-                    msg['sender_id'] != widget.sellerId)
-                .length;
+            room['last_message'] = sortedMessages.isNotEmpty
+                ? sortedMessages.first['message']
+                : 'Belum ada pesan';
 
             validRooms.add(room);
           } catch (e) {
@@ -91,22 +82,27 @@ class _ChatListScreenState extends State<ChatListScreen> {
           }
         }
 
-        validRooms.sort((a, b) => (b['last_message_time'] ?? b['created_at'])
-            .compareTo(a['last_message_time'] ?? a['created_at']));
-
         return validRooms;
       },
     ).asyncMap((event) => event);
   }
 
-  Future<void> _markAsRead(String roomId) async {
+  Future<void> _markAsRead(String roomId, String buyerId) async {
     try {
-      await supabase
+      print(
+          'Debug: Marking messages as read for room: $roomId, buyer: $buyerId');
+
+      final result = await supabase
           .from('chat_messages')
-          .update({'is_read': true})
-          .eq('room_id', roomId)
-          .neq('sender_id', widget.sellerId)
-          .eq('is_read', false);
+          .update({'is_read': true}).match(
+              {'room_id': roomId, 'sender_id': buyerId, 'is_read': false});
+
+      print('Debug: Update result: $result');
+
+      // Refresh stream untuk memperbarui unread count
+      setState(() {
+        _initializeChatRooms();
+      });
     } catch (e) {
       print('Error marking messages as read: $e');
     }
@@ -202,7 +198,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
               ),
             ),
             Text(
-              _formatTimestamp(chat["last_message_time"]),
+              _formatTimestamp(chat["last_message_time"] ?? chat["created_at"]),
               style: TextStyle(
                 fontSize: 12,
                 color: unreadCount > 0 ? AppTheme.primary : Colors.grey[600],
@@ -245,11 +241,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ],
         ),
         onTap: () async {
-          // Tandai pesan sebagai telah dibaca saat chat dibuka
           if (unreadCount > 0) {
-            await _markAsRead(chat["id"]);
+            await _markAsRead(chat["id"], chat["buyer_id"]);
           }
-
           Get.to(() => ChatDetailScreen(
                 userName: fullName,
                 roomId: chat["id"],
@@ -262,14 +256,38 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   String _formatTimestamp(String? timestamp) {
     if (timestamp == null) return '';
-    final DateTime dateTime = DateTime.parse(timestamp).toLocal();
-    final now = DateTime.now();
 
+    final DateTime dateTime = DateTime.parse(timestamp).toLocal();
+    final DateTime now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    // Hari ini
     if (dateTime.year == now.year &&
         dateTime.month == now.month &&
         dateTime.day == now.day) {
       return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
     }
+
+    // Kemarin
+    if (difference.inDays == 1) {
+      return 'Kemarin';
+    }
+
+    // Minggu ini
+    if (difference.inDays < 7) {
+      final List<String> days = [
+        'Sen',
+        'Sel',
+        'Rab',
+        'Kam',
+        'Jum',
+        'Sab',
+        'Min'
+      ];
+      return days[dateTime.weekday - 1];
+    }
+
+    // Format tanggal
     return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}';
   }
 }
