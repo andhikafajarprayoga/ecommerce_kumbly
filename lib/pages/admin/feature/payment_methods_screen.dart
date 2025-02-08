@@ -54,6 +54,7 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
       appBar: AppBar(
         title: Text('Kelola Metode Pembayaran'),
         backgroundColor: AppTheme.primary,
+        foregroundColor: const Color.fromARGB(255, 255, 255, 255),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Get.to(() => AddEditPaymentMethodScreen())

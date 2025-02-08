@@ -110,7 +110,6 @@ class _VoucherScreenState extends State<VoucherScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      
       length: 2,
       child: Scaffold(
         appBar: AppBar(
@@ -119,6 +118,7 @@ class _VoucherScreenState extends State<VoucherScreen> {
               style: TextStyle(
                   fontWeight: FontWeight.normal, color: Colors.white)),
           backgroundColor: AppTheme.primary,
+          foregroundColor: const Color.fromARGB(255, 255, 255, 255),
           bottom: TabBar(
             indicatorColor: Colors.white,
             indicatorWeight: 3,

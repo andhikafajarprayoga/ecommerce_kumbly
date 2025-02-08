@@ -11,6 +11,8 @@ import '../../pages/admin/feature/payment_methods_screen.dart';
 import '../../pages/admin/feature/shipping_rates_screen.dart';
 import '../../pages/admin/feature/voucher_screen.dart';
 import '../../pages/admin/feature/admin_chat_screen.dart';
+import 'withdrawal/withdrawal_screen.dart';
+import 'account/account_deletion_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -68,6 +70,13 @@ class AdminHomeScreen extends StatelessWidget {
                             subtitle: 'Atur pengguna & hak akses',
                             color: Colors.blue,
                             onTap: () => Get.to(() => UsersScreen()),
+                          ),
+                          _buildMenuListItem(
+                            icon: Icons.payments,
+                            title: 'Pencairan',
+                            subtitle: 'Pencairan dana seller',
+                            color: const Color.fromARGB(255, 14, 14, 15),
+                            onTap: () => Get.to(() => WithdrawalScreen()),
                           ),
                           _buildMenuListItem(
                             icon: Icons.chat,
@@ -130,6 +139,13 @@ class AdminHomeScreen extends StatelessWidget {
                             subtitle: 'Atur ongkir',
                             color: Colors.cyan,
                             onTap: () => Get.to(() => ShippingRatesScreen()),
+                          ),
+                          _buildMenuListItem(
+                            icon: Icons.delete,
+                            title: 'Hapus Akun',
+                            subtitle: 'Seller & User',
+                            color: Colors.cyan,
+                            onTap: () => Get.to(() => AccountDeletionScreen()),
                           ),
                         ],
                       ),

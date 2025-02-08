@@ -63,12 +63,14 @@ class _ShippingRatesScreenState extends State<ShippingRatesScreen> {
       appBar: AppBar(
         title: Text('Kelola Ongkir'),
         backgroundColor: AppTheme.primary,
+        foregroundColor: const Color.fromARGB(255, 255, 255, 255),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Get.to(() => AddEditShippingRateScreen())
             ?.then((value) => value == true ? fetchShippingRates() : null),
         child: Icon(Icons.add),
         backgroundColor: AppTheme.primary,
+        foregroundColor: const Color.fromARGB(255, 255, 255, 255),
       ),
       body: isLoading
           ? Center(child: CircularProgressIndicator())
@@ -218,6 +220,7 @@ class _AddEditShippingRateScreenState extends State<AddEditShippingRateScreen> {
       appBar: AppBar(
         title: Text(widget.rate != null ? 'Edit Ongkir' : 'Tambah Ongkir'),
         backgroundColor: AppTheme.primary,
+        foregroundColor: const Color.fromARGB(255, 255, 255, 255),
       ),
       body: Form(
         key: _formKey,
@@ -265,7 +268,7 @@ class _AddEditShippingRateScreenState extends State<AddEditShippingRateScreen> {
               ),
               child: isLoading
                   ? CircularProgressIndicator(color: Colors.white)
-                  : Text('Simpan'),
+                  : Text('Simpan', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
