@@ -70,6 +70,7 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppTheme.primary,
         title: Text(
           'Detail Pesanan',

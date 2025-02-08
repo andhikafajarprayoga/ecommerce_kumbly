@@ -340,6 +340,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Pesanan Saya',
                     subtitle: 'Lihat status pesanan Anda',
                     onTap: () => Get.to(() => PesananSayaScreen()),
+                    badge: StreamBuilder(
+                      stream: supabase
+                          .from('orders')
+                          .stream(primaryKey: ['id']).eq(
+                              'buyer_id', supabase.auth.currentUser!.id),
+                      builder: (context, ordersSnapshot) {
+                        print(
+                            'Orders snapshot: ${ordersSnapshot.data?.length}');
+                        print('Orders error: ${ordersSnapshot.error}');
+
+                        return StreamBuilder(
+                          stream: supabase
+                              .from('hotel_bookings')
+                              .stream(primaryKey: ['id']).eq(
+                                  'user_id', supabase.auth.currentUser!.id),
+                          builder: (context, hotelsSnapshot) {
+                            print(
+                                'Hotels snapshot: ${hotelsSnapshot.data?.length}');
+                            print('Hotels error: ${hotelsSnapshot.error}');
+
+                            int totalOrders = 0;
+
+                            if (ordersSnapshot.hasData &&
+                                ordersSnapshot.data != null) {
+                              totalOrders += ordersSnapshot.data!.length;
+                            }
+                            if (hotelsSnapshot.hasData &&
+                                hotelsSnapshot.data != null) {
+                              totalOrders += hotelsSnapshot.data!.length;
+                            }
+
+                            print('Total orders: $totalOrders');
+
+                            return totalOrders > 0
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primary,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      totalOrders.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink();
+                          },
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 16),
                   _buildMenuCard(
@@ -408,6 +465,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required String subtitle,
     required VoidCallback onTap,
     bool isLogout = false,
+    Widget? badge,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -468,6 +526,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                 ),
+                if (badge != null) badge,
+                const SizedBox(width: 8),
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   color: Colors.grey[400],

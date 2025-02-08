@@ -360,17 +360,19 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         elevation: 0,
+        iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppTheme.primary,
         title: Text(
           'Pesanan Saya',
-          style: GoogleFonts.poppins(
+          style: TextStyle(
             color: Colors.white,
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.normal,
           ),
         ),
         bottom: TabBar(
           controller: _tabController,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Produk'),
             Tab(text: 'Hotel'),
