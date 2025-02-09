@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../pages/buyer/profile/detail_pesanan.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../pages/buyer/profile/detail_pesanan_hotel.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -321,6 +322,22 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                 fontWeight: FontWeight.w600,
               ),
             ),
+          )
+        else if (status == 'delivered')
+          TextButton.icon(
+            onPressed: () => _showCompleteOrderDialog(order),
+            icon: const Icon(
+              Icons.check_circle_outline,
+              color: Colors.green,
+              size: 18,
+            ),
+            label: Text(
+              'Selesaikan Pesanan',
+              style: AppTheme.textTheme.bodySmall?.copyWith(
+                color: Colors.green,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         TextButton(
           onPressed: () {
@@ -373,6 +390,16 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
+          labelStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+          unselectedLabelStyle: TextStyle(
+            fontWeight: FontWeight.normal,
+            fontSize: 14,
+          ),
           tabs: const [
             Tab(text: 'Produk'),
             Tab(text: 'Hotel'),
@@ -649,7 +676,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                 _buildInfoRow(
                   Icons.business,
                   'Hotel',
-                  booking['hotel_name'] ?? 'Unknown Hotel',
+                  booking['hotels']['name'] ?? 'Unknown Hotel',
                 ),
                 const SizedBox(height: 12),
                 _buildInfoRow(
@@ -699,26 +726,56 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  OutlinedButton(
-                    onPressed: () => _showCancelBookingDialog(booking),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                    ),
-                    child: const Text('Batalkan'),
-                  ),
-                  const SizedBox(width: 12),
                   ElevatedButton(
-                    onPressed: () {
-                      // Navigate to payment page
-                    },
+                      onPressed: () {
+                        Get.to(
+                            () => DetailPesananHotelScreen(booking: booking));
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            'Lihat Detail',
+                            style: TextStyle(
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 14,
+                            color: AppTheme.primary,
+                          ),
+                        ],
+                      )),
+                ],
+              ),
+            ),
+          if (booking['status'] == 'delivered')
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade200),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => _showCompleteBookingDialog(booking),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primary,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                     ),
                     child: const Text(
-                      'Bayar Sekarang',
+                      'Selesaikan Pesanan',
                       style: TextStyle(color: Colors.white),
                     ),
                   ),
@@ -853,5 +910,143 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
         ],
       ),
     );
+  }
+
+  void _showCompleteBookingDialog(Map<String, dynamic> booking) {
+    Get.dialog(
+      AlertDialog(
+        title: const Text(
+          'Selesaikan Pesanan',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Apakah Anda yakin ingin menyelesaikan pesanan ini?',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text(
+              'Tidak',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await supabase
+                    .from('hotel_bookings')
+                    .update({'status': 'completed'}).eq('id', booking['id']);
+                Get.back();
+                orderController.fetchHotelBookings();
+                Get.snackbar(
+                  'Sukses',
+                  'Pesanan telah diselesaikan',
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                );
+              } catch (e) {
+                Get.back();
+                Get.snackbar(
+                  'Error',
+                  'Gagal menyelesaikan pesanan',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+              }
+            },
+            child: const Text(
+              'Ya, Selesaikan',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tambahkan fungsi dialog untuk menyelesaikan pesanan
+  void _showCompleteOrderDialog(Map<String, dynamic> order) {
+    Get.dialog(
+      AlertDialog(
+        title: Text(
+          'Selesaikan Pesanan',
+          style: AppTheme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin menyelesaikan pesanan ini?',
+          style: AppTheme.textTheme.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text(
+              'Batal',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => _completeOrder(order['id']),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
+            child: const Text('Ya, Selesaikan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _completeOrder(String orderId) async {
+    try {
+      // Ambil data order dengan merchant_id langsung dari tabel orders
+      final orderData = await supabase
+          .from('orders')
+          .select('*, merchant_id, total_amount, shipping_cost')
+          .eq('id', orderId)
+          .single();
+
+      if (orderData == null) {
+        throw Exception('Order tidak ditemukan');
+      }
+
+      final totalAmount = double.parse(orderData['total_amount'].toString());
+      final shippingCost = double.parse(orderData['shipping_cost'].toString());
+      final merchantRevenue = totalAmount - shippingCost;
+
+      // Ambil merchant_id langsung dari order
+      final merchantId = orderData['merchant_id'];
+
+      if (merchantId == null) {
+        throw Exception('Merchant ID tidak ditemukan');
+      }
+
+      await supabase.rpc('complete_order', params: {
+        'p_order_id': orderId,
+        'p_merchant_id': merchantId,
+        'p_amount': merchantRevenue,
+      });
+
+      Get.back();
+      Get.snackbar(
+        'Berhasil',
+        'Pesanan telah diselesaikan',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      orderController.fetchOrders();
+    } catch (e) {
+      print('Error completing order: $e');
+      Get.back();
+      Get.snackbar(
+        'Gagal',
+        'Terjadi kesalahan saat menyelesaikan pesanan',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 }

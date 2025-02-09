@@ -74,10 +74,10 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
         backgroundColor: AppTheme.primary,
         title: Text(
           'Detail Pesanan',
-          style: GoogleFonts.poppins(
+          style: TextStyle(
             color: Colors.white,
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.normal,
           ),
         ),
       ),

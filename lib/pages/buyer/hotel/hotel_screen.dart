@@ -386,7 +386,7 @@ class _HotelScreenState extends State<HotelScreen> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
-                    hintText: 'Cari Hotel',
+                    hintText: 'Cari Hotel atau Lokasi',
                     hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppTheme.textHint,
                         ),
@@ -561,14 +561,20 @@ class _HotelScreenState extends State<HotelScreen> {
 
       var filteredHotels = List<Map<String, dynamic>>.from(response);
 
-      // 2. Filter pencarian jika ada
+      // 2. Filter pencarian berdasarkan nama hotel atau alamat
       if (search != null && search.isNotEmpty) {
-        filteredHotels = filteredHotels
-            .where((hotel) => hotel['name']
-                .toString()
-                .toLowerCase()
-                .contains(search.toLowerCase()))
-            .toList();
+        filteredHotels = filteredHotels.where((hotel) {
+          final String hotelName = hotel['name'].toString().toLowerCase();
+          final String hotelAddress = hotel['address'] is Map
+              ? hotel['address']['full_address'].toString().toLowerCase()
+              : hotel['address'].toString().toLowerCase();
+
+          final String searchLower = search.toLowerCase();
+
+          // Cari berdasarkan nama hotel atau alamat
+          return hotelName.contains(searchLower) ||
+              hotelAddress.contains(searchLower);
+        }).toList();
       }
 
       // 3. Filter berdasarkan range harga
