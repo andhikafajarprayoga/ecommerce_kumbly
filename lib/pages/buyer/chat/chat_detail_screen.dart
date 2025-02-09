@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> chatRoom;
@@ -23,6 +24,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   late Stream<List<Map<String, dynamic>>> _messagesStream;
   final ScrollController _scrollController = ScrollController();
   bool _isFirstLoad = true;
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
@@ -103,6 +106,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         });
       }
 
+      // Tampilkan notifikasi lokal untuk buyer
+      _showNotification('Pesan Terkirim',
+          'Pesan Anda telah dikirim ke ${widget.seller['store_name']}');
+
       FocusScope.of(context).unfocus();
       setState(() {
         _messageController.clear();
@@ -113,6 +120,30 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     } catch (e) {
       print('Error sending message: $e');
     }
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'your_channel_id', // Ganti dengan ID saluran Anda
+      'your_channel_name', // Ganti dengan nama saluran Anda
+      channelDescription:
+          'your_channel_description', // Ganti dengan deskripsi saluran Anda
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await flutterLocalNotificationsPlugin.show(
+      0, // ID notifikasi
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: 'item x', // Payload opsional
+    );
   }
 
   // Fungsi helper untuk scroll ke bawah

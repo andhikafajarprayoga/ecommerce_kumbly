@@ -5,6 +5,7 @@ import 'package:kumbly_ecommerce/pages/merchant/chats/chat_detail_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import 'package:rxdart/rxdart.dart' as rx;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -20,11 +21,37 @@ class ChatListScreen extends StatefulWidget {
 class _ChatListScreenState extends State<ChatListScreen> {
   final supabase = Supabase.instance.client;
   late Stream<List<Map<String, dynamic>>> _chatRoomsStream;
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
     _initializeChatRooms();
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'your_channel_id', // Ganti dengan ID saluran Anda
+      'your_channel_name', // Ganti dengan nama saluran Anda
+      channelDescription:
+          'your_channel_description', // Ganti dengan deskripsi saluran Anda
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await flutterLocalNotificationsPlugin.show(
+      0, // ID notifikasi
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: 'item x', // Payload opsional
+    );
   }
 
   void _initializeChatRooms() {
@@ -73,6 +100,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
             if (lastMessage.isNotEmpty) {
               room['last_message'] = lastMessage.first['message'];
               room['last_message_time'] = lastMessage.first['created_at'];
+
+              // Tampilkan notifikasi lokal untuk buyer jika ada pesan baru
+              if (lastMessage.first['sender_id'] != widget.sellerId) {
+                _showNotification(
+                    'Pesan Baru', 'Anda menerima pesan baru dari buyer');
+              }
             }
 
             validRooms.add(room);
