@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> chatRoom;
@@ -22,6 +23,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   late Stream<List<Map<String, dynamic>>> _messagesStream;
   final ScrollController _scrollController = ScrollController();
+  bool _isFirstLoad = true;
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
@@ -29,10 +33,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _initializeMessages();
     _markMessagesAsRead();
 
-    // Scroll ke bawah setelah pesan dimuat
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
+    // Pastikan untuk menggulir ke bawah setelah pesan dimuat
+
+    _scrollToBottom();
   }
 
   @override
@@ -103,6 +106,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         });
       }
 
+      // Tampilkan notifikasi lokal untuk buyer
+      _showNotification('Pesan Terkirim',
+          'Pesan Anda telah dikirim ke ${widget.seller['store_name']}');
+
       FocusScope.of(context).unfocus();
       setState(() {
         _messageController.clear();
@@ -115,14 +122,40 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'your_channel_id', // Ganti dengan ID saluran Anda
+      'your_channel_name', // Ganti dengan nama saluran Anda
+      channelDescription:
+          'your_channel_description', // Ganti dengan deskripsi saluran Anda
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await flutterLocalNotificationsPlugin.show(
+      0, // ID notifikasi
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: 'item x', // Payload opsional
+    );
+  }
+
   // Fungsi helper untuk scroll ke bawah
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
     }
   }
 
@@ -149,27 +182,78 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
                 final messages = snapshot.data!;
 
-                // Scroll ke bawah setiap kali ada pesan baru
+                // Kelompokkan pesan berdasarkan tanggal
+                final groupedMessages = <String, List<Map<String, dynamic>>>{};
+
+                for (var message in messages) {
+                  final date = DateTime.parse(message['created_at']).toLocal();
+                  final dateStr = _formatMessageDate(date);
+
+                  if (!groupedMessages.containsKey(dateStr)) {
+                    groupedMessages[dateStr] = [];
+                  }
+                  groupedMessages[dateStr]!.add(message);
+                }
+
+                // Urutkan pesan dalam setiap grup
+                for (var key in groupedMessages.keys) {
+                  groupedMessages[key]!.sort((a, b) =>
+                      DateTime.parse(a['created_at'])
+                          .compareTo(DateTime.parse(b['created_at'])));
+                }
+
+                // Urutkan keys berdasarkan tanggal terlama ke terbaru
+                final sortedKeys = groupedMessages.keys.toList()
+                  ..sort((a, b) {
+                    if (a == 'Hari ini') return 1;
+                    if (b == 'Hari ini') return -1;
+                    if (a == 'Kemarin') return 1;
+                    if (b == 'Kemarin') return -1;
+                    return a.compareTo(b);
+                  });
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   _scrollToBottom();
                 });
-
                 return ListView.builder(
                   controller: _scrollController,
-                  itemCount: messages.length,
+                  itemCount: sortedKeys.length * 2,
                   itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isMine =
-                        message['sender_id'] == supabase.auth.currentUser?.id;
+                    final int groupIndex = index ~/ 2;
+                    if (groupIndex >= sortedKeys.length)
+                      return const SizedBox();
 
-                    return _buildMessageBubble(
-                      message: widget.isAdminRoom
-                          ? message['content']
-                          : message['message'],
-                      isMine: isMine,
-                      time: _formatTime(message['created_at']),
-                      isRead: message['is_read'] ?? false,
-                    );
+                    final dateStr = sortedKeys[groupIndex];
+
+                    if (index.isEven) {
+                      return _buildDateHeader(dateStr);
+                    } else {
+                      final messages = groupedMessages[dateStr]!;
+
+                      return Column(
+                        children: messages.asMap().entries.map((entry) {
+                          final int msgIndex = entry.key;
+                          final message = entry.value;
+                          final isCurrentUser = message['sender_id'] ==
+                              supabase.auth.currentUser?.id;
+                          final String time =
+                              _formatTime(message['created_at']);
+
+                          return Container(
+                            key: msgIndex == messages.length - 1
+                                ? Key("lastMessage")
+                                : null, // Tambahkan key
+                            child: _buildMessageBubble(
+                              message: widget.isAdminRoom
+                                  ? message['content']
+                                  : message['message'],
+                              isMine: isCurrentUser,
+                              time: time,
+                              isRead: message['is_read'] ?? false,
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    }
                   },
                 );
               },
@@ -273,8 +357,46 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
+  Widget _buildDateHeader(String date) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            date,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _formatTime(String timestamp) {
     final date = DateTime.parse(timestamp);
     return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatMessageDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    if (messageDate == today) {
+      return 'Hari ini';
+    } else if (messageDate == yesterday) {
+      return 'Kemarin';
+    } else {
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    }
   }
 }

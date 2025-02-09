@@ -8,6 +8,7 @@ import 'package:kumbly_ecommerce/auth/login_page.dart';
 import 'package:kumbly_ecommerce/auth/register_page.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/date_formatter.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -18,6 +19,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final supabase = Supabase.instance.client;
   late Stream<List<Map<String, dynamic>>> _chatRoomsStream;
   Map<String, Map<String, dynamic>> sellers = {};
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
@@ -131,6 +134,14 @@ class _ChatScreenState extends State<ChatScreen> {
 
         validRooms.sort((a, b) => (b['last_message_time'] ?? b['created_at'])
             .compareTo(a['last_message_time'] ?? a['created_at']));
+
+        // Tampilkan notifikasi jika ada pesan baru
+        for (var room in validRooms) {
+          if (room['unread_count'] > 0) {
+            _showNotification('Pesan Baru',
+                'Anda menerima pesan baru dari ${room['store_name']}');
+          }
+        }
 
         return validRooms;
       },
@@ -657,5 +668,29 @@ class _ChatScreenState extends State<ChatScreen> {
         .eq('room_id', roomId)
         .neq('sender_id', userId)
         .eq('is_read', false);
+  }
+
+  void _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'your_channel_id', // Ganti dengan ID saluran Anda
+      'your_channel_name', // Ganti dengan nama saluran Anda
+      channelDescription:
+          'your_channel_description', // Ganti dengan deskripsi saluran Anda
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    );
+
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    await flutterLocalNotificationsPlugin.show(
+      0, // ID notifikasi
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: 'item x', // Payload opsional
+    );
   }
 }

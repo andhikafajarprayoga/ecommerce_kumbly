@@ -10,9 +10,47 @@ import 'pages/admin/home_screen.dart';
 import 'pages/courier/home_screen.dart';
 import 'pages/branch/home_screen.dart';
 import 'screens/splash_screen.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:workmanager/workmanager.dart';
+
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    await showNotification();
+    return Future.value(true);
+  });
+}
+
+Future<void> showNotification() async {
+  const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    'channel_id',
+    'Background Notifications',
+    importance: Importance.high,
+    priority: Priority.high,
+  );
+
+  const NotificationDetails platformDetails = NotificationDetails(
+    android: androidDetails,
+  );
+
+  await flutterLocalNotificationsPlugin.show(
+    0,
+    'Reminder!',
+    'Cek aplikasi sekarang!',
+    platformDetails,
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _initializeNotifications();
+
+  await Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: true, // Set false jika sudah release
+  );
 
   await Supabase.initialize(
     url: 'https://hfeolsmaqsjfueypfebj.supabase.co',
@@ -44,6 +82,17 @@ void main() async {
       GetPage(name: '/branch/home_screen', page: () => BranchHomeScreen()),
     ],
   ));
+}
+
+Future<void> _initializeNotifications() async {
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initializationSettings = InitializationSettings(
+    android: initializationSettingsAndroid,
+  );
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 }
 
 class AuthWrapper extends StatelessWidget {
