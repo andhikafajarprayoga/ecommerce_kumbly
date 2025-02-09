@@ -8,6 +8,7 @@ import '../../../../pages/buyer/profile/detail_pesanan.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../pages/buyer/profile/detail_pesanan_hotel.dart';
 import '../../../utils/date_formatter.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -23,13 +24,88 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
   final OrderController orderController = Get.put(OrderController());
   late TabController _tabController;
   RxString selectedFilter = 'all'.obs;
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     _tabController = TabController(length: 2, vsync: this);
     orderController.fetchOrders();
     orderController.fetchHotelBookings();
+    _listenToOrderChanges();
+  }
+
+  Future<void> _initializeNotifications() async {
+    const initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettingsIOS = DarwinInitializationSettings();
+    const initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    // Tambahkan handler untuk notifikasi
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Handle notifikasi ketika di-tap
+        if (response.payload != null) {
+          final orderId = response.payload;
+          // Navigasi ke detail pesanan
+          final order = orderController.orders
+              .firstWhereOrNull((o) => o['id'] == orderId);
+          if (order != null) {
+            Get.to(() => DetailPesananScreen(order: order));
+          }
+        }
+      },
+    );
+  }
+
+  void _listenToOrderChanges() {
+    supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('buyer_id', supabase.auth.currentUser!.id)
+        .listen((List<Map<String, dynamic>> orders) {
+          for (var order in orders) {
+            final oldStatus = orderController.orders
+                .firstWhereOrNull((o) => o['id'] == order['id'])?['status'];
+            if (oldStatus != null && oldStatus != order['status']) {
+              _showNotification(
+                'Status Pesanan Berubah',
+                'Pesanan #${formatOrderId(order['id'])} sekarang ${order['status']}',
+                order['id'],
+              );
+            }
+          }
+        });
+  }
+
+  Future<void> _showNotification(
+      String title, String body, String orderId) async {
+    const androidDetails = AndroidNotificationDetails(
+      'order_status_channel',
+      'Order Status',
+      channelDescription: 'Notifications for order status changes',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iOSDetails = DarwinNotificationDetails();
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iOSDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+      payload: orderId,
+    );
   }
 
   String formatDate(String date) {

@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class ShippingManagementScreen extends StatefulWidget {
   const ShippingManagementScreen({Key? key}) : super(key: key);
@@ -19,11 +20,88 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
   final supabase = Supabase.instance.client;
   final orders = <Map<String, dynamic>>[].obs;
   final ImagePicker _picker = ImagePicker();
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     _fetchOrders();
+    _listenToOrderChanges();
+  }
+
+  Future<void> _initializeNotifications() async {
+    const initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettingsIOS = DarwinInitializationSettings();
+    const initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    await flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        if (response.payload != null) {
+          final orderId = response.payload;
+          final order = orders.firstWhereOrNull((o) => o['id'] == orderId);
+          if (order != null) {
+            // Navigasi ke detail pesanan jika diperlukan
+          }
+        }
+      },
+    );
+  }
+
+  void _listenToOrderChanges() {
+    final currentUserId = supabase.auth.currentUser?.id;
+    if (currentUserId == null) return;
+
+    supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('merchant_id', currentUserId)
+        .listen((List<Map<String, dynamic>> updatedOrders) {
+          for (var order in updatedOrders) {
+            final oldOrder =
+                orders.firstWhereOrNull((o) => o['id'] == order['id']);
+            if (oldOrder != null && oldOrder['status'] != order['status']) {
+              if (order['status'] == 'delivered' ||
+                  order['status'] == 'completed') {
+                _showNotification(
+                  'Status Pesanan Berubah',
+                  'Pesanan #${order['id'].toString().substring(0, 8)} telah ${order['status'] == 'delivered' ? 'diterima pembeli' : 'selesai'}',
+                  order['id'],
+                );
+              }
+            }
+          }
+        });
+  }
+
+  Future<void> _showNotification(
+      String title, String body, String orderId) async {
+    const androidDetails = AndroidNotificationDetails(
+      'merchant_order_status',
+      'Merchant Order Status',
+      channelDescription: 'Notifications for merchant order status changes',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iOSDetails = DarwinNotificationDetails();
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iOSDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+      payload: orderId,
+    );
   }
 
   Future<void> _fetchOrders() async {
