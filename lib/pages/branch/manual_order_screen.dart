@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kumbly_ecommerce/pages/branch/home_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../controllers/auth_controller.dart';
 
@@ -57,7 +58,6 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
                 }
               } else if (_currentStep.value == 3) {
                 if (_validateShippingAddress()) {
-                  _calculateShipping();
                   _currentStep.value++;
                 }
               } else if (_currentStep.value == 4) {
@@ -221,10 +221,6 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
           validator: (value) => value?.isEmpty ?? true ? 'Wajib diisi' : null,
         ),
         const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: _calculateShipping,
-          child: const Text('Hitung Biaya Kirim'),
-        ),
       ],
     );
   }
@@ -280,29 +276,6 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
     totalWeight.value = weight;
   }
 
-  Future<void> _calculateShipping() async {
-    try {
-      // Hitung biaya kirim berdasarkan berat (dalam kg)
-      final weightInKg = totalWeight.value / 1000; // konversi gram ke kg
-      final baseRate = 10000.0; // Rp 10.000 per kg
-      shippingCost.value = weightInKg * baseRate;
-
-      Get.snackbar(
-        'Info',
-        'Biaya pengiriman: Rp ${shippingCost.value}',
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-      );
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Gagal menghitung biaya pengiriman',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
-
   Future<void> _submitOrder() async {
     try {
       if (selectedProducts.isEmpty) {
@@ -316,25 +289,24 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
           .eq('user_id', authController.currentUser.value!.id)
           .single();
 
-      // 2. Buat order baru
+      // 2. Buat branch order baru
       final orderData = await supabase
-          .from('orders')
+          .from('branch_orders')
           .insert({
+            'branch_id': branchData['id'],
             'buyer_id': authController.currentUser.value!.id,
             'status': 'pending',
-            'total_amount': subtotal.value + shippingCost.value,
+            'total_amount': subtotal.value,
             'shipping_address': recipientAddressController.text,
-            'shipping_cost': shippingCost.value,
-            'branch_id': branchData['id'],
           })
           .select()
           .single();
 
-      // 3. Buat shipping details dan branch_products
+      // 3. Buat shipping details dan branch order items
       await Future.wait<dynamic>([
-        // Insert shipping details
-        supabase.from('shipping_details').insert({
-          'order_id': orderData['id'],
+        // Insert branch shipping details
+        supabase.from('branch_shipping_details').insert({
+          'branch_order_id': orderData['id'],
           'sender_name': senderNameController.text,
           'sender_phone': senderPhoneController.text,
           'sender_address': {
@@ -348,11 +320,11 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
           'branch_id': branchData['id'],
         }),
 
-        // Insert order items dan branch_products
+        // Insert branch order items
         ...selectedProducts.map((product) async {
           final quantity = quantities[product['id']] ?? 0;
-          await supabase.from('order_items').insert({
-            'order_id': orderData['id'],
+          await supabase.from('branch_order_items').insert({
+            'branch_order_id': orderData['id'],
             'product_id': product['id'],
             'quantity': quantity,
             'price': product['price'],
