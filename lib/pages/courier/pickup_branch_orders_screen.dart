@@ -28,7 +28,9 @@ class _PickupBranchOrdersScreenState extends State<PickupBranchOrdersScreen> {
     try {
       isLoading.value = true;
 
-      final response = await _supabase.from('branch_products').select('''
+      final response = await _supabase
+          .from('branch_products')
+          .select('''
             *,
             branch:branches (
               id,
@@ -48,7 +50,10 @@ class _PickupBranchOrdersScreenState extends State<PickupBranchOrdersScreen> {
                 full_name
               )
             )
-          ''').eq('status', 'received').order('created_at', ascending: false);
+          ''')
+          .eq('status', 'received')
+          .filter('courier_id', 'is', null)
+          .order('created_at', ascending: false);
 
       print('=== DEBUG RESPONSE ===');
       print('Raw response: $response');

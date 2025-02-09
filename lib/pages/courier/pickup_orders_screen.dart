@@ -1,17 +1,124 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../controllers/active_delivery_controller.dart';
 import 'package:intl/intl.dart';
-import '../../models/active_delivery.dart';
 import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class PickupOrdersScreen extends StatelessWidget {
-  final controller = Get.put(ActiveDeliveryController());
+// Model
+class ActiveDelivery {
+  final String id;
+  final String? status;
+  final String? courierId;
+  final double totalAmount;
+  final double shippingCost;
+  final String shippingAddress;
+  final DateTime createdAt;
+  final List<String>? transit;
+  final String? keterangan;
+  final Map<String, dynamic>? merchantData;
 
+  ActiveDelivery({
+    required this.id,
+    this.status,
+    this.courierId,
+    required this.totalAmount,
+    required this.shippingCost,
+    required this.shippingAddress,
+    required this.createdAt,
+    this.transit,
+    this.keterangan,
+    this.merchantData,
+  });
+
+  factory ActiveDelivery.fromJson(Map<String, dynamic> json) {
+    return ActiveDelivery(
+      id: json['id'],
+      status: json['status'],
+      courierId: json['courier_id'],
+      totalAmount: (json['total_amount'] ?? 0).toDouble(),
+      shippingCost: (json['shipping_cost'] ?? 0).toDouble(),
+      shippingAddress: json['shipping_address'] ?? '',
+      createdAt: DateTime.parse(json['created_at']),
+      transit:
+          json['transit'] != null ? List<String>.from(json['transit']) : null,
+      keterangan: json['keterangan'],
+      merchantData: json['merchant'],
+    );
+  }
+}
+
+// Controller
+class PickupOrdersController extends GetxController {
+  final _supabase = Supabase.instance.client;
+  var isLoading = false.obs;
+  var processingDeliveries = <ActiveDelivery>[].obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchProcessingDeliveries();
+  }
+
+  Future<void> fetchProcessingDeliveries() async {
+    try {
+      isLoading.value = true;
+
+      final data = await _supabase.from('orders').select('''
+            *,
+            buyer:buyer_id(*)
+          ''').eq('status', 'processing').eq('keterangan', 'ready');
+
+      for (var order in data) {
+        if (order['merchant_id'] != null) {
+          final merchantData = await _supabase
+              .from('merchants')
+              .select()
+              .eq('id', order['merchant_id'])
+              .single();
+          order['merchant'] = merchantData;
+        }
+      }
+
+      processingDeliveries.value = (data as List)
+          .map<ActiveDelivery>((json) => ActiveDelivery.fromJson(json))
+          .toList();
+    } catch (e, stackTrace) {
+      print('❌ Error fetching orders: $e');
+      print('🔍 StackTrace: $stackTrace');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> assignCourier(String orderId) async {
+    try {
+      final currentUserId = _supabase.auth.currentUser!.id;
+
+      await _supabase
+          .from('orders')
+          .update({'courier_id': currentUserId, 'status': 'shipping'}).eq(
+              'id', orderId);
+
+      await fetchProcessingDeliveries();
+      ScaffoldMessenger.of(Get.context!).showSnackBar(
+        const SnackBar(content: Text('Pesanan berhasil diterima')),
+      );
+    } catch (e) {
+      print('Error assigning courier: $e');
+      ScaffoldMessenger.of(Get.context!).showSnackBar(
+        const SnackBar(content: Text('Gagal menerima pesanan')),
+      );
+    }
+  }
+}
+
+class PickupOrdersScreen extends GetView<PickupOrdersController> {
   PickupOrdersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    Get.put(PickupOrdersController());
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Jemput Paket'),
@@ -21,25 +128,8 @@ class PickupOrdersScreen extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        print('\n=== DEBUG PICKUP ORDERS ===');
-        print('Total orders: ${controller.processingDeliveries.length}');
-
-        // Filter hanya berdasarkan status processing
-        final availableOrders = controller.processingDeliveries
-            .where((order) => order.status == 'processing')
-            .toList();
-
-        print('\n=== AFTER FILTER ===');
-        print('Available orders: ${availableOrders.length}');
-
-        availableOrders.forEach((order) {
-          print('''
-Order ID: ${order.id}
-Courier ID: ${order.courierId}
-Status: ${order.status}
-Merchant: ${order.merchantName}
----------------------''');
-        });
+        // Hapus filter yang tidak diperlukan dan gunakan data langsung
+        final availableOrders = controller.processingDeliveries;
 
         if (availableOrders.isEmpty) {
           return const Center(
@@ -52,29 +142,6 @@ Merchant: ${order.merchantName}
           itemCount: availableOrders.length,
           itemBuilder: (context, index) {
             final order = availableOrders[index];
-
-            // Parse alamat merchant dari JSON string
-            Map<String, dynamic>? merchantAddressJson;
-            try {
-              if (order.merchantAddress != null) {
-                merchantAddressJson = jsonDecode(order.merchantAddress!);
-              }
-            } catch (e) {
-              print('Error parsing merchant address: $e');
-            }
-
-            // Format alamat merchant
-            String formattedMerchantAddress = '';
-            if (merchantAddressJson != null) {
-              formattedMerchantAddress = [
-                merchantAddressJson['street'],
-                merchantAddressJson['village'],
-                merchantAddressJson['district'],
-                merchantAddressJson['city'],
-                merchantAddressJson['province'],
-                merchantAddressJson['postal_code'],
-              ].where((e) => e != null).join(', ');
-            }
 
             return Card(
               elevation: 3,
@@ -93,58 +160,56 @@ Merchant: ${order.merchantName}
                         Text(
                           'Order #${order.id.substring(0, 8)}',
                           style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            'Menunggu Pickup',
-                            style: TextStyle(
-                              color: Colors.blue.shade700,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                        Text(
+                          'Menunggu Pickup',
+                          style: TextStyle(
+                            color: Colors.blue[600],
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    _buildInfoRow(
-                      icon: Icons.store,
+                    const SizedBox(height: 12),
+                    _buildSimpleInfoRow(
+                      icon: Icons.store_outlined,
                       label: 'Penjual',
-                      value: order.merchantName ?? "Tidak tersedia",
+                      value:
+                          order.merchantData?['store_name'] ?? "Tidak tersedia",
+                      isUnavailable: order.merchantData == null,
                     ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      icon: Icons.location_on,
-                      label: 'Alamat',
-                      value: formattedMerchantAddress.isNotEmpty
-                          ? formattedMerchantAddress
-                          : "Tidak tersedia",
+                    _buildSimpleInfoRow(
+                      icon: Icons.location_on_outlined,
+                      label: 'Alamat Penjemputan',
+                      value: _formatMerchantAddress(
+                          order.merchantData?['store_address']),
+                      isUnavailable: order.merchantData == null,
                     ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      icon: Icons.phone,
+                    _buildSimpleInfoRow(
+                      icon: Icons.phone_outlined,
                       label: 'Telepon',
-                      value: order.merchantPhone ?? "Tidak tersedia",
+                      value: order.merchantData?['store_phone'] ??
+                          "Tidak tersedia",
+                      isUnavailable: order.merchantData == null,
                     ),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      icon: Icons.payment,
+                    _buildSimpleInfoRow(
+                      icon: Icons.local_shipping_outlined,
+                      label: 'Alamat Pengiriman',
+                      value: order.shippingAddress,
+                      isUnavailable: false,
+                    ),
+                    _buildSimpleInfoRow(
+                      icon: Icons.payment_outlined,
                       label: 'Total',
                       value: NumberFormat.currency(
                         locale: 'id_ID',
                         symbol: 'Rp ',
+                        decimalDigits: 0,
                       ).format(order.totalAmount),
+                      isUnavailable: false,
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -154,6 +219,8 @@ Merchant: ${order.merchantName}
                           await controller.assignCourier(order.id);
                         },
                         style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue[600],
+                          elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
@@ -162,8 +229,9 @@ Merchant: ${order.merchantName}
                         child: const Text(
                           'Terima Pesanan',
                           style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -178,35 +246,64 @@ Merchant: ${order.merchantName}
     );
   }
 
-  Widget _buildInfoRow({
+  Widget _buildSimpleInfoRow({
     required IconData icon,
     required String label,
     required String value,
+    required bool isUnavailable,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: Colors.grey[600]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.grey[800],
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(fontSize: 14),
-              ),
-            ],
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isUnavailable ? Colors.grey : Colors.black87,
+                    fontWeight:
+                        isUnavailable ? FontWeight.w400 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  String _formatMerchantAddress(String? jsonAddress) {
+    if (jsonAddress == null) return "Tidak tersedia";
+
+    try {
+      final addressMap = jsonDecode(jsonAddress);
+      return [
+        addressMap['street'],
+        addressMap['village'],
+        addressMap['district'],
+        addressMap['city'],
+        addressMap['province'],
+        addressMap['postal_code'],
+      ].where((e) => e != null && e.isNotEmpty).join(', ');
+    } catch (e) {
+      print('Error formatting address: $e');
+      return "Format alamat tidak valid";
+    }
   }
 }
