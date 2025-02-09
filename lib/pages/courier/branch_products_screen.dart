@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -12,16 +13,31 @@ class BranchProductsScreen extends StatefulWidget {
   State<BranchProductsScreen> createState() => _BranchProductsScreenState();
 }
 
-class _BranchProductsScreenState extends State<BranchProductsScreen> {
+class _BranchProductsScreenState extends State<BranchProductsScreen>
+    with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   final RxList<Map<String, dynamic>> branchProducts =
       <Map<String, dynamic>>[].obs;
   final RxBool isLoading = true.obs;
 
+  TabController? _tabController;
+  final List<String> _tabs = ['Perlu Dikirim', 'Selesai'];
+
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('id_ID');
+    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController?.addListener(() {
+      setState(() {});
+    });
     _fetchBranchProducts();
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchBranchProducts() async {
@@ -46,6 +62,9 @@ class _BranchProductsScreenState extends State<BranchProductsScreen> {
             order:orders (
               shipping_address,
               total_amount,
+              payment_method:payment_methods (
+                name
+              ),
               buyer:users!buyer_id (
                 full_name,
                 phone
@@ -71,135 +90,280 @@ class _BranchProductsScreenState extends State<BranchProductsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_tabController == null) return const SizedBox();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Paket dari Cabang'),
         elevation: 0,
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController!,
+          tabs: _tabs.map((tab) => Tab(text: tab)).toList(),
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+        ),
       ),
       body: Obx(() {
         if (isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (branchProducts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+        final filteredProducts = _tabController!.index == 0
+            ? branchProducts
+                .where((item) =>
+                    item['courier_id'] == _supabase.auth.currentUser!.id &&
+                    item['status'] == 'received' &&
+                    item['shipping_status'] == null)
+                .toList()
+            : branchProducts
+                .where((item) =>
+                    item['courier_id'] == _supabase.auth.currentUser!.id &&
+                    item['shipping_status'] == 'delivered')
+                .toList();
+
+        // Hitung total COD untuk tab Selesai
+        if (_tabController!.index == 1) {
+          double totalCOD = 0;
+          for (var item in filteredProducts) {
+            final order = item['order'] as Map<String, dynamic>;
+            final paymentMethod =
+                order['payment_method'] as Map<String, dynamic>?;
+            if (paymentMethod != null && paymentMethod['name'] == 'COD') {
+              totalCOD += (order['total_amount'] as num).toDouble();
+            }
+          }
+
+          // Tampilkan ringkasan total COD jika ada
+          if (totalCOD > 0) {
+            return Column(
               children: [
-                Icon(Icons.inventory_2_outlined,
-                    size: 64, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'Tidak ada paket dari cabang',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: _fetchBranchProducts,
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: branchProducts.length,
-            itemBuilder: (context, index) {
-              final item = branchProducts[index];
-              final product = item['product'] as Map<String, dynamic>;
-              final branch = item['branch'] as Map<String, dynamic>;
-              final order = item['order'] as Map<String, dynamic>;
-              final buyer = order['buyer'] as Map<String, dynamic>;
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(16),
                   padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade100),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        'Ringkasan COD',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    'Order #${item['order_id'].toString().substring(0, 8)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: Colors.blue,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  product['name'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
-                                ),
-                              ],
+                          const Text(
+                            'Total Pembayaran COD:',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          _buildStatusBadge(item['status']),
+                          Text(
+                            NumberFormat.currency(
+                              locale: 'id_ID',
+                              symbol: 'Rp ',
+                              decimalDigits: 0,
+                            ).format(totalCOD),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
+                          ),
                         ],
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Divider(height: 1),
-                      ),
-                      _buildInfoRow('Cabang', branch['name'], Icons.store),
-                      _buildInfoRow('Jumlah', '${item['quantity']} unit',
-                          Icons.shopping_basket),
-                      _buildInfoRow(
-                          'Pembeli', buyer['full_name'], Icons.person),
-                      _buildInfoRow(
-                          'Telepon Pembeli', buyer['phone'], Icons.phone),
-                      _buildInfoRow('Alamat Pengiriman',
-                          order['shipping_address'], Icons.location_on),
-                      _buildInfoRow(
-                        'Total Pesanan',
-                        NumberFormat.currency(
-                          locale: 'id_ID',
-                          symbol: 'Rp ',
-                          decimalDigits: 0,
-                        ).format(order['total_amount']),
-                        Icons.payment,
-                      ),
-                      _buildInfoRow(
-                        'Tanggal',
-                        DateFormat('dd MMM yyyy HH:mm').format(
-                          DateTime.parse(item['created_at']),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: _buildProductsList(filteredProducts),
+                ),
+              ],
+            );
+          }
+        }
+
+        return _buildProductsList(filteredProducts);
+      }),
+    );
+  }
+
+  Widget _buildProductsList(List<Map<String, dynamic>> products) {
+    if (products.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Tidak ada paket ${_tabController!.index == 0 ? 'yang perlu dikirim' : 'yang selesai'}',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchBranchProducts,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          final item = products[index];
+          final product = item['product'] as Map<String, dynamic>;
+          final branch = item['branch'] as Map<String, dynamic>;
+          final order = item['order'] as Map<String, dynamic>;
+          final buyer = order['buyer'] as Map<String, dynamic>;
+          final paymentMethod = order['payment_method'];
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Order #${item['order_id'].toString().substring(0, 8)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              product['name'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ],
                         ),
-                        Icons.calendar_today,
                       ),
-                      const SizedBox(height: 16),
-                      if (item['status'] == 'received') ...[
+                      _buildStatusBadge(item['status']),
+                    ],
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Divider(height: 1),
+                  ),
+                  _buildInfoRow('Cabang', branch['name'], Icons.store),
+                  _buildInfoRow('Jumlah', '${item['quantity']} unit',
+                      Icons.shopping_basket),
+                  _buildInfoRow('Pembeli', buyer['full_name'], Icons.person),
+                  _buildInfoRow('Telepon Pembeli', buyer['phone'], Icons.phone),
+                  _buildInfoRow('Alamat Pengiriman', order['shipping_address'],
+                      Icons.location_on),
+                  _buildInfoRow(
+                    'Metode Pembayaran',
+                    paymentMethod != null
+                        ? (paymentMethod as Map<String, dynamic>)['name'] ??
+                            'Tidak diketahui'
+                        : 'Tidak diketahui',
+                    Icons.payment,
+                  ),
+                  _buildInfoRow(
+                    'Total Pesanan',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(order['total_amount']),
+                    Icons.payment,
+                  ),
+                  _buildInfoRow(
+                    'Tanggal',
+                    DateFormat('dd MMMM yyyy HH:mm', 'id_ID').format(
+                      DateTime.parse(item['created_at']),
+                    ),
+                    Icons.calendar_today,
+                  ),
+                  const SizedBox(height: 16),
+                  if (item['status'] == 'received' &&
+                      _tabController!.index == 0) ...[
+                    Column(
+                      children: [
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: () => _startDelivery(item['id']),
+                            onPressed: () async {
+                              final ImagePicker picker = ImagePicker();
+                              final XFile? image = await picker.pickImage(
+                                  source: ImageSource.camera);
+
+                              if (image == null) {
+                                Get.snackbar(
+                                  'Error',
+                                  'Mohon ambil foto bukti pengiriman',
+                                  backgroundColor: Colors.red,
+                                  colorText: Colors.white,
+                                );
+                                return;
+                              }
+
+                              // Upload bukti pengiriman
+                              final String fileName =
+                                  '${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+                              final file = File(image.path);
+
+                              try {
+                                await _supabase.storage
+                                    .from('products')
+                                    .upload('shipping-proofs/$fileName', file);
+
+                                // Setelah upload berhasil, lanjut ke dialog konfirmasi
+                                _showConfirmationDialog(item['id']);
+                              } catch (e) {
+                                print('Error uploading image: $e');
+                                Get.snackbar(
+                                  'Error',
+                                  'Gagal mengupload foto bukti pengiriman',
+                                  backgroundColor: Colors.red,
+                                  colorText: Colors.white,
+                                );
+                              }
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
                               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -207,38 +371,42 @@ class _BranchProductsScreenState extends State<BranchProductsScreen> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            icon: const Icon(Icons.local_shipping),
-                            label: const Text('Mulai Pengiriman'),
-                          ),
-                        ),
-                      ] else if (item['status'] == 'shipping') ...[
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _completeDelivery(
-                              orderId: item['order_id'],
-                              branchProductId: item['id'],
+                            icon: const Icon(Icons.camera_alt,
+                                color: Colors.white),
+                            label: const Text(
+                              'Ambil Foto & Selesaikan',
+                              style: TextStyle(color: Colors.white),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            icon: const Icon(Icons.check_circle),
-                            label: const Text('Selesai Pengiriman'),
                           ),
                         ),
                       ],
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        );
-      }),
+                    ),
+                  ] else if (item['status'] == 'shipping') ...[
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _completeDelivery(
+                          orderId: item['order_id'],
+                          branchProductId: item['id'],
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: const Icon(Icons.check_circle),
+                        label: const Text('Selesai Pengiriman'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -331,12 +499,86 @@ class _BranchProductsScreenState extends State<BranchProductsScreen> {
     );
   }
 
+  Future<void> _showConfirmationDialog(String branchProductId) async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.local_shipping, color: Colors.blue, size: 28),
+              SizedBox(width: 8),
+              Text('Konfirmasi Pengiriman'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Apakah Anda menyelesaikan pengiriman paket ini?',
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Pastikan :',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 8),
+              _buildChecklistItem('paket dalam kondisi baik'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Batal',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _startDelivery(branchProductId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text('Selesaikan Pengiriman',
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
+          actionsPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        );
+      },
+    );
+  }
+
+  Widget _buildChecklistItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle_outline, size: 20, color: Colors.green),
+          SizedBox(width: 8),
+          Text(text),
+        ],
+      ),
+    );
+  }
+
   Future<void> _startDelivery(String branchProductId) async {
     try {
       // Update status di branch_products
       await _supabase
-          .from('orders')
-          .update({'status': 'delivered'}).eq('id', branchProductId);
+          .from('branch_products')
+          .update({'shipping_status': 'delivered'}).eq('id', branchProductId);
 
       // Update status di orders
       final branchProduct =

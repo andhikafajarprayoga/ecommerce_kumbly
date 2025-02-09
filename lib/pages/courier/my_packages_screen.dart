@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
 
 class MyPackagesScreen extends StatefulWidget {
   const MyPackagesScreen({Key? key}) : super(key: key);
@@ -312,35 +313,54 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
                             onPressed: () =>
                                 _uploadHandoverPhoto(package['id']),
                             icon: const Icon(Icons.camera_alt),
-                            label: const Text('Upload Bukti Serah Terima'),
+                            label: const Text(
+                              'Upload Bukti',
+                              style: TextStyle(color: Colors.white),
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton(
+                          child: ElevatedButton.icon(
                             onPressed: () =>
                                 _markAsDeliveredToBuyer(package['id']),
-                            child: const Text('Telah Diterima Pembeli'),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('Diterima Pembeli',
+                                style: TextStyle(color: Colors.white)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: ElevatedButton(
+                          child: ElevatedButton.icon(
                             onPressed: () =>
                                 _markAsDeliveredToBranch(package['id']),
-                            child: const Text('Telah Diterima Cabang'),
+                            icon: const Icon(Icons.store),
+                            label: const Text('Diterima Cabang',
+                                style: TextStyle(color: Colors.white)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.orange,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ),
@@ -389,6 +409,25 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
   }
 
   Widget _buildInfoRowWithIcon(IconData icon, String label, String value) {
+    // Fungsi untuk membuka WhatsApp
+    void _openWhatsApp(String phone) {
+      // Bersihkan nomor telepon dari karakter non-digit
+      String cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
+
+      // Pastikan format nomor benar untuk Indonesia
+      if (cleanPhone.startsWith('0')) {
+        cleanPhone = '62' + cleanPhone.substring(1);
+      } else if (!cleanPhone.startsWith('62')) {
+        cleanPhone = '62' + cleanPhone;
+      }
+
+      // Buat URL WhatsApp
+      final url = 'https://wa.me/$cleanPhone';
+
+      // Buka URL
+      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -407,13 +446,26 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
           ),
           const Text(': '),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            child: label == 'Telepon' && value != 'N/A'
+                ? InkWell(
+                    onTap: () => _openWhatsApp(value),
+                    child: Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  )
+                : Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -472,11 +524,11 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
       // Cek apakah sudah ada foto bukti
       final order = await _supabase
           .from('orders')
-          .select('courier_handover_photo')
+          .select('shipping_proofs')
           .eq('id', orderId)
           .single();
 
-      if (order['courier_handover_photo'] == null) {
+      if (order['shipping_proofs'] == null) {
         Get.snackbar(
           'Error',
           'Harap upload foto bukti serah terima terlebih dahulu',
@@ -516,29 +568,57 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
     await Get.dialog(
       AlertDialog(
         title: const Text('Pilih Cabang'),
-        content: SizedBox(
+        content: Container(
           width: double.maxFinite,
-          child: DropdownButtonFormField<String>(
-            hint: const Text('Pilih cabang tujuan'),
-            items: branches.map<DropdownMenuItem<String>>((branch) {
-              final address = Map<String, dynamic>.from(branch['address']);
-              final formattedAddress =
-                  '${address['street']}, ${address['city']}';
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Pilih cabang tujuan pengiriman paket',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                ),
+                hint: const Text('Pilih cabang'),
+                isExpanded: true,
+                items: branches.map<DropdownMenuItem<String>>((branch) {
+                  final address = Map<String, dynamic>.from(branch['address']);
+                  final formattedAddress =
+                      '${address['street']}, ${address['city']}';
 
-              return DropdownMenuItem<String>(
-                value: branch['id'],
-                child: Text('${branch['name']} - $formattedAddress'),
-              );
-            }).toList(),
-            onChanged: (value) {
-              selectedBranchId = value;
-            },
+                  return DropdownMenuItem<String>(
+                    value: branch['id'],
+                    child: Text(
+                      '${branch['name']} - $formattedAddress',
+                      style: const TextStyle(fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  selectedBranchId = value;
+                },
+              ),
+            ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
-            child: const Text('Batal'),
+            child: Text(
+              'Batal',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -554,7 +634,14 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
               Get.back();
               await _processBranchDelivery(orderId, selectedBranchId!);
             },
-            child: const Text('Konfirmasi'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child:
+                const Text('Konfirmasi', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
