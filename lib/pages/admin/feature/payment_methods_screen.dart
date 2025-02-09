@@ -91,6 +91,29 @@ class _PaymentMethodsScreenState extends State<PaymentMethodsScreen> {
                             Switch(
                               value: method['is_active'] ?? false,
                               onChanged: (bool value) async {
+                                if (!value) {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: Text('Konfirmasi'),
+                                      content: Text(
+                                          'Yakin ingin menonaktifkan metode pembayaran ini?'),
+                                      actions: [
+                                        TextButton(
+                                          child: Text('Batal'),
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                        ),
+                                        TextButton(
+                                          child: Text('Ya'),
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm != true) return;
+                                }
                                 await supabase
                                     .from('payment_methods')
                                     .update({'is_active': value}).eq(
@@ -220,78 +243,156 @@ class _AddEditPaymentMethodScreenState
             ? 'Edit Metode Pembayaran'
             : 'Tambah Metode Pembayaran'),
         backgroundColor: AppTheme.primary,
+        elevation: 0,
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: EdgeInsets.all(16),
+          padding: EdgeInsets.all(20),
           children: [
-            TextFormField(
-              controller: nameController,
-              decoration: InputDecoration(
-                labelText: 'Nama Metode Pembayaran',
-                border: OutlineInputBorder(),
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Nama tidak boleh kosong';
-                }
-                return null;
-              },
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Informasi Dasar',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nama Metode Pembayaran',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: Icon(Icons.payment),
+                      ),
+                      validator: (value) => value?.isEmpty == true
+                          ? 'Nama tidak boleh kosong'
+                          : null,
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: accountNumberController,
+                      decoration: InputDecoration(
+                        labelText: 'Nomor Rekening',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: Icon(Icons.credit_card),
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: accountNameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nama Pemilik Rekening',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             SizedBox(height: 16),
-            TextFormField(
-              controller: accountNumberController,
-              decoration: InputDecoration(
-                labelText: 'Nomor Rekening',
-                border: OutlineInputBorder(),
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pengaturan Biaya',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: adminController,
+                      decoration: InputDecoration(
+                        labelText: 'Biaya Admin',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: Icon(Icons.monetization_on),
+                        prefixText: 'Rp ',
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    SizedBox(height: 16),
+                    TextFormField(
+                      controller: descriptionController,
+                      decoration: InputDecoration(
+                        labelText: 'Deskripsi',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        prefixIcon: Icon(Icons.description),
+                      ),
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
               ),
             ),
             SizedBox(height: 16),
-            TextFormField(
-              controller: accountNameController,
-              decoration: InputDecoration(
-                labelText: 'Nama Pemilik Rekening',
-                border: OutlineInputBorder(),
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            SizedBox(height: 16),
-            TextFormField(
-              controller: adminController,
-              decoration: InputDecoration(
-                labelText: 'Biaya Admin',
-                border: OutlineInputBorder(),
-                prefixText: 'Rp ',
+              child: SwitchListTile(
+                title: Text('Status Aktif'),
+                subtitle: Text(
+                  isActive
+                      ? 'Metode pembayaran aktif'
+                      : 'Metode pembayaran nonaktif',
+                ),
+                value: isActive,
+                onChanged: (bool value) {
+                  setState(() => isActive = value);
+                },
               ),
-              keyboardType: TextInputType.number,
-            ),
-            SizedBox(height: 16),
-            TextFormField(
-              controller: descriptionController,
-              decoration: InputDecoration(
-                labelText: 'Deskripsi',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-            SizedBox(height: 16),
-            SwitchListTile(
-              title: Text('Status Aktif'),
-              value: isActive,
-              onChanged: (bool value) {
-                setState(() => isActive = value);
-              },
             ),
             SizedBox(height: 24),
             ElevatedButton(
               onPressed: isLoading ? null : _savePaymentMethod,
-              child: isLoading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : Text('Simpan'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
+              child: isLoading
+                  ? SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : Text(
+                      'Simpan',
+                      style: TextStyle(fontSize: 16),
+                    ),
             ),
           ],
         ),
