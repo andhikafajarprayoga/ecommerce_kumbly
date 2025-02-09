@@ -15,6 +15,7 @@ import '../../pages/admin/feature/admin_chat_screen.dart';
 import 'withdrawal/withdrawal_screen.dart';
 import 'account/account_deletion_screen.dart';
 import 'feature/branch_products_screen.dart';
+import '../../pages/admin/branch/branch_orders_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -149,6 +150,13 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Kelola Barang yang dikirim',
                           color: Colors.cyan,
                           onTap: () => Get.to(() => BranchProductsScreen()),
+                        ),
+                        _buildMenuCard(
+                          icon: Icons.receipt_long,
+                          title: 'Pesanan Branch',
+                          subtitle: 'Kelola pesanan manual cabang',
+                          color: Colors.deepPurple,
+                          onTap: () => Get.to(() => BranchOrdersScreen()),
                         ),
                       ],
                     ),

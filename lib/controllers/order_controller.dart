@@ -7,11 +7,19 @@ class OrderController extends GetxController {
   final RxList orders = <dynamic>[].obs;
   final RxList hotelBookings = <Map<String, dynamic>>[].obs;
   final RxBool isLoadingHotel = false.obs;
+  final orderss = <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
     super.onInit();
     fetchOrders(); // Ambil pesanan saat controller diinisialisasi
+  }
+
+  void updateOrder(Map<String, dynamic> updatedOrder) {
+    final index = orderss.indexWhere((o) => o['id'] == updatedOrder['id']);
+    if (index != -1) {
+      orderss[index] = updatedOrder;
+    }
   }
 
   Future<void> fetchOrders() async {
