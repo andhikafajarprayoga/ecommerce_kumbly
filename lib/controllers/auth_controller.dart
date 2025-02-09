@@ -123,8 +123,6 @@ class AuthController extends GetxController {
             .eq('id', response.user!.id)
             .single();
 
-        print('User Role: ${userData['role']}'); // Debug print
-
         if (userData['role'] == 'branch') {
           // Cek apakah sudah terdaftar di branches
           final branchData = await supabase
@@ -132,8 +130,6 @@ class AuthController extends GetxController {
               .select()
               .eq('user_id', response.user!.id)
               .maybeSingle();
-
-          print('Branch Data: $branchData'); // Debug print
 
           if (branchData == null) {
             Get.offAll(() => const RegisterBranchScreen());
@@ -145,11 +141,35 @@ class AuthController extends GetxController {
         }
       }
       return true;
-    } catch (e) {
-      print('Login Error: $e'); // Debug print
+    } on AuthException catch (e) {
+      String pesanError = 'Email atau password salah';
+
+      // Terjemahkan pesan error dari Supabase
+      switch (e.message) {
+        case 'Invalid login credentials':
+          pesanError = 'Email atau password tidak sesuai';
+          break;
+        case 'Email not confirmed':
+          pesanError = 'Email belum diverifikasi';
+          break;
+        case 'Invalid email':
+          pesanError = 'Format email tidak valid';
+          break;
+        default:
+          pesanError = 'Gagal masuk ke akun';
+      }
+
       Get.snackbar(
-        'Error',
-        'Login gagal: ${e.toString()}',
+        'Gagal Masuk',
+        pesanError,
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return false;
+    } catch (_) {
+      Get.snackbar(
+        'Gagal Masuk',
+        'Terjadi kesalahan, silakan coba lagi',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

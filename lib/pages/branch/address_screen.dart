@@ -106,6 +106,7 @@ class _AddressScreenState extends State<AddressScreen> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
+                    color: AppTheme.primary,
                   ),
                 ),
                 const SizedBox(height: 16),

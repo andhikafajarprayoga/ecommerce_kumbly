@@ -67,45 +67,74 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
-      final result = await authController.signIn(
-        emailController.text,
-        passwordController.text,
-      );
+      try {
+        final result = await authController.signIn(
+          emailController.text,
+          passwordController.text,
+        );
 
-      if (result == true) {
-        // Cek role user setelah login berhasil
-        final userData = await Supabase.instance.client
-            .from('users')
-            .select('role')
-            .eq('id', authController.currentUser.value!.id)
-            .single();
+        if (result == true) {
+          // Cek role user setelah login berhasil
+          final userData = await Supabase.instance.client
+              .from('users')
+              .select('role')
+              .eq('id', authController.currentUser.value!.id)
+              .single();
 
-        switch (userData['role']) {
-          case 'admin':
-            Get.offAllNamed('/admin/home_screen');
-            break;
-          case 'courier':
-            Get.offAllNamed('/courier/home_screen');
-            break;
-          case 'branch':
-            Get.offAllNamed('/branch/home_screen');
-            break;
-          case 'buyer_seller':
-            Get.offAllNamed('/merchant/home_screen');
-            break;
-          case 'buyer':
-          default:
-            Get.offAllNamed('/buyer/home_screen');
-            break;
+          switch (userData['role']) {
+            case 'admin':
+              Get.offAllNamed('/admin/home_screen');
+              break;
+            case 'courier':
+              Get.offAllNamed('/courier/home_screen');
+              break;
+            case 'branch':
+              Get.offAllNamed('/branch/home_screen');
+              break;
+            case 'buyer_seller':
+              Get.offAllNamed('/merchant/home_screen');
+              break;
+            case 'buyer':
+            default:
+              Get.offAllNamed('/buyer/home_screen');
+              break;
+          }
         }
-      } else {
+      } on AuthException catch (error, _) {
+        String errorMessage;
+
+        switch (error.message) {
+          case 'Invalid login credentials':
+            errorMessage = 'Email atau password salah';
+            break;
+          case 'Email not confirmed':
+            errorMessage = 'Email belum dikonfirmasi';
+            break;
+          case 'Invalid email':
+            errorMessage = 'Format email tidak valid';
+            break;
+          default:
+            errorMessage = 'Gagal masuk. Silakan coba lagi';
+        }
+
         Get.snackbar(
-          'Error',
-          'Email atau password salah',
+          'Gagal Masuk',
+          errorMessage,
           backgroundColor: Colors.red,
           colorText: Colors.white,
-          snackPosition: SnackPosition.BOTTOM,
+          snackPosition: SnackPosition.TOP,
           margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 3),
+        );
+      } catch (_, __) {
+        Get.snackbar(
+          'Gagal Masuk',
+          'Terjadi kesalahan. Silakan coba lagi',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 3),
         );
       }
     }

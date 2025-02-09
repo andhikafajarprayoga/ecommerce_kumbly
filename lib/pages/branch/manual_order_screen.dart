@@ -37,7 +37,7 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buat Pesanan Manual'),
+        title: const Text('Buat paket Manual'),
       ),
       body: Obx(() => Stepper(
             type: StepperType.vertical,

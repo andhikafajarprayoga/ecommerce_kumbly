@@ -52,10 +52,6 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
       title: const Text('Dashboard Cabang'),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications),
-          onPressed: () => _showNotifications(),
-        ),
-        IconButton(
           icon: const Icon(Icons.logout),
           onPressed: () => _showLogoutDialog(),
         ),
@@ -72,14 +68,22 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildWelcomeCard(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             _buildStatisticsSection(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            const Text(
+              'Menu Utama',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
             _buildMenuGrid(),
           ],
         ),
@@ -99,14 +103,17 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
             snapshot.data?.firstOrNull?['full_name'] ?? 'Loading...';
 
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [AppTheme.primary, AppTheme.primary.withOpacity(0.8)],
+              colors: [
+                AppTheme.primary,
+                AppTheme.primary.withOpacity(0.7),
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,16 +121,16 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
               Text(
                 'Selamat Datang',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 16,
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               Text(
                 branchName,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 24,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -135,37 +142,24 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
   }
 
   Widget _buildStatisticsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        const Text(
-          'Statistik Hari Ini',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+        Expanded(
+          child: _buildStatCard(
+            'Paket Diterima',
+            _getDeliveredOrdersStream(),
+            Icons.inventory_2_outlined,
+            Colors.green,
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildStatCard(
-                'Paket Diterima',
-                _getDeliveredOrdersStream(),
-                Icons.check_circle,
-                Colors.green,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _buildStatCard(
-                'Dalam Pengiriman',
-                _getInTransitOrdersStream(),
-                Icons.local_shipping,
-                Colors.blue,
-              ),
-            ),
-          ],
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            'Dalam Pengiriman',
+            _getInTransitOrdersStream(),
+            Icons.local_shipping_outlined,
+            Colors.blue,
+          ),
         ),
       ],
     );
@@ -175,50 +169,38 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
     String title,
     Stream<List<Map<String, dynamic>>> stream,
     IconData icon,
-    Color color, {
-    int Function(List<Map<String, dynamic>>)? filter,
-  }) {
+    Color color,
+  ) {
     return StreamBuilder(
       stream: stream,
       builder: (context, AsyncSnapshot<List<Map<String, dynamic>>> snapshot) {
-        int count = 0;
-        if (snapshot.hasData) {
-          count =
-              filter != null ? filter(snapshot.data!) : snapshot.data!.length;
-        }
+        int count = snapshot.hasData ? snapshot.data!.length : 0;
 
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: color.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
+            border: Border.all(color: color.withOpacity(0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: color, size: 28),
-              const SizedBox(height: 12),
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 8),
               Text(
                 count.toString(),
                 style: TextStyle(
-                  fontSize: 24,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
               ),
-              const SizedBox(height: 8),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+                  fontSize: 12,
+                  color: color.withOpacity(0.8),
                 ),
               ),
             ],
@@ -229,71 +211,124 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
   }
 
   Widget _buildMenuGrid() {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
+    return Column(
       children: [
-        _buildMenuCard(
+        _buildLargeMenuCard(
           title: 'Daftar Produk',
-          icon: Icons.inventory_2,
+          icon: Icons.inventory_2_outlined,
           onTap: () => Get.to(() => const BranchProductsScreen()),
         ),
-        _buildMenuCard(
-          title: 'Menerima Paket',
-          icon: Icons.local_shipping,
-          onTap: () => Get.to(() => const ReceivePackageScreen()),
-        ),
-        _buildMenuCard(
-          title: 'Kelola Alamat',
-          icon: Icons.location_on,
-          onTap: () => Get.to(() => const AddressScreen()),
-        ),
-        _buildMenuCard(
-          title: 'Buat Pesanan',
-          icon: Icons.add_shopping_cart,
-          onTap: () => Get.to(() => const ManualOrderScreen()),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildSmallMenuCard(
+                title: 'Terima\nPaket',
+                icon: Icons.local_shipping_outlined,
+                onTap: () => Get.to(() => const ReceivePackageScreen()),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildSmallMenuCard(
+                title: 'Kelola\nAlamat',
+                icon: Icons.location_on_outlined,
+                onTap: () => Get.to(() => const AddressScreen()),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildSmallMenuCard(
+                title: 'Buat\nPesanan',
+                icon: Icons.add_shopping_cart_outlined,
+                onTap: () => Get.to(() => const ManualOrderScreen()),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildMenuCard({
+  Widget _buildLargeMenuCard({
     required String title,
     required IconData icon,
     required VoidCallback onTap,
   }) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 40,
-                color: AppTheme.primary,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppTheme.primary.withOpacity(0.3),
           ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 24,
+              color: AppTheme.primary,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Spacer(),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: AppTheme.primary,
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSmallMenuCard({
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.grey.withOpacity(0.2),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 20,
+              color: AppTheme.primary,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -312,14 +347,33 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
   void _showLogoutDialog() {
     Get.dialog(
       AlertDialog(
-        title: const Text('Konfirmasi Logout'),
-        content: const Text('Apakah Anda yakin ingin keluar?'),
+        title: const Text(
+          'Konfirmasi Logout',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: const Text(
+          'Apakah Anda yakin ingin keluar?',
+          style: TextStyle(fontSize: 16),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
             child: Text(
               'Batal',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           ElevatedButton(
@@ -329,8 +383,19 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text('Logout'),
+            child: const Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
