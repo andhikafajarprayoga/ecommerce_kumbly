@@ -20,15 +20,14 @@ class AdminChatDetailScreen extends StatefulWidget {
 class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
   final supabase = Supabase.instance.client;
   final TextEditingController _messageController = TextEditingController();
-  final RxList<Map<String, dynamic>> _messages = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> messages = <Map<String, dynamic>>[].obs;
   final ScrollController _scrollController = ScrollController();
-  StreamSubscription? _subscription;
+  final isLoading = true.obs;
 
   @override
   void initState() {
     super.initState();
-    _fetchMessages();
-    _listenForNewMessages();
+    _initializeMessages();
     _markMessagesAsRead();
   }
 
@@ -36,7 +35,6 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
   void dispose() {
     _scrollController.dispose();
     _messageController.dispose();
-    _subscription?.cancel();
     super.dispose();
   }
 
@@ -50,55 +48,25 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
     }
   }
 
-  Future<void> _fetchMessages() async {
-    try {
-      final response = await supabase
-          .from('admin_messages')
-          .select()
-          .eq('chat_room_id', widget.chatRoom['id'])
-          .order('created_at', ascending: true);
-
-      _messages.assignAll(response);
-
-      // Scroll ke bawah setelah pesan dimuat
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
-      });
-    } catch (e) {
-      print('Error fetching messages: $e');
-      Get.snackbar(
-        'Error',
-        'Gagal memuat pesan',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
-
-  void _listenForNewMessages() {
-    _subscription = supabase
+  void _initializeMessages() {
+    // Stream untuk messages
+    supabase
         .from('admin_messages')
         .stream(primaryKey: ['id'])
         .eq('chat_room_id', widget.chatRoom['id'])
-        .order('created_at', ascending: true)
-        .listen(
-          (data) {
-            _messages.assignAll(data);
-            // Scroll ke bawah ketika ada pesan baru
+        .order('created_at')
+        .listen((List<Map<String, dynamic>> data) {
+          messages.assignAll(data);
+
+          // Scroll ke bawah ketika ada pesan baru
+          if (messages.isNotEmpty) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _scrollToBottom();
             });
-          },
-          onError: (error) {
-            print('Error in stream: $error');
-            Get.snackbar(
-              'Error',
-              'Koneksi terputus, mencoba menghubungkan kembali...',
-              backgroundColor: Colors.orange,
-              colorText: Colors.white,
-            );
-          },
-        );
+          }
+
+          isLoading.value = false;
+        });
   }
 
   Future<void> _markMessagesAsRead() async {
@@ -122,56 +90,26 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
     final messageContent = _messageController.text.trim();
     _messageController.clear();
 
-    final newMessage = {
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'chat_room_id': widget.chatRoom['id'],
-      'sender_id': userId,
-      'content': messageContent,
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-      'is_read': false,
-    };
+    final timestamp = DateTime.now().toUtc().toIso8601String();
 
     try {
-      // Tambahkan pesan ke list
-      _messages.add(newMessage);
-
-      // Scroll ke bawah setelah menambahkan pesan
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _scrollToBottom();
-      });
-
-      // Kirim ke database
-      final response = await supabase.from('admin_messages').insert({
+      // Kirim pesan ke database
+      await supabase.from('admin_messages').insert({
         'chat_room_id': widget.chatRoom['id'],
         'sender_id': userId,
         'content': messageContent,
-        'created_at': newMessage['created_at'],
+        'created_at': timestamp,
         'is_read': false,
-      }).select();
+      });
 
-      // Update messages list dengan data dari response
-      if (response != null && response.isNotEmpty) {
-        final index =
-            _messages.indexWhere((msg) => msg['id'] == newMessage['id']);
-        if (index != -1) {
-          // Pilih salah satu metode:
-          updateMessage1(index, response[0]);
-          // atau
-          // updateMessage2(index, response[0]);
-          // atau
-          // updateMessage3(index, response[0]);
-        }
-      }
-
-      // Update waktu chat room
-      await supabase
-          .from('admin_chat_rooms')
-          .update({'updated_at': newMessage['created_at']}).eq(
-              'id', widget.chatRoom['id']);
+      // Update chat room
+      await supabase.from('admin_chat_rooms').update({
+        'updated_at': timestamp,
+        'last_message': messageContent,
+        'last_message_time': timestamp
+      }).eq('id', widget.chatRoom['id']);
     } catch (e) {
       print('Error sending message: $e');
-      // Hapus pesan dari list jika gagal terkirim
-      _messages.removeWhere((msg) => msg['id'] == newMessage['id']);
       Get.snackbar(
         'Error',
         'Gagal mengirim pesan',
@@ -179,25 +117,6 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
         colorText: Colors.white,
       );
     }
-  }
-
-  // Metode 1: Menggunakan removeAt dan insert
-  void updateMessage1(int index, Map<String, dynamic> newMessage) {
-    _messages.removeAt(index);
-    _messages.insert(index, newMessage);
-  }
-
-  // Metode 2: Menggunakan assignAll
-  void updateMessage2(int index, Map<String, dynamic> newMessage) {
-    final updatedMessages = List<Map<String, dynamic>>.from(_messages);
-    updatedMessages[index] = newMessage;
-    _messages.assignAll(updatedMessages);
-  }
-
-  // Metode 3: Menggunakan refresh
-  void updateMessage3(int index, Map<String, dynamic> newMessage) {
-    _messages[index] = newMessage;
-    _messages.refresh();
   }
 
   @override
@@ -210,43 +129,40 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
       body: Column(
         children: [
           Expanded(
-            child: StreamBuilder<List<Map<String, dynamic>>>(
-              stream: supabase
-                  .from('admin_messages')
-                  .stream(primaryKey: ['id'])
-                  .eq('chat_room_id', widget.chatRoom['id'])
-                  .order('created_at', ascending: true)
-                  .execute(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.active) {
-                  if (snapshot.hasError) {
-                    return Text('Error: ${snapshot.error}');
-                  } else if (snapshot.hasData) {
-                    final messages = snapshot.data!;
-                    return ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: messages.length,
-                      itemBuilder: (context, index) {
-                        final message = messages[index];
-                        final isMine = message['sender_id'] ==
-                            supabase.auth.currentUser?.id;
-                        return _buildMessageBubble(
-                          message: message['content'],
-                          isMine: isMine,
-                          time: _formatTime(message['created_at']),
-                          isRead: message['is_read'] ?? false,
-                        );
-                      },
-                    );
-                  } else {
-                    return Center(child: CircularProgressIndicator());
-                  }
-                } else {
-                  return Center(child: CircularProgressIndicator());
-                }
-              },
-            ),
+            child: Obx(() {
+              if (isLoading.value) {
+                return Center(child: CircularProgressIndicator());
+              }
+
+              if (messages.isEmpty) {
+                return Center(
+                  child: Text(
+                    'Belum ada pesan',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 16,
+                    ),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final message = messages[index];
+                  final isMine =
+                      message['sender_id'] == supabase.auth.currentUser?.id;
+                  return _buildMessageBubble(
+                    message: message['content'],
+                    isMine: isMine,
+                    time: _formatTime(message['created_at']),
+                    isRead: message['is_read'] ?? false,
+                  );
+                },
+              );
+            }),
           ),
           _buildMessageInput(),
         ],
