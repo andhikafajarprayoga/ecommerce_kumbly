@@ -6,6 +6,8 @@ import 'chat_detail_screen.dart';
 import 'package:rxdart/rxdart.dart' as rx;
 import 'package:kumbly_ecommerce/auth/login_page.dart';
 import 'package:kumbly_ecommerce/auth/register_page.dart';
+import 'package:intl/intl.dart';
+import '../../../utils/date_formatter.dart';
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -481,7 +483,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          _formatTimestamp(
+                          DateFormatter.formatChatTime(
                               room['last_message_time'] ?? room['created_at']),
                           style: TextStyle(
                             fontSize: 12,
@@ -596,7 +598,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (dateTime.year == now.year &&
         dateTime.month == now.month &&
         dateTime.day == now.day) {
-      return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+      return DateFormat('HH:mm').format(dateTime);
     }
 
     // Kemarin
@@ -619,7 +621,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     // Format tanggal
-    return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}';
+    return DateFormat('dd/MM').format(dateTime);
   }
 
   Future<int> _getUnreadCount(String roomId, bool isAdminRoom) async {

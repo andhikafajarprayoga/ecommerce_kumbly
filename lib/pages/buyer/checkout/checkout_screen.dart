@@ -781,7 +781,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             .from('admin_chat_rooms')
             .insert({
               'buyer_id': supabase.auth.currentUser!.id,
-              'created_at': DateTime.now().toUtc().toIso8601String(),
+              'created_at': DateTime.now().toIso8601String(),
             })
             .select()
             .single();

@@ -7,6 +7,7 @@ import '../../../../theme/app_theme.dart';
 import '../../../../pages/buyer/profile/detail_pesanan.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../pages/buyer/profile/detail_pesanan_hotel.dart';
+import '../../../utils/date_formatter.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -32,7 +33,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
   }
 
   String formatDate(String date) {
-    final DateTime dateTime = DateTime.parse(date);
+    final DateTime dateTime = DateTime.parse(date).toLocal();
     return DateFormat('dd MMM yyyy, HH:mm').format(dateTime);
   }
 
@@ -560,7 +561,8 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                       _buildInfoRow(
                         Icons.calendar_today_outlined,
                         'Tanggal Pesanan',
-                        formatDate(order['created_at']),
+                        DateFormatter.formatShortDate(order['created_at'] ??
+                            DateTime.now().toIso8601String()),
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
