@@ -24,7 +24,7 @@ class ShipmentsController extends GetxController {
           .from('orders')
           .select()
           .order('created_at', ascending: false);
-      
+
       orders.value = List<Map<String, dynamic>>.from(response);
       filterShipments(); // Reapply current filters
     } catch (e) {
@@ -61,33 +61,65 @@ class ShipmentsController extends GetxController {
 
   // Ubah status dari bahasa Inggris ke bahasa Indonesia
   String getStatusIndonesia(String status) {
-    Map<String, String> statusMapping = {
-      'pending': 'Menunggu',
-      'pending_cancellation': 'Menunggu Pembatalan',
-      'processing': 'Diproses',
-      'shipping': 'Dikirim',
-      'delivered': 'Terkirim',
-      'cancelled': 'Dibatalkan',
-      'completed': 'Selesai',
-    };
-    return statusMapping[status] ?? status;
+    switch (status) {
+      case 'pending':
+        return 'Menunggu';
+      case 'pending_cancellation':
+        return 'Menunggu Pembatalan';
+      case 'processing':
+        return 'Diproses';
+      case 'transit':
+        return 'Transit';
+      case 'shipping':
+        return 'Dikirim';
+      case 'delivered':
+        return 'Terkirim';
+      case 'completed':
+        return 'Selesai';
+      case 'cancelled':
+        return 'Dibatalkan';
+      default:
+        return status;
+    }
+  }
+
+  String getStatusEnglish(String status) {
+    switch (status) {
+      case 'Menunggu':
+        return 'pending';
+      case 'Menunggu Pembatalan':
+        return 'pending_cancellation';
+      case 'Diproses':
+        return 'processing';
+      case 'Transit':
+        return 'transit';
+      case 'Dikirim':
+        return 'shipping';
+      case 'Terkirim':
+        return 'delivered';
+      case 'Selesai':
+        return 'completed';
+      case 'Dibatalkan':
+        return 'cancelled';
+      default:
+        return status;
+    }
   }
 
   // Navigasi ke halaman detail
   void goToDetail(Map<String, dynamic> order) {
-  Get.to(
-    () => ShipmentDetailScreen(),
-    arguments: {
-      'id': order['id'],
-      'status': order['status'],
-      'shipping_address': order['shipping_address'],
-      'total_amount': order['total_amount'],
-      'buyer_id': order['buyer_id'],
-      'created_at': order['created_at'],
-      'shipping_cost': order['shipping_cost'],
-      'courier_handover_photo': order['courier_handover_photo'],
-    },
-  );
-}
-
+    Get.to(
+      () => ShipmentDetailScreen(),
+      arguments: {
+        'id': order['id'],
+        'status': order['status'],
+        'shipping_address': order['shipping_address'],
+        'total_amount': order['total_amount'],
+        'buyer_id': order['buyer_id'],
+        'created_at': order['created_at'],
+        'shipping_cost': order['shipping_cost'],
+        'courier_handover_photo': order['courier_handover_photo'],
+      },
+    );
+  }
 }

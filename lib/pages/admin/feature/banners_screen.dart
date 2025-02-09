@@ -61,8 +61,12 @@ class _BannersScreenState extends State<BannersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kelola Banner'),
+        title: Text(
+          'Kelola Banner',
+          style: TextStyle(fontWeight: FontWeight.normal),
+        ),
         backgroundColor: AppTheme.primary,
+        foregroundColor: const Color.fromARGB(221, 255, 255, 255),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () =>

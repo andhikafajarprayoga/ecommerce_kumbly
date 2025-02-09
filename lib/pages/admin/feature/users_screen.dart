@@ -69,6 +69,8 @@ class _UsersScreenState extends State<UsersScreen> {
         return '#2196F3'; // Biru
       case 'courier':
         return '#FF9800'; // Orange
+      case 'branch':
+        return '#9C27B0'; // Ungu
       default:
         return '#9E9E9E'; // Abu-abu
     }
@@ -78,32 +80,47 @@ class _UsersScreenState extends State<UsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kelola Users'),
+        title: Text('Kelola Users', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        elevation: 0,
+        foregroundColor: Colors.white,
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Get.to(() => AddEditUserScreen())
             ?.then((value) => value == true ? fetchUsers() : null),
-        child: Icon(Icons.add),
+        icon: Icon(Icons.add, color: Colors.white),
+        label: Text('Tambah User', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
       ),
       body: Column(
         children: [
           Container(
             padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withOpacity(0.05),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
+            ),
             child: Column(
               children: [
                 TextField(
                   controller: searchController,
                   decoration: InputDecoration(
                     hintText: 'Cari user...',
-                    prefixIcon: Icon(Icons.search),
+                    prefixIcon: Icon(Icons.search, color: AppTheme.primary),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(15),
+                      borderSide: BorderSide.none,
                     ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     suffixIcon: searchController.text.isNotEmpty
                         ? IconButton(
-                            icon: Icon(Icons.clear),
+                            icon: Icon(Icons.clear, color: AppTheme.primary),
                             onPressed: () {
                               searchController.clear();
                               fetchUsers();
@@ -124,110 +141,17 @@ class _UsersScreenState extends State<UsersScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      FilterChip(
-                        label: Text('Semua'),
-                        selected: selectedRole == 'all',
-                        onSelected: (bool selected) {
-                          setState(() {
-                            selectedRole = 'all';
-                          });
-                          fetchUsers();
-                        },
-                        backgroundColor: Colors.grey[200],
-                        selectedColor: AppTheme.primary.withOpacity(0.2),
-                        labelStyle: TextStyle(
-                          color: selectedRole == 'all'
-                              ? AppTheme.primary
-                              : Colors.black87,
-                          fontWeight: selectedRole == 'all'
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
+                      _buildFilterChip('Semua', 'all', AppTheme.primary),
                       SizedBox(width: 8),
-                      FilterChip(
-                        label: Text('Admin'),
-                        selected: selectedRole == 'admin',
-                        onSelected: (bool selected) {
-                          setState(() {
-                            selectedRole = 'admin';
-                          });
-                          fetchUsers();
-                        },
-                        backgroundColor: Colors.grey[200],
-                        selectedColor: Colors.red.withOpacity(0.2),
-                        labelStyle: TextStyle(
-                          color: selectedRole == 'admin'
-                              ? Colors.red
-                              : Colors.black87,
-                          fontWeight: selectedRole == 'admin'
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
+                      _buildFilterChip('Admin', 'admin', Colors.red),
                       SizedBox(width: 8),
-                      FilterChip(
-                        label: Text('Seller'),
-                        selected: selectedRole == 'seller',
-                        onSelected: (bool selected) {
-                          setState(() {
-                            selectedRole = 'seller';
-                          });
-                          fetchUsers();
-                        },
-                        backgroundColor: Colors.grey[200],
-                        selectedColor: Colors.green.withOpacity(0.2),
-                        labelStyle: TextStyle(
-                          color: selectedRole == 'seller'
-                              ? Colors.green
-                              : Colors.black87,
-                          fontWeight: selectedRole == 'seller'
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
+                      _buildFilterChip('Seller', 'seller', Colors.green),
                       SizedBox(width: 8),
-                      FilterChip(
-                        label: Text('Buyer'),
-                        selected: selectedRole == 'buyer',
-                        onSelected: (bool selected) {
-                          setState(() {
-                            selectedRole = 'buyer';
-                          });
-                          fetchUsers();
-                        },
-                        backgroundColor: Colors.grey[200],
-                        selectedColor: Colors.blue.withOpacity(0.2),
-                        labelStyle: TextStyle(
-                          color: selectedRole == 'buyer'
-                              ? Colors.blue
-                              : Colors.black87,
-                          fontWeight: selectedRole == 'buyer'
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
+                      _buildFilterChip('Buyer', 'buyer', Colors.blue),
                       SizedBox(width: 8),
-                      FilterChip(
-                        label: Text('Courier'),
-                        selected: selectedRole == 'courier',
-                        onSelected: (bool selected) {
-                          setState(() {
-                            selectedRole = 'courier';
-                          });
-                          fetchUsers();
-                        },
-                        backgroundColor: Colors.grey[200],
-                        selectedColor: Colors.orange.withOpacity(0.2),
-                        labelStyle: TextStyle(
-                          color: selectedRole == 'courier'
-                              ? Colors.orange
-                              : Colors.black87,
-                          fontWeight: selectedRole == 'courier'
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                        ),
-                      ),
+                      _buildFilterChip('Courier', 'courier', Colors.orange),
+                      SizedBox(width: 8),
+                      _buildFilterChip('Branch', 'branch', Colors.purple),
                     ],
                   ),
                 ),
@@ -238,41 +162,89 @@ class _UsersScreenState extends State<UsersScreen> {
             child: isLoading
                 ? Center(child: CircularProgressIndicator())
                 : users.isEmpty
-                    ? Center(child: Text('Tidak ada user'))
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.person_off,
+                                size: 64, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text(
+                              'Tidak ada user',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: users.length,
                         padding: EdgeInsets.all(16),
                         itemBuilder: (context, index) {
                           final user = users[index];
                           return Card(
+                            elevation: 2,
+                            margin: EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             child: ListTile(
+                              contentPadding: EdgeInsets.all(16),
                               leading: CircleAvatar(
+                                radius: 30,
+                                backgroundColor:
+                                    AppTheme.primary.withOpacity(0.1),
                                 backgroundImage: user['image_url'] != null
                                     ? NetworkImage(user['image_url'])
                                     : null,
                                 child: user['image_url'] == null
-                                    ? Icon(Icons.person)
+                                    ? Icon(Icons.person,
+                                        color: AppTheme.primary, size: 30)
                                     : null,
                               ),
                               title: Text(
                                 user['full_name'] ?? 'Tanpa Nama',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
                               ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(user['email']),
-                                  Text('Telp: ${user['phone'] ?? '-'}'),
+                                  SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.email,
+                                          size: 16, color: Colors.grey),
+                                      SizedBox(width: 4),
+                                      Expanded(child: Text(user['email'])),
+                                    ],
+                                  ),
+                                  SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.phone,
+                                          size: 16, color: Colors.grey),
+                                      SizedBox(width: 4),
+                                      Text('${user['phone'] ?? '-'}'),
+                                    ],
+                                  ),
+                                  SizedBox(height: 8),
                                   Container(
                                     padding: EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Color(int.parse(
                                               getRoleColor(user['role'])
                                                   .replaceAll('#', 'FF'),
                                               radix: 16))
                                           .withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(
                                       user['role'].toUpperCase(),
@@ -288,85 +260,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                   ),
                                 ],
                               ),
-                              trailing: PopupMenuButton(
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(
-                                    child: ListTile(
-                                      leading:
-                                          Icon(Icons.edit, color: Colors.blue),
-                                      title: Text('Edit'),
-                                      contentPadding: EdgeInsets.zero,
-                                    ),
-                                    value: 'edit',
-                                  ),
-                                  if (user['role'] != 'admin')
-                                    PopupMenuItem(
-                                      child: ListTile(
-                                        leading: Icon(Icons.delete,
-                                            color: Colors.red),
-                                        title: Text('Hapus'),
-                                        contentPadding: EdgeInsets.zero,
-                                      ),
-                                      value: 'delete',
-                                    ),
-                                ],
-                                onSelected: (value) async {
-                                  if (value == 'edit') {
-                                    final result = await Get.to(
-                                      () => AddEditUserScreen(user: user),
-                                    );
-                                    if (result == true) {
-                                      fetchUsers();
-                                    }
-                                  } else if (value == 'delete') {
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: Text('Konfirmasi'),
-                                        content: Text(
-                                            'Yakin ingin menghapus user ini?'),
-                                        actions: [
-                                          TextButton(
-                                            child: Text('Batal'),
-                                            onPressed: () =>
-                                                Navigator.pop(context),
-                                          ),
-                                          TextButton(
-                                            child: Text(
-                                              'Hapus',
-                                              style:
-                                                  TextStyle(color: Colors.red),
-                                            ),
-                                            onPressed: () async {
-                                              Navigator.pop(context);
-                                              try {
-                                                await supabase.auth.admin
-                                                    .deleteUser(user['id']);
-                                                Get.snackbar(
-                                                  'Sukses',
-                                                  'User berhasil dihapus',
-                                                  backgroundColor: Colors.green,
-                                                  colorText: Colors.white,
-                                                );
-                                                fetchUsers();
-                                              } catch (e) {
-                                                print(
-                                                    'Error deleting user: $e');
-                                                Get.snackbar(
-                                                  'Error',
-                                                  'Gagal menghapus user',
-                                                  backgroundColor: Colors.red,
-                                                  colorText: Colors.white,
-                                                );
-                                              }
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
+                              trailing: _buildPopupMenu(user, context),
                               isThreeLine: true,
                             ),
                           );
@@ -375,6 +269,113 @@ class _UsersScreenState extends State<UsersScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String role, Color color) {
+    return FilterChip(
+      label: Text(label),
+      selected: selectedRole == role,
+      onSelected: (bool selected) {
+        setState(() {
+          selectedRole = role;
+        });
+        fetchUsers();
+      },
+      backgroundColor: Colors.white,
+      selectedColor: color.withOpacity(0.2),
+      labelStyle: TextStyle(
+        color: selectedRole == role ? color : Colors.black87,
+        fontWeight: selectedRole == role ? FontWeight.bold : FontWeight.normal,
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: selectedRole == role ? color : Colors.grey[300]!,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPopupMenu(Map<String, dynamic> user, BuildContext context) {
+    return PopupMenuButton(
+      icon: Icon(Icons.more_vert, color: Colors.grey[600]),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          child: ListTile(
+            leading: Icon(Icons.edit, color: Colors.blue),
+            title: Text('Edit'),
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+          ),
+          value: 'edit',
+        ),
+        if (user['role'] != 'admin')
+          PopupMenuItem(
+            child: ListTile(
+              leading: Icon(Icons.delete, color: Colors.red),
+              title: Text('Hapus'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+            ),
+            value: 'delete',
+          ),
+      ],
+      onSelected: (value) async {
+        if (value == 'edit') {
+          final result = await Get.to(
+            () => AddEditUserScreen(user: user),
+          );
+          if (result == true) {
+            fetchUsers();
+          }
+        } else if (value == 'delete') {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Konfirmasi'),
+              content: Text('Yakin ingin menghapus user ini?'),
+              actions: [
+                TextButton(
+                  child: Text('Batal'),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                TextButton(
+                  child: Text(
+                    'Hapus',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    try {
+                      await supabase.auth.admin.deleteUser(user['id']);
+                      Get.snackbar(
+                        'Sukses',
+                        'User berhasil dihapus',
+                        backgroundColor: Colors.green,
+                        colorText: Colors.white,
+                      );
+                      fetchUsers();
+                    } catch (e) {
+                      print('Error deleting user: $e');
+                      Get.snackbar(
+                        'Error',
+                        'Gagal menghapus user',
+                        backgroundColor: Colors.red,
+                        colorText: Colors.white,
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          );
+        }
+      },
     );
   }
 }
@@ -475,8 +476,10 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.user != null ? 'Edit User' : 'Tambah User'),
+        title: Text(widget.user != null ? 'Edit User' : 'Tambah User',
+            style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        foregroundColor: Colors.white,
       ),
       body: Form(
         key: _formKey,
@@ -539,7 +542,7 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
                 labelText: 'Role',
                 border: OutlineInputBorder(),
               ),
-              items: ['admin', 'seller', 'buyer', 'courier']
+              items: ['admin', 'seller', 'buyer', 'courier', 'branch']
                   .map((role) => DropdownMenuItem(
                         value: role,
                         child: Text(role.toUpperCase()),

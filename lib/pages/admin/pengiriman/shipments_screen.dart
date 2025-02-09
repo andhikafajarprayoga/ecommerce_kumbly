@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/controllers/shipments_controller.dart';
+import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ShipmentsScreen extends StatefulWidget {
@@ -20,23 +21,22 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
 
   void _initializeRealtime() {
     final supabase = Supabase.instance.client;
-    
+
     // Initial fetch
     controller.fetchOrders();
-    
+
     // Setup realtime subscription
     _ordersSubscription = supabase
-    .channel('orders_channel')
-    .onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'orders',
-      callback: (payload) {
-        controller.fetchOrders();
-      },
-    )
-    .subscribe();
-
+        .channel('orders_channel')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'orders',
+          callback: (payload) {
+            controller.fetchOrders();
+          },
+        )
+        .subscribe();
   }
 
   @override
@@ -49,18 +49,25 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pengiriman'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        title: Text(
+          'Pengiriman',
+          style: TextStyle(fontWeight: FontWeight.normal),
+        ),
+        elevation: 0,
+        backgroundColor: AppTheme.primary,
+        foregroundColor: const Color.fromARGB(221, 255, 255, 255),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildFilterSection(),
-            SizedBox(height: 16),
-            _buildShipmentsList(),
-          ],
+      body: Container(
+        color: Colors.grey[50],
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              _buildFilterSection(),
+              SizedBox(height: 16),
+              _buildShipmentsList(),
+            ],
+          ),
         ),
       ),
     );
@@ -68,8 +75,12 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
 
   Widget _buildFilterSection() {
     return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16),
         child: Column(
           children: [
             TextField(
@@ -77,40 +88,62 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
               onChanged: (value) => controller.filterShipments(),
               decoration: InputDecoration(
                 hintText: 'Cari ID atau alamat pengiriman...',
-                prefixIcon: Icon(Icons.search),
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                filled: true,
+                fillColor: Colors.grey[100],
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.blue, width: 1),
                 ),
               ),
             ),
             SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Obx(() => DropdownButtonFormField(
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Obx(() => DropdownButton<String>(
                     value: controller.selectedStatus.value,
-                    decoration: InputDecoration(
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
-                    ),
+                    isExpanded: true,
+                    underline: SizedBox(),
                     items: [
                       'Semua',
                       'Menunggu',
                       'Menunggu Pembatalan',
                       'Diproses',
+                      'Transit',
                       'Dikirim',
                       'Terkirim',
                       'Selesai',
-                      'Dibatalkan'
-                    ].map((status) => DropdownMenuItem(
-                          value: status,
-                          child: Text(status),
-                        ))
-                        .toList(),
-                    onChanged: (value) => controller.filterByStatus(value.toString()),
+                      'Dibatalkan',
+                    ].map((String value) {
+                      return DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      if (newValue != null) {
+                        controller.filterByStatus(newValue);
+                      }
+                    },
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 15,
+                    ),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded),
                   )),
-                ),
-              ],
             ),
           ],
         ),
@@ -125,15 +158,15 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.local_shipping_outlined, 
-                       size: 64, 
-                       color: Colors.grey),
+                  Icon(Icons.local_shipping_outlined,
+                      size: 80, color: Colors.grey[300]),
                   SizedBox(height: 16),
                   Text(
                     'Tidak ada data pengiriman',
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: Colors.grey[500],
                       fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -144,10 +177,11 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
               itemBuilder: (context, index) {
                 final orderData = controller.filteredOrders[index];
                 return Card(
-                  elevation: 2,
+                  elevation: 0,
                   margin: EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.grey[200]!, width: 1),
                   ),
                   child: InkWell(
                     onTap: () => controller.goToDetail(orderData),
@@ -159,6 +193,19 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
                         children: [
                           Row(
                             children: [
+                              Container(
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue[50],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.shopping_bag_outlined,
+                                  color: Colors.blue,
+                                  size: 20,
+                                ),
+                              ),
+                              SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   'ID: ${orderData['id']}',
@@ -168,58 +215,52 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
-
-
                               ),
-                              SizedBox(width: 8),
                               _buildStatusChip(orderData['status']),
                             ],
                           ),
-
-                          SizedBox(height: 12),
-
-                          Row(
-                            children: [
-                              Icon(Icons.location_on_outlined, 
-                                   color: Colors.grey,
-                                   size: 20),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  orderData['shipping_address'],
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-
-                                    fontSize: 14,
-
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 2,
+                          Padding(
+                            padding: const EdgeInsets.only(left: 40),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Icon(Icons.location_on_outlined,
+                                        color: Colors.grey[500], size: 20),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        orderData['shipping_address'],
+                                        style: TextStyle(
+                                          color: Colors.grey[700],
+                                          fontSize: 14,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 2,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Icon(Icons.payments_outlined, 
-                                   color: Colors.grey,
-                                   size: 20),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Rp ${orderData['total_amount']}',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 14,
-
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                                SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(Icons.payments_outlined,
+                                        color: Colors.grey[500], size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Rp ${orderData['total_amount']}',
+                                      style: TextStyle(
+                                        color: Colors.grey[900],
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -254,17 +295,18 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: chipColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: chipColor.withOpacity(0.2)),
       ),
       child: Text(
         controller.getStatusIndonesia(status),
         style: TextStyle(
           color: chipColor,
           fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

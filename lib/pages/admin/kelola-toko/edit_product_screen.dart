@@ -32,6 +32,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
   final heightController = TextEditingController();
   String? selectedCategory;
 
+  // Tambahkan controller untuk alamat
+  final streetController = TextEditingController();
+  final villageController = TextEditingController();
+  final districtController = TextEditingController();
+  final cityController = TextEditingController();
+  final provinceController = TextEditingController();
+  final postalCodeController = TextEditingController();
+
   final List<String> categories = [
     'Makanan',
     'Minuman',
@@ -46,6 +54,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     super.initState();
     _initializeData();
     _initializeImages();
+    _initializeAddress();
   }
 
   void _initializeData() {
@@ -76,6 +85,28 @@ class _EditProductScreenState extends State<EditProductScreen> {
         }
       } catch (e) {
         print('Error parsing image URLs: $e');
+      }
+    }
+  }
+
+  void _initializeAddress() {
+    if (widget.product['store_address'] != null) {
+      try {
+        Map<String, dynamic> address;
+        if (widget.product['store_address'] is String) {
+          address = json.decode(widget.product['store_address']);
+        } else {
+          address = widget.product['store_address'];
+        }
+
+        streetController.text = address['street'] ?? '';
+        villageController.text = address['village'] ?? '';
+        districtController.text = address['district'] ?? '';
+        cityController.text = address['city'] ?? '';
+        provinceController.text = address['province'] ?? '';
+        postalCodeController.text = address['postal_code'] ?? '';
+      } catch (e) {
+        print('Error parsing address: $e');
       }
     }
   }
@@ -304,6 +335,9 @@ class _EditProductScreenState extends State<EditProductScreen> {
             ),
             SizedBox(height: 24),
 
+            // Tambahkan widget form untuk alamat
+            _buildAddressFields(),
+
             ElevatedButton(
               onPressed: isLoading
                   ? null
@@ -312,6 +346,16 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         setState(() => isLoading = true);
                         try {
                           final imageUrls = await _uploadImages();
+
+                          // Buat objek alamat
+                          final addressData = {
+                            'street': streetController.text,
+                            'village': villageController.text,
+                            'district': districtController.text,
+                            'city': cityController.text,
+                            'province': provinceController.text,
+                            'postal_code': postalCodeController.text,
+                          };
 
                           final updatedData = {
                             'name': nameController.text,
@@ -324,6 +368,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
                             'width': int.parse(widthController.text),
                             'height': int.parse(heightController.text),
                             'image_url': imageUrls,
+                            'store_address':
+                                addressData, // Tambahkan data alamat
                           };
 
                           await supabase
@@ -375,6 +421,101 @@ class _EditProductScreenState extends State<EditProductScreen> {
     );
   }
 
+  // Tambahkan widget form untuk alamat
+  Widget _buildAddressFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Alamat Toko',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey[700],
+          ),
+        ),
+        SizedBox(height: 12),
+        TextFormField(
+          controller: streetController,
+          decoration: InputDecoration(
+            labelText: 'Nama Jalan',
+            hintText: 'Contoh: Jln Sigra',
+          ),
+          validator: (value) =>
+              value!.isEmpty ? 'Nama jalan tidak boleh kosong' : null,
+        ),
+        SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: villageController,
+                decoration: InputDecoration(
+                  labelText: 'Desa/Kelurahan',
+                  hintText: 'Contoh: Cisetu',
+                ),
+                validator: (value) =>
+                    value!.isEmpty ? 'Desa/Kelurahan tidak boleh kosong' : null,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: districtController,
+                decoration: InputDecoration(
+                  labelText: 'Kecamatan',
+                  hintText: 'Contoh: Rajagaluh',
+                ),
+                validator: (value) =>
+                    value!.isEmpty ? 'Kecamatan tidak boleh kosong' : null,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: cityController,
+                decoration: InputDecoration(
+                  labelText: 'Kota/Kabupaten',
+                  hintText: 'Contoh: Majalengka',
+                ),
+                validator: (value) =>
+                    value!.isEmpty ? 'Kota/Kabupaten tidak boleh kosong' : null,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: provinceController,
+                decoration: InputDecoration(
+                  labelText: 'Provinsi',
+                  hintText: 'Contoh: Jawa Barat',
+                ),
+                validator: (value) =>
+                    value!.isEmpty ? 'Provinsi tidak boleh kosong' : null,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 12),
+        TextFormField(
+          controller: postalCodeController,
+          decoration: InputDecoration(
+            labelText: 'Kode Pos',
+            hintText: 'Contoh: 45471',
+          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          validator: (value) =>
+              value!.isEmpty ? 'Kode pos tidak boleh kosong' : null,
+        ),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     nameController.dispose();
@@ -385,6 +526,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
     lengthController.dispose();
     widthController.dispose();
     heightController.dispose();
+    streetController.dispose();
+    villageController.dispose();
+    districtController.dispose();
+    cityController.dispose();
+    provinceController.dispose();
+    postalCodeController.dispose();
     super.dispose();
   }
 }

@@ -425,23 +425,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildWithdrawalButton() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () {
-            Get.to(
-                () => WithdrawalScreen(balance: controller.totalIncome.value));
-          },
-          child: Text('Cairkan Dana'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primary,
-            padding: EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

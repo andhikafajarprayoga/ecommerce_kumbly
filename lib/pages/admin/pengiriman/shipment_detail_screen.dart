@@ -29,7 +29,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
           .eq('order_id', orderData['id'])
           .eq('status', 'pending')
           .single();
-      
+
       setState(() {
         hasCancellationRequest = response != null;
         cancellationData = response;
@@ -42,24 +42,20 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   Future<void> processCancellation(bool isApproved) async {
     try {
       final currentUser = supabase.auth.currentUser;
-      
+
       // Update cancellation status
-      await supabase
-          .from('order_cancellations')
-          .update({
-            'status': isApproved ? 'approved' : 'rejected',
-            'processed_by': currentUser?.id,
-            'processed_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', cancellationData?['id']);
+      await supabase.from('order_cancellations').update({
+        'status': isApproved ? 'approved' : 'rejected',
+        'processed_by': currentUser?.id,
+        'processed_at': DateTime.now().toIso8601String(),
+      }).eq('id', cancellationData?['id']);
 
       // If approved, update order status to cancelled
       if (isApproved) {
         await supabase
             .from('orders')
-            .update({'status': 'cancelled'})
-            .eq('id', orderData['id']);
-        
+            .update({'status': 'cancelled'}).eq('id', orderData['id']);
+
         setState(() {
           orderData['status'] = 'cancelled';
           selectedStatus = 'cancelled';
@@ -91,20 +87,19 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     try {
       await supabase
           .from('orders')
-          .update({'status': newStatus})
-          .eq('id', orderData['id']);
-      
+          .update({'status': newStatus}).eq('id', orderData['id']);
+
       setState(() {
         orderData['status'] = newStatus; // Update local state
       });
-      
+
       Get.snackbar(
         'Sukses',
         'Status pesanan berhasil diperbarui',
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
-      
+
       Get.back(result: true);
     } catch (e) {
       Get.snackbar(
@@ -117,64 +112,64 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   }
 
   Future<void> deleteOrder() async {
-  try {
-    final orderId = orderData['id'];
+    try {
+      final orderId = orderData['id'];
 
-    // Cek apakah order_id masih direferensikan sebelum menghapus
-    final cancellations = await supabase
-        .from('order_cancellations')
-        .select()
-        .eq('order_id', orderId);
+      // Cek apakah order_id masih direferensikan sebelum menghapus
+      final cancellations = await supabase
+          .from('order_cancellations')
+          .select()
+          .eq('order_id', orderId);
 
-    if (cancellations.isNotEmpty) {
-      await supabase.from('order_cancellations').delete().eq('order_id', orderId);
+      if (cancellations.isNotEmpty) {
+        await supabase
+            .from('order_cancellations')
+            .delete()
+            .eq('order_id', orderId);
+      }
+
+      // Hapus order_items jika masih ada
+      final orderItems =
+          await supabase.from('order_items').select().eq('order_id', orderId);
+
+      if (orderItems.isNotEmpty) {
+        await supabase.from('order_items').delete().eq('order_id', orderId);
+      }
+
+      // Setelah memastikan referensi dihapus, hapus order
+      await supabase.from('orders').delete().eq('id', orderId);
+
+      Get.snackbar(
+        'Sukses',
+        'Pesanan berhasil dihapus',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: Duration(seconds: 2),
+      );
+
+      // Tunggu snackbar selesai sebelum kembali
+      await Future.delayed(Duration(seconds: 2));
+      Get.back(result: true);
+
+      // Tampilkan snackbar di halaman sebelumnya
+      Get.snackbar(
+        'Informasi',
+        'Data pesanan telah dihapus dari sistem',
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      print('Error deleting order: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal menghapus pesanan: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+      );
     }
-
-    // Hapus order_items jika masih ada
-    final orderItems = await supabase
-        .from('order_items')
-        .select()
-        .eq('order_id', orderId);
-
-    if (orderItems.isNotEmpty) {
-      await supabase.from('order_items').delete().eq('order_id', orderId);
-    }
-
-    // Setelah memastikan referensi dihapus, hapus order
-    await supabase.from('orders').delete().eq('id', orderId);
-
-    Get.snackbar(
-      'Sukses',
-      'Pesanan berhasil dihapus',
-      backgroundColor: Colors.green,
-      colorText: Colors.white,
-      duration: Duration(seconds: 2),
-    );
-
-    // Tunggu snackbar selesai sebelum kembali
-    await Future.delayed(Duration(seconds: 2));
-    Get.back(result: true);
-
-    // Tampilkan snackbar di halaman sebelumnya
-    Get.snackbar(
-      'Informasi',
-      'Data pesanan telah dihapus dari sistem',
-      backgroundColor: Colors.blue,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-    );
-  } catch (e) {
-    print('Error deleting order: $e');
-    Get.snackbar(
-      'Error',
-      'Gagal menghapus pesanan: $e',
-      backgroundColor: Colors.red,
-      colorText: Colors.white,
-      duration: Duration(seconds: 3),
-    );
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -214,54 +209,65 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Informasi Pesanan',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Colors.grey.shade50],
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Informasi Pesanan',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
-                ),
-                _buildStatusChip(orderData['status']),
-              ],
-            ),
-            Divider(height: 32),
-            _buildInfoItem(
-              icon: Icons.numbers,
-              title: 'ID Pesanan',
-              value: orderData['id'],
-            ),
-            _buildInfoItem(
-              icon: Icons.location_on_outlined,
-              title: 'Alamat Pengiriman',
-              value: orderData['shipping_address'],
-            ),
-            _buildInfoItem(
-              icon: Icons.payments_outlined,
-              title: 'Total Pembayaran',
-              value: 'Rp ${orderData['total_amount']}',
-            ),
-            _buildInfoItem(
-              icon: Icons.local_shipping_outlined,
-              title: 'Biaya Pengiriman',
-              value: 'Rp ${orderData['shipping_cost']}',
-            ),
-            _buildInfoItem(
-              icon: Icons.calendar_today_outlined,
-              title: 'Tanggal Pemesanan',
-              value: DateTime.parse(orderData['created_at'])
-                          .toLocal()
-                          .toString()
-                          .split('.')[0],
-            ),
-          ],
+                  _buildStatusChip(orderData['status']),
+                ],
+              ),
+              Divider(height: 32, thickness: 1),
+              _buildInfoItem(
+                icon: Icons.numbers,
+                title: 'ID Pesanan',
+                value: orderData['id'],
+              ),
+              _buildInfoItem(
+                icon: Icons.location_on_outlined,
+                title: 'Alamat Pengiriman',
+                value: orderData['shipping_address'],
+              ),
+              _buildInfoItem(
+                icon: Icons.payments_outlined,
+                title: 'Total Pembayaran',
+                value: 'Rp ${orderData['total_amount']}',
+              ),
+              _buildInfoItem(
+                icon: Icons.local_shipping_outlined,
+                title: 'Biaya Pengiriman',
+                value: 'Rp ${orderData['shipping_cost']}',
+              ),
+              _buildInfoItem(
+                icon: Icons.calendar_today_outlined,
+                title: 'Tanggal Pemesanan',
+                value: DateTime.parse(orderData['created_at'])
+                    .toLocal()
+                    .toString()
+                    .split('.')[0],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -312,73 +318,137 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Update Status',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: selectedStatus,
-              decoration: InputDecoration(
-                labelText: 'Status Pesanan',
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Colors.orange.shade50],
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Update Status',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              items: [
-                'pending',
-                'pending_cancellation',
-                'processing',
-                'shipping',
-                'delivered',
-                'completed',
-                'cancelled',
-              ].map((status) => DropdownMenuItem(
-                    value: status,
-                    child: Text(_getStatusIndonesia(status)),
-                  )).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedStatus = value!;
-                });
-              },
-            ),
-            SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
+              SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: selectedStatus,
+                decoration: InputDecoration(
+                  labelText: 'Status Pesanan',
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
                   ),
                 ),
-                onPressed: () => updateStatus(selectedStatus),
-                child: Text(
-                  'Update Status',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                items: [
+                  'pending',
+                  'pending_cancellation',
+                  'processing',
+                  'transit',
+                  'shipping',
+                  'delivered',
+                  'completed',
+                  'cancelled',
+                ]
+                    .map((status) => DropdownMenuItem(
+                          value: status,
+                          child: Row(
+                            children: [
+                              _buildStatusIcon(status),
+                              SizedBox(width: 8),
+                              Text(_getStatusIndonesia(status)),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedStatus = value!;
+                  });
+                },
+              ),
+              SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  onPressed: () => updateStatus(selectedStatus),
+                  child: Text(
+                    'Update Status',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _buildStatusIcon(String status) {
+    IconData iconData;
+    Color iconColor;
+
+    switch (status) {
+      case 'pending':
+        iconData = Icons.hourglass_empty;
+        iconColor = Colors.blue;
+        break;
+      case 'pending_cancellation':
+        iconData = Icons.cancel_outlined;
+        iconColor = Colors.orange;
+        break;
+      case 'processing':
+        iconData = Icons.sync;
+        iconColor = Colors.amber;
+        break;
+      case 'transit':
+        iconData = Icons.transfer_within_a_station;
+        iconColor = Colors.indigo;
+        break;
+      case 'shipping':
+        iconData = Icons.local_shipping;
+        iconColor = Colors.purple;
+        break;
+      case 'delivered':
+        iconData = Icons.check_circle_outline;
+        iconColor = Colors.teal;
+        break;
+      case 'completed':
+        iconData = Icons.done_all;
+        iconColor = Colors.green;
+        break;
+      case 'cancelled':
+        iconData = Icons.cancel;
+        iconColor = Colors.red;
+        break;
+      default:
+        iconData = Icons.help_outline;
+        iconColor = Colors.grey;
+    }
+
+    return Icon(iconData, color: iconColor, size: 20);
   }
 
   Widget _buildStatusChip(String status) {
@@ -387,11 +457,20 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       case 'pending':
         chipColor = Colors.blue;
         break;
-      case 'processing':
+      case 'pending_cancellation':
         chipColor = Colors.orange;
+        break;
+      case 'processing':
+        chipColor = Colors.amber;
+        break;
+      case 'transit':
+        chipColor = Colors.indigo;
         break;
       case 'shipping':
         chipColor = Colors.purple;
+        break;
+      case 'delivered':
+        chipColor = Colors.teal;
         break;
       case 'completed':
         chipColor = Colors.green;
@@ -427,48 +506,59 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Permintaan Pembatalan',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, Colors.red.shade50],
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Permintaan Pembatalan',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
               ),
-            ),
-            SizedBox(height: 16),
-            Text('Catatan: ${cancellationData?['notes'] ?? '-'}'),
-            Text('Diminta pada: ${DateTime.parse(cancellationData?['requested_at']).toLocal()}'),
-            SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      padding: EdgeInsets.symmetric(vertical: 12),
+              SizedBox(height: 16),
+              Text('Catatan: ${cancellationData?['notes'] ?? '-'}'),
+              Text(
+                  'Diminta pada: ${DateTime.parse(cancellationData?['requested_at']).toLocal()}'),
+              SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: () => processCancellation(true),
+                      child: Text('Setujui Pembatalan'),
                     ),
-                    onPressed: () => processCancellation(true),
-                    child: Text('Setujui Pembatalan'),
                   ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(vertical: 12),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: () => processCancellation(false),
+                      child: Text('Tolak'),
                     ),
-                    onPressed: () => processCancellation(false),
-                    child: Text('Tolak'),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -485,13 +575,11 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         ),
         actions: [
           TextButton(
-            child: Text('Batal',
-                style: TextStyle(color: Colors.grey)),
+            child: Text('Batal', style: TextStyle(color: Colors.grey)),
             onPressed: () => Navigator.pop(context),
           ),
           TextButton(
-            child: Text('Hapus',
-                style: TextStyle(color: Colors.red)),
+            child: Text('Hapus', style: TextStyle(color: Colors.red)),
             onPressed: () {
               Navigator.pop(context);
               deleteOrder();
@@ -510,6 +598,8 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         return 'Menunggu Pembatalan';
       case 'processing':
         return 'Diproses';
+      case 'transit':
+        return 'Transit';
       case 'shipping':
         return 'Dikirim';
       case 'delivered':
@@ -522,4 +612,4 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         return status;
     }
   }
-} 
+}

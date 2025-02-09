@@ -4,6 +4,7 @@ import 'package:kumbly_ecommerce/pages/admin/kelola-toko/store_products_screen.d
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import '../feature/edit_store_screen.dart';
+import 'dart:convert';
 
 class StoresScreen extends StatefulWidget {
   @override
@@ -112,28 +113,79 @@ class _StoresScreenState extends State<StoresScreen> {
     }
   }
 
+  String _parseAddress(dynamic address) {
+    if (address == null) return 'Alamat belum ditambahkan';
+
+    try {
+      Map<String, dynamic> addressMap;
+      if (address is String) {
+        addressMap = json.decode(address);
+      } else {
+        addressMap = Map<String, dynamic>.from(address);
+      }
+
+      final street = addressMap['street'] ?? '';
+      final village = addressMap['village'] ?? '';
+      final district = addressMap['district'] ?? '';
+      final city = addressMap['city'] ?? '';
+      final province = addressMap['province'] ?? '';
+      final postalCode = addressMap['postal_code'] ?? '';
+
+      // Menggabungkan dengan format yang lebih mudah dibaca
+      return '$street, $village, $district, $city, $province $postalCode'
+          .replaceAll(RegExp(r'\s+'), ' ') // Menghapus spasi berlebih
+          .replaceAll(', ,', ',') // Menghapus koma berlebih
+          .replaceAll(',,', ',')
+          .trim();
+    } catch (e) {
+      print('Error parsing address: $e');
+      return 'Format alamat tidak valid';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kelola Toko'),
+        title: Text('Kelola Toko', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        elevation: 0,
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
-          Padding(
+          Container(
             padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: AppTheme.primary,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
+            ),
             child: TextField(
               controller: searchController,
               decoration: InputDecoration(
                 hintText: 'Cari toko...',
-                prefixIcon: Icon(Icons.search),
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
+                filled: true,
+                fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
                 ),
                 suffixIcon: searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: Icon(Icons.clear),
+                        icon: Icon(Icons.clear, color: Colors.grey[400]),
                         onPressed: () {
                           searchController.clear();
                           fetchStores();
@@ -154,22 +206,45 @@ class _StoresScreenState extends State<StoresScreen> {
             child: isLoading
                 ? Center(child: CircularProgressIndicator())
                 : stores.isEmpty
-                    ? Center(child: Text('Tidak ada toko'))
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.store_outlined,
+                                size: 70, color: Colors.grey),
+                            SizedBox(height: 16),
+                            Text(
+                              'Tidak ada toko',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
                     : ListView.builder(
+                        padding: EdgeInsets.all(16),
                         itemCount: stores.length,
                         itemBuilder: (context, index) {
                           final store = stores[index];
                           final user = store['users'];
                           return Card(
-                            margin: EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            margin: EdgeInsets.only(bottom: 16),
                             child: ListTile(
+                              contentPadding: EdgeInsets.all(16),
                               leading: CircleAvatar(
+                                radius: 25,
                                 backgroundColor: store['is_verified'] == true
                                     ? Colors.green.shade100
                                     : Colors.grey.shade100,
                                 child: Icon(
                                   Icons.store,
+                                  size: 30,
                                   color: store['is_verified'] == true
                                       ? Colors.green
                                       : Colors.grey,
@@ -177,18 +252,25 @@ class _StoresScreenState extends State<StoresScreen> {
                               ),
                               title: Text(
                                 store['store_name'],
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
                               ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
+                                  SizedBox(height: 8),
+                                  _buildInfoRow(Icons.person,
                                       'Pemilik: ${user['full_name'] ?? 'N/A'}'),
-                                  Text('Email: ${user['email']}'),
-                                  Text(
+                                  _buildInfoRow(
+                                      Icons.email, 'Email: ${user['email']}'),
+                                  _buildInfoRow(Icons.phone,
                                       'Telp: ${store['store_phone'] ?? 'N/A'}'),
-                                  Text(
-                                      'Alamat: ${store['store_address'] ?? 'N/A'}'),
+                                  _buildInfoRow(
+                                    Icons.location_on,
+                                    'Alamat: ${_parseAddress(store['store_address'])}',
+                                  ),
                                 ],
                               ),
                               trailing: PopupMenuButton(
@@ -284,6 +366,24 @@ class _StoresScreenState extends State<StoresScreen> {
                           );
                         },
                       ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey[600]),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
           ),
         ],
       ),
