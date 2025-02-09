@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:kumbly_ecommerce/utils/auth_helper.dart';
 
 class CartController extends GetxController {
   final supabase = Supabase.instance.client;
@@ -45,6 +46,9 @@ class CartController extends GetxController {
 
   // Menambahkan produk ke keranjang
   Future<void> addToCart(Map<String, dynamic> product) async {
+    if (!await AuthHelper.checkLoginRequired()) {
+      return;
+    }
     try {
       isLoading(true);
       final userId = supabase.auth.currentUser?.id;

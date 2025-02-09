@@ -9,6 +9,7 @@ import 'screens/home_screen.dart';
 import 'pages/admin/home_screen.dart';
 import 'pages/courier/home_screen.dart';
 import 'pages/branch/home_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,6 +18,10 @@ void main() async {
     url: 'https://hfeolsmaqsjfueypfebj.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmZW9sc21hcXNqZnVleXBmZWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgzOTA1MDIsImV4cCI6MjA1Mzk2NjUwMn0.fLpXoLsYY_c16kjS-pGVGRf1LSLTZn6kI3ilK-_9ktI',
+    authOptions: FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce,
+    ),
+    debug: true,
   );
 
   Get.put(AuthController());
@@ -28,8 +33,9 @@ void main() async {
       colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       useMaterial3: true,
     ),
-    home: const AuthWrapper(),
+    home: const SplashScreen(),
     getPages: [
+      GetPage(name: '/splash', page: () => SplashScreen()),
       GetPage(name: '/login', page: () => LoginPage()),
       GetPage(name: '/register', page: () => RegisterPage()),
       GetPage(name: '/buyer/home_screen', page: () => BuyerHomeScreen()),
@@ -48,46 +54,10 @@ class AuthWrapper extends StatelessWidget {
     return StreamBuilder<AuthState>(
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data!.session != null) {
-          return FutureBuilder<String>(
-            future: _getUserRole(),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                if (snapshot.data == 'buyer') {
-                  return BuyerHomeScreen();
-                }
-                return const HomeScreen();
-              }
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            },
-          );
-        }
-        return const HomeScreen();
+        // Langsung ke BuyerHomeScreen untuk semua user
+        return BuyerHomeScreen();
       },
     );
-  }
-
-  Future<String> _getUserRole() async {
-    try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return '';
-
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-      return response['role'] as String;
-    } catch (e) {
-      // Jika user belum ada di tabel users, set default sebagai 'buyer'
-      if (e.toString().contains('contains 0 rows')) {
-        return 'buyer';
-      }
-      return '';
-    }
   }
 }
 

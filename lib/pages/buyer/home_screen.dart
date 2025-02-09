@@ -44,9 +44,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     super.initState();
     productController.fetchProducts();
     fetchBanners();
-    fetchCartCount();
-    listenToCartChanges();
-    _setupUnreadChatsStream();
+
+    // Hanya jalankan fungsi yang membutuhkan auth jika user sudah login
+    if (supabase.auth.currentUser != null) {
+      fetchCartCount();
+      listenToCartChanges();
+      _setupUnreadChatsStream();
+    }
   }
 
   @override
@@ -90,7 +94,9 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   }
 
   void listenToCartChanges() {
-    final myUserId = supabase.auth.currentUser!.id;
+    final myUserId = supabase.auth.currentUser?.id;
+    if (myUserId == null) return; // Skip jika belum login
+
     supabase
         .from('cart_items')
         .stream(primaryKey: ['id'])

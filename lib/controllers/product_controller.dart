@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/widgets.dart';
 
 class ProductController extends GetxController {
   final supabase = Supabase.instance.client;
@@ -25,16 +26,18 @@ class ProductController extends GetxController {
       final response = await supabase
           .from('products')
           .select()
-          .order('created_at',
-              ascending: false) // Urutkan berdasarkan yang terbaru
-          .limit(20); // Batasi 20 produk saja untuk tampilan awal
+          .order('created_at', ascending: false)
+          .limit(20);
 
-      print('Fetched products: $response'); // Debug print
-      products.assignAll(response);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        products.assignAll(response);
+      });
     } catch (e) {
       print('Error fetching products: $e');
     } finally {
-      isLoading.value = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        isLoading.value = false;
+      });
     }
   }
 
@@ -53,16 +56,22 @@ class ProductController extends GetxController {
           .or('name.ilike.%${query}%,description.ilike.%${query}%')
           .order('created_at', ascending: false);
 
-      if (response != null) {
-        products.assignAll(response);
-      } else {
-        products.clear();
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (response != null) {
+          products.assignAll(response);
+        } else {
+          products.clear();
+        }
+      });
     } catch (e) {
       print('Error searching products: $e');
-      products.clear();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        products.clear();
+      });
     } finally {
-      isLoading.value = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        isLoading.value = false;
+      });
     }
   }
 

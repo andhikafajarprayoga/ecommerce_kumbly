@@ -47,10 +47,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
-    fetchPaymentMethods();
-    fetchShippingRates();
-    fetchAvailableVouchers();
-    fetchUserAddresses();
+    // Pindahkan semua fetch ke method terpisah
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeData();
+    });
+  }
+
+  Future<void> _initializeData() async {
+    if (mounted) {
+      await fetchPaymentMethods();
+      await fetchShippingRates();
+      await fetchAvailableVouchers();
+      await fetchUserAddresses();
+    }
   }
 
   Future<void> fetchPaymentMethods() async {
