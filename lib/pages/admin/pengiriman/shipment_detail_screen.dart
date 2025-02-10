@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
 class ShipmentDetailScreen extends StatefulWidget {
   @override
@@ -13,12 +14,19 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   String selectedStatus = '';
   bool hasCancellationRequest = false;
   Map<String, dynamic>? cancellationData;
+  final TextEditingController adminNoteController = TextEditingController();
+  String? merchantAddress;
+  List<Map<String, dynamic>> orderItems = [];
+  String? selectedAdminNote = 'Terima'; // Default value
 
   @override
   void initState() {
     super.initState();
+    print('Debug - Order Data: $orderData');
     selectedStatus = orderData['status'];
     checkCancellationRequest();
+    fetchMerchantAddress();
+    fetchOrderItems();
   }
 
   Future<void> checkCancellationRequest() async {
@@ -28,7 +36,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
           .select()
           .eq('order_id', orderData['id'])
           .eq('status', 'pending')
-          .single();
+          .maybeSingle();
 
       setState(() {
         hasCancellationRequest = response != null;
@@ -36,6 +44,10 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       });
     } catch (e) {
       print('Error checking cancellation: $e');
+      setState(() {
+        hasCancellationRequest = false;
+        cancellationData = null;
+      });
     }
   }
 
@@ -83,90 +95,114 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     }
   }
 
-  Future<void> updateStatus(String newStatus) async {
+  Future<void> fetchMerchantAddress() async {
     try {
-      await supabase
+      final orderId = orderData['id'];
+      print('Debug - Order ID: $orderId');
+
+      // Ambil merchant_id dari tabel orders
+      final orderResponse = await supabase
           .from('orders')
-          .update({'status': newStatus}).eq('id', orderData['id']);
+          .select('merchant_id')
+          .eq('id', orderId)
+          .single();
+
+      print('Debug - Order Response: $orderResponse');
+      final merchantId = orderResponse['merchant_id'];
+      print('Debug - Merchant ID from DB: $merchantId');
+
+      if (merchantId != null) {
+        final response = await supabase
+            .from('merchants')
+            .select('store_address')
+            .eq('id', merchantId)
+            .single();
+
+        print('Debug - Raw Response: $response');
+
+        if (response['store_address'] != null) {
+          // Parse JSON string menjadi Map
+          final addressData = json.decode(response['store_address']);
+          print('Debug - Parsed Address Data: $addressData');
+
+          // Format alamat lengkap
+          final fullAddress = [
+            addressData['address'],
+            addressData['district'],
+            addressData['city'],
+            addressData['province'],
+            addressData['postal_code'],
+          ].where((e) => e != null && e.isNotEmpty).join(', ');
+
+          print('Debug - Full Address: $fullAddress');
+
+          setState(() {
+            merchantAddress = fullAddress;
+          });
+        } else {
+          print('Debug - Store address is null');
+          setState(() {
+            merchantAddress = 'Alamat toko tidak tersedia';
+          });
+        }
+      } else {
+        print('Debug - Merchant ID is null');
+        setState(() {
+          merchantAddress = 'Merchant ID tidak ditemukan';
+        });
+      }
+    } catch (e) {
+      print('Error fetching merchant address: $e');
+      setState(() {
+        merchantAddress = 'Alamat tidak tersedia';
+      });
+    }
+  }
+
+  Future<void> fetchOrderItems() async {
+    try {
+      final response = await supabase
+          .from('order_items')
+          .select('*, products(name)')
+          .eq('order_id', orderData['id']);
 
       setState(() {
-        orderData['status'] = newStatus; // Update local state
+        orderItems = List<Map<String, dynamic>>.from(response);
       });
+    } catch (e) {
+      print('Error fetching order items: $e');
+    }
+  }
+
+  Future<void> updateAdminNote(String note) async {
+    try {
+      final currentUser = supabase.auth.currentUser;
+
+      if (currentUser == null) {
+        throw Exception('User tidak terautentikasi');
+      }
+
+      await supabase
+          .from('orders')
+          .update({
+            'admin_acc_note': note,
+          })
+          .eq('id', orderData['id'])
+          .select('id, admin_acc_note');
 
       Get.snackbar(
         'Sukses',
-        'Status pesanan berhasil diperbarui',
-        backgroundColor: Colors.green,
+        'Status pesanan: ${note == 'Terima' ? 'Diterima' : 'Ditolak'}',
+        backgroundColor: note == 'Terima' ? Colors.green : Colors.red,
         colorText: Colors.white,
       );
-
-      Get.back(result: true);
     } catch (e) {
+      print('Error updating admin note: $e');
       Get.snackbar(
         'Error',
         'Gagal memperbarui status: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-      );
-    }
-  }
-
-  Future<void> deleteOrder() async {
-    try {
-      final orderId = orderData['id'];
-
-      // Cek apakah order_id masih direferensikan sebelum menghapus
-      final cancellations = await supabase
-          .from('order_cancellations')
-          .select()
-          .eq('order_id', orderId);
-
-      if (cancellations.isNotEmpty) {
-        await supabase
-            .from('order_cancellations')
-            .delete()
-            .eq('order_id', orderId);
-      }
-
-      // Hapus order_items jika masih ada
-      final orderItems =
-          await supabase.from('order_items').select().eq('order_id', orderId);
-
-      if (orderItems.isNotEmpty) {
-        await supabase.from('order_items').delete().eq('order_id', orderId);
-      }
-
-      // Setelah memastikan referensi dihapus, hapus order
-      await supabase.from('orders').delete().eq('id', orderId);
-
-      Get.snackbar(
-        'Sukses',
-        'Pesanan berhasil dihapus',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        duration: Duration(seconds: 2),
-      );
-
-      // Tunggu snackbar selesai sebelum kembali
-      await Future.delayed(Duration(seconds: 2));
-      Get.back(result: true);
-
-      // Tampilkan snackbar di halaman sebelumnya
-      Get.snackbar(
-        'Informasi',
-        'Data pesanan telah dihapus dari sistem',
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-      );
-    } catch (e) {
-      print('Error deleting order: $e');
-      Get.snackbar(
-        'Error',
-        'Gagal menghapus pesanan: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: Duration(seconds: 3),
       );
     }
   }
@@ -194,9 +230,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
           children: [
             if (hasCancellationRequest) _buildCancellationRequest(),
             _buildOrderInfo(),
-            SizedBox(height: 16),
-            if (!hasCancellationRequest && orderData['status'] != 'cancelled')
-              _buildStatusUpdate(),
           ],
         ),
       ),
@@ -238,37 +271,153 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                 ],
               ),
               Divider(height: 32, thickness: 1),
-              _buildInfoItem(
-                icon: Icons.numbers,
-                title: 'ID Pesanan',
-                value: orderData['id'],
+              _buildShippingSection(),
+              SizedBox(height: 16),
+              _buildStoreSection(),
+              SizedBox(height: 16),
+              _buildAdminNoteSection(),
+              SizedBox(height: 8),
+              Text(
+                'Daftar Produk',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              _buildInfoItem(
-                icon: Icons.location_on_outlined,
-                title: 'Alamat Pengiriman',
-                value: orderData['shipping_address'],
-              ),
-              _buildInfoItem(
-                icon: Icons.payments_outlined,
-                title: 'Total Pembayaran',
-                value: 'Rp ${orderData['total_amount']}',
-              ),
-              _buildInfoItem(
-                icon: Icons.local_shipping_outlined,
-                title: 'Biaya Pengiriman',
-                value: 'Rp ${orderData['shipping_cost']}',
-              ),
-              _buildInfoItem(
-                icon: Icons.calendar_today_outlined,
-                title: 'Tanggal Pemesanan',
-                value: DateTime.parse(orderData['created_at'])
-                    .toLocal()
-                    .toString()
-                    .split('.')[0],
-              ),
+              ...orderItems.map((item) => _buildOrderItemTile(item)),
+              Divider(height: 32),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildShippingSection() {
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.local_shipping, color: Colors.blue),
+              SizedBox(width: 8),
+              Text(
+                'Informasi Pengiriman',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade900,
+                ),
+              ),
+            ],
+          ),
+          Divider(height: 16),
+          Text(
+            'Alamat Pengiriman:',
+            style: TextStyle(fontWeight: FontWeight.w500),
+          ),
+          Text(orderData['shipping_address'] ?? 'Tidak ada alamat'),
+          SizedBox(height: 8),
+          Text(
+            'Biaya Pengiriman:',
+            style: TextStyle(fontWeight: FontWeight.w500),
+          ),
+          Text('Rp ${orderData['shipping_cost']}'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoreSection() {
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.green.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.store, color: Colors.green),
+              SizedBox(width: 8),
+              Text(
+                'Informasi Toko',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green.shade900,
+                ),
+              ),
+            ],
+          ),
+          Divider(height: 16),
+          Text(
+            'Alamat Toko:',
+            style: TextStyle(fontWeight: FontWeight.w500),
+          ),
+          Text(merchantAddress ?? 'Alamat toko tidak tersedia'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminNoteSection() {
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.purple.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.purple.shade100),
+      ),
+      child: Column(
+        children: [
+          DropdownButtonFormField<String>(
+            value: selectedAdminNote,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Status Pesanan',
+              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            items: [
+              DropdownMenuItem(value: 'Terima', child: Text('Terima Pesanan')),
+              DropdownMenuItem(value: 'Tolak', child: Text('Tolak Pesanan')),
+            ],
+            onChanged: (value) {
+              setState(() {
+                selectedAdminNote = value;
+              });
+            },
+          ),
+          SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () {
+              if (selectedAdminNote != null) {
+                updateAdminNote(selectedAdminNote!);
+              }
+            },
+            icon: Icon(Icons.send, color: Colors.white),
+            label: Text('Kirim Status', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  selectedAdminNote == 'Terima' ? Colors.green : Colors.red,
+              foregroundColor: Colors.white,
+              minimumSize: Size(double.infinity, 45), // full width button
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -310,145 +459,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildStatusUpdate() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.white, Colors.orange.shade50],
-          ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Update Status',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedStatus,
-                decoration: InputDecoration(
-                  labelText: 'Status Pesanan',
-                  filled: true,
-                  fillColor: Colors.grey[100],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                items: [
-                  'pending',
-                  'pending_cancellation',
-                  'processing',
-                  'transit',
-                  'shipping',
-                  'delivered',
-                  'completed',
-                  'cancelled',
-                ]
-                    .map((status) => DropdownMenuItem(
-                          value: status,
-                          child: Row(
-                            children: [
-                              _buildStatusIcon(status),
-                              SizedBox(width: 8),
-                              Text(_getStatusIndonesia(status)),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedStatus = value!;
-                  });
-                },
-              ),
-              SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () => updateStatus(selectedStatus),
-                  child: Text(
-                    'Update Status',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusIcon(String status) {
-    IconData iconData;
-    Color iconColor;
-
-    switch (status) {
-      case 'pending':
-        iconData = Icons.hourglass_empty;
-        iconColor = Colors.blue;
-        break;
-      case 'pending_cancellation':
-        iconData = Icons.cancel_outlined;
-        iconColor = Colors.orange;
-        break;
-      case 'processing':
-        iconData = Icons.sync;
-        iconColor = Colors.amber;
-        break;
-      case 'transit':
-        iconData = Icons.transfer_within_a_station;
-        iconColor = Colors.indigo;
-        break;
-      case 'shipping':
-        iconData = Icons.local_shipping;
-        iconColor = Colors.purple;
-        break;
-      case 'delivered':
-        iconData = Icons.check_circle_outline;
-        iconColor = Colors.teal;
-        break;
-      case 'completed':
-        iconData = Icons.done_all;
-        iconColor = Colors.green;
-        break;
-      case 'cancelled':
-        iconData = Icons.cancel;
-        iconColor = Colors.red;
-        break;
-      default:
-        iconData = Icons.help_outline;
-        iconColor = Colors.grey;
-    }
-
-    return Icon(iconData, color: iconColor, size: 20);
   }
 
   Widget _buildStatusChip(String status) {
@@ -564,6 +574,14 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     );
   }
 
+  Widget _buildOrderItemTile(Map<String, dynamic> item) {
+    return ListTile(
+      title: Text(item['products']['name']),
+      subtitle: Text('Rp ${item['price']} x ${item['quantity']}'),
+      trailing: Text('Rp ${item['price'] * item['quantity']}'),
+    );
+  }
+
   void _showDeleteConfirmation() {
     showDialog(
       context: context,
@@ -588,6 +606,79 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> deleteOrder() async {
+    try {
+      final orderId = orderData['id'];
+
+      // Cek apakah order_id masih direferensikan sebelum menghapus
+      final cancellations = await supabase
+          .from('order_cancellations')
+          .select()
+          .eq('order_id', orderId);
+
+      if (cancellations.isNotEmpty) {
+        await supabase
+            .from('order_cancellations')
+            .delete()
+            .eq('order_id', orderId);
+      }
+
+      // Hapus notifikasi_seller jika masih ada
+      final notifications = await supabase
+          .from('notifikasi_seller')
+          .select()
+          .eq('order_id', orderId);
+
+      if (notifications.isNotEmpty) {
+        await supabase
+            .from('notifikasi_seller')
+            .delete()
+            .eq('order_id', orderId);
+      }
+
+      // Hapus order_items jika masih ada
+      final orderItems =
+          await supabase.from('order_items').select().eq('order_id', orderId);
+
+      if (orderItems.isNotEmpty) {
+        await supabase.from('order_items').delete().eq('order_id', orderId);
+      }
+
+      // Setelah memastikan referensi dihapus, hapus order
+      await supabase.from('orders').delete().eq('id', orderId);
+
+      Get.snackbar(
+        'Sukses',
+        'Pesanan berhasil dihapus',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: Duration(seconds: 2),
+      );
+
+      // Tunggu snackbar selesai sebelum kembali
+      await Future.delayed(Duration(seconds: 2));
+      Get.back(result: true);
+
+      // Tampilkan snackbar di halaman sebelumnya
+      Get.snackbar(
+        'Informasi',
+        'Data pesanan telah dihapus dari sistem',
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      print('Error deleting order: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal menghapus pesanan: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+      );
+    }
   }
 
   String _getStatusIndonesia(String status) {
