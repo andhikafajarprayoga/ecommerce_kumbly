@@ -16,6 +16,7 @@ import 'withdrawal/withdrawal_screen.dart';
 import 'account/account_deletion_screen.dart';
 import 'feature/branch_products_screen.dart';
 import '../../pages/admin/branch/branch_orders_screen.dart';
+import 'payment/payment_management_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -75,6 +76,13 @@ class AdminHomeScreen extends StatelessWidget {
                           onTap: () => Get.to(() => UsersScreen()),
                         ),
                         _buildMenuCard(
+                          icon: Icons.people,
+                          title: 'Pembayaran',
+                          subtitle: 'Pembayaran dari buyer',
+                          color: Colors.blue,
+                          onTap: () => Get.to(() => PaymentManagementScreen()),
+                        ),
+                        _buildMenuCard(
                           icon: Icons.payments,
                           title: 'Pencairan',
                           subtitle: 'Pencairan dana seller',
@@ -118,8 +126,8 @@ class AdminHomeScreen extends StatelessWidget {
                         ),
                         _buildMenuCard(
                           icon: Icons.payments,
-                          title: 'Pembayaran',
-                          subtitle: 'Atur pembayaran',
+                          title: 'Metode Pembayaran',
+                          subtitle: 'Atur metode pembayaran',
                           color: const Color.fromARGB(255, 247, 0, 255),
                           onTap: () => Get.to(() => PaymentMethodsScreen()),
                         ),
