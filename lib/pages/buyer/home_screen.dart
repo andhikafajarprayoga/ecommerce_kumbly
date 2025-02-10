@@ -162,10 +162,10 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           productController.searchedMerchants.clear();
         } else if (index == 2) {
           // Tab Hotel
-          // Update nilai RxInt untuk trigger listener di HotelScreen
-          Get.find<RxInt>(tag: 'selectedIndex').value = -1; // Reset dulu
-          Get.find<RxInt>(tag: 'selectedIndex').value = 2; // Set kembali ke 2
         }
+      } else if (index == 0 && productController.products.isEmpty) {
+        // Jika pindah ke tab home dan products kosong, fetch ulang
+        productController.fetchProducts();
       }
       _selectedIndex = index;
     });

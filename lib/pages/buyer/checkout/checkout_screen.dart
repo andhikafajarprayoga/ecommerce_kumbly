@@ -43,6 +43,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Map<String, dynamic>> userAddresses = [];
   String? selectedAddress;
   bool isLoadingAddresses = false;
+  Map<String, String> merchantShippingTypes = {};
 
   @override
   void initState() {
@@ -297,26 +298,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> calculateShippingCost() async {
-    if (shippingType == null) return;
-
     try {
-      double baseRate;
       Map<String, double> merchantWeights = {};
       merchantShippingCosts.clear();
       double totalShippingCost = 0;
-
-      // Ambil base rate sesuai tipe pengiriman
-      if (shippingType == 'special') {
-        final selectedRate = shippingRates.firstWhere(
-          (rate) => rate['type'] == 'special',
-        );
-        baseRate = double.parse(selectedRate['base_rate'].toString());
-      } else {
-        final selectedRate = shippingRates.firstWhere(
-          (rate) => rate['type'] == shippingType,
-        );
-        baseRate = double.parse(selectedRate['base_rate'].toString());
-      }
 
       // Kelompokkan item berdasarkan merchant
       Map<String, List<dynamic>> itemsByMerchant = {};
@@ -330,47 +315,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Hitung ongkir untuk setiap merchant
       itemsByMerchant.forEach((merchantId, items) {
-        if (shippingType == 'special') {
-          // Untuk tarif khusus, gunakan base rate langsung per merchant
-          merchantShippingCosts[merchantId] = baseRate;
-          totalShippingCost += baseRate;
-        } else {
-          // Untuk tarif regular, hitung berdasarkan berat
-          double totalWeight = 0.0;
-          for (var item in items) {
-            final product = item['products'];
-            final actualWeight = (product['weight'] ?? 1000) / 1000.0;
-            final volumetricWeight = calculateVolumetricWeight(
-              product['length'] ?? 0,
-              product['width'] ?? 0,
-              product['height'] ?? 0,
-            );
-            final itemWeight = actualWeight > volumetricWeight
-                ? actualWeight
-                : volumetricWeight;
-            totalWeight += itemWeight * item['quantity'];
-          }
+        final shippingType = merchantShippingTypes[merchantId];
+        if (shippingType == null) return;
 
-          // Pembulatan berat
-          double chargeableWeight = totalWeight < 1.0
-              ? 1.0
-              : (totalWeight - totalWeight.floor() >= 0.5)
-                  ? totalWeight.ceil().toDouble()
-                  : totalWeight.floor().toDouble();
+        // Ambil base rate sesuai tipe pengiriman merchant
+        final selectedRate = shippingRates.firstWhere(
+          (rate) => rate['type'] == shippingType,
+          orElse: () => shippingRates.first,
+        );
+        final baseRate = double.parse(selectedRate['base_rate'].toString());
 
-          final merchantShippingCost = baseRate * chargeableWeight;
-          merchantShippingCosts[merchantId] = merchantShippingCost;
-          totalShippingCost += merchantShippingCost;
+        // Hitung total berat untuk merchant ini
+        double totalWeight = 0.0;
+        for (var item in items) {
+          final product = item['products'];
+          final actualWeight = (product['weight'] ?? 1000) / 1000.0;
+          final volumetricWeight = calculateVolumetricWeight(
+            product['length'] ?? 0,
+            product['width'] ?? 0,
+            product['height'] ?? 0,
+          );
+          final itemWeight =
+              actualWeight > volumetricWeight ? actualWeight : volumetricWeight;
+          totalWeight += itemWeight * item['quantity'];
         }
+
+        // Pembulatan berat
+        double chargeableWeight = totalWeight < 1.0
+            ? 1.0
+            : (totalWeight - totalWeight.floor() >= 0.5)
+                ? totalWeight.ceil().toDouble()
+                : totalWeight.floor().toDouble();
+
+        final merchantShippingCost = baseRate * chargeableWeight;
+        merchantShippingCosts[merchantId] = merchantShippingCost;
+        totalShippingCost += merchantShippingCost;
       });
 
       setState(() {
         shippingCost = totalShippingCost;
-      });
-
-      print('Debug - Shipping costs per merchant:');
-      merchantShippingCosts.forEach((merchantId, cost) {
-        print('Merchant $merchantId: Rp ${NumberFormat('#,###').format(cost)}');
       });
     } catch (e) {
       print('Error calculating shipping cost: $e');
@@ -530,42 +513,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             SizedBox(height: 16),
 
-            // Opsi pengiriman
-            if (isLoadingRates)
-              Center(child: CircularProgressIndicator())
-            else
-              ...shippingRates.map((rate) => RadioListTile<String>(
-                    contentPadding: EdgeInsets.symmetric(horizontal: 4),
-                    visualDensity: VisualDensity.compact,
-                    title: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          rate['type'] == 'within'
-                              ? 'Dalam Kabupaten'
-                              : rate['type'] == 'between'
-                                  ? 'Antar Kabupaten'
-                                  : 'Tarif Khusus (${rate['code']})',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                        Text(
-                          'Rp ${NumberFormat('#,###').format(rate['base_rate'])}${rate['type'] != 'special' ? '/kg' : ''}',
-                          style: TextStyle(
-                            color: AppTheme.primary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                    value: rate['type'],
-                    groupValue: shippingType,
-                    onChanged: (value) async {
-                      setState(() => shippingType = value);
-                      await calculateShippingCost();
-                    },
-                  )),
-
             // Chat Admin button
             TextButton.icon(
               onPressed: createOrOpenChatRoom,
@@ -653,7 +600,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header toko dengan ongkir
+                    // Header toko dengan opsi pengiriman
                     Container(
                       padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -662,37 +609,91 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           top: Radius.circular(12),
                         ),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          Icon(Icons.store, size: 20, color: AppTheme.primary),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              firstItem['products']['merchant']['store_name'],
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
+                          Row(
+                            children: [
+                              Icon(Icons.store,
+                                  size: 20, color: AppTheme.primary),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  firstItem['products']['merchant']
+                                      ['store_name'],
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
+                          SizedBox(height: 8),
+                          // Opsi pengiriman per toko
                           Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
-                              color: Colors.pink.shade50,
-                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Text(
-                              'Ongkir: Rp ${NumberFormat('#,###').format(merchantShippingCosts[merchantId] ?? 0)}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.pink,
-                                fontWeight: FontWeight.w500,
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                value: merchantShippingTypes[merchantId],
+                                hint: Text('Pilih metode pengiriman',
+                                    style: TextStyle(fontSize: 13)),
+                                items: shippingRates
+                                    .where((rate) =>
+                                        rate['type'] == 'within' ||
+                                        rate['type'] == 'between' ||
+                                        rate['type'] == 'special')
+                                    .map((rate) {
+                                  return DropdownMenuItem<String>(
+                                    value: rate['type'].toString(),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          rate['type'] == 'within'
+                                              ? 'Dalam Kabupaten'
+                                              : rate['type'] == 'between'
+                                                  ? 'Antar Kabupaten'
+                                                  : 'Tarif Khusus (${rate['code']})',
+                                          style: TextStyle(fontSize: 13),
+                                        ),
+                                        Text(
+                                          'Rp ${NumberFormat('#,###').format(rate['base_rate'])}/kg',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    merchantShippingTypes[merchantId] = value!;
+                                  });
+                                  calculateShippingCost();
+                                },
                               ),
                             ),
                           ),
+                          if (merchantShippingCosts.containsKey(merchantId))
+                            Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: Text(
+                                'Ongkir: Rp ${NumberFormat('#,###').format(merchantShippingCosts[merchantId] ?? 0)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
