@@ -558,175 +558,231 @@ class _FindScreenState extends State<FindScreen> {
     if (value.isEmpty) return;
 
     try {
-      isSearching.value = true; // Set searching state
+      isSearching.value = true;
       print('Debug: Membersihkan data lama');
       productController.products.clear();
       productController.searchedMerchants.clear();
 
-      print('Debug: Mencari produk');
-      await productController.searchProducts(value);
-
-      print('Debug: Mencari toko');
-      final merchantResponse = await supabase
+      // Cari merchant berdasarkan nama toko dan lokasi
+      final merchantsResponse = await supabase
           .from('merchants')
-          .select('id, store_name, store_description')
-          .or('store_name.ilike.%${value}%,store_description.ilike.%${value}%')
-          .limit(5);
+          .select('id, store_name, store_description, store_address')
+          .not('store_address', 'is', null);
 
-      print(
-          'Debug: Hasil pencarian toko: ${merchantResponse.length} toko ditemukan');
-      productController.searchedMerchants.assignAll(merchantResponse);
+      List<String> merchantIds = [];
+
+      for (var merchant in merchantsResponse) {
+        // Cek nama toko dan lokasi toko
+        try {
+          final storeAddress = jsonDecode(merchant['store_address']);
+          if (merchant['store_name']
+                  .toString()
+                  .toLowerCase()
+                  .contains(value.toLowerCase()) ||
+              (storeAddress != null &&
+                  (storeAddress['province']
+                          .toString()
+                          .toLowerCase()
+                          .contains(value.toLowerCase()) ||
+                      storeAddress['city']
+                          .toString()
+                          .toLowerCase()
+                          .contains(value.toLowerCase()) ||
+                      storeAddress['district']
+                          .toString()
+                          .toLowerCase()
+                          .contains(value.toLowerCase()) ||
+                      storeAddress['village']
+                          .toString()
+                          .toLowerCase()
+                          .contains(value.toLowerCase())))) {
+            merchantIds.add(merchant['id']);
+            productController.searchedMerchants.add(merchant);
+          }
+        } catch (e) {
+          print('Error parsing address: $e');
+        }
+      }
+
+      // Ambil produk dari merchant yang sesuai
+      if (merchantIds.isNotEmpty) {
+        final productsResponse = await supabase
+            .from('products')
+            .select()
+            .inFilter('seller_id', merchantIds);
+
+        if (productsResponse != null) {
+          productController.products.assignAll(productsResponse);
+        }
+      }
+
+      // Jika tidak ada hasil berdasarkan merchant, lakukan pencarian produk
+      if (productController.products.isEmpty) {
+        print('Debug: Mencari produk');
+        await productController.searchProducts(value);
+      }
     } catch (e) {
       print('Debug: Error dalam pencarian: $e');
     } finally {
-      isSearching.value = false; // Reset searching state
+      isSearching.value = false;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: AppTheme.primary,
-        title: Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 40,
-                child: TextField(
-                  controller: searchController,
-                  autofocus: true,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Cari Produk atau Toko...',
-                    hintStyle: TextStyle(fontSize: 13),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide.none,
+    return WillPopScope(
+      onWillPop: () async {
+        // Reset semua state pencarian
+        searchController.clear();
+        productController.searchQuery.value = '';
+        productController.products.clear();
+        productController.searchedMerchants.clear();
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: AppTheme.primary,
+          title: Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 40,
+                  child: TextField(
+                    controller: searchController,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Cari Produk atau Toko...',
+                      hintStyle: TextStyle(fontSize: 13),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                      prefixIcon: Icon(Icons.search, color: AppTheme.textHint),
+                      suffixIcon: searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(Icons.clear, color: AppTheme.textHint),
+                              onPressed: () {
+                                setState(() {
+                                  searchController.clear();
+                                  productController.searchQuery.value = '';
+                                  productController.products.clear();
+                                });
+                              },
+                            )
+                          : null,
                     ),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-                    prefixIcon: Icon(Icons.search, color: AppTheme.textHint),
-                    suffixIcon: searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(Icons.clear, color: AppTheme.textHint),
-                            onPressed: () {
-                              setState(() {
-                                searchController.clear();
-                                productController.searchQuery.value = '';
-                                productController.products.clear();
-                              });
-                            },
-                          )
-                        : null,
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      productController.searchQuery.value = value;
-                      if (value.isEmpty) {
-                        productController.products.clear();
+                    onChanged: (value) {
+                      setState(() {
+                        productController.searchQuery.value = value;
+                        if (value.isEmpty) {
+                          productController.products.clear();
+                        }
+                      });
+                    },
+                    onSubmitted: (value) {
+                      if (value.isNotEmpty) {
+                        performSearch(value);
                       }
-                    });
-                  },
-                  onSubmitted: (value) {
-                    if (value.isNotEmpty) {
-                      performSearch(value);
-                    }
-                  },
+                    },
+                  ),
                 ),
               ),
-            ),
-            IconButton(
-              icon: Icon(Icons.tune, color: Colors.white),
-              onPressed: _showFilterBottomSheet,
-            ),
-          ],
+              IconButton(
+                icon: Icon(Icons.tune, color: Colors.white),
+                onPressed: _showFilterBottomSheet,
+              ),
+            ],
+          ),
         ),
-      ),
-      body: Obx(() {
-        if (productController.isLoading.value) {
-          return Center(child: CircularProgressIndicator());
-        }
+        body: Obx(() {
+          if (productController.isLoading.value) {
+            return Center(child: CircularProgressIndicator());
+          }
 
-        return CustomScrollView(
-          slivers: [
-            if (productController.searchedMerchants.isNotEmpty) ...[
+          return CustomScrollView(
+            slivers: [
+              if (productController.searchedMerchants.isNotEmpty) ...[
+                SliverPadding(
+                  padding: EdgeInsets.all(16),
+                  sliver: SliverToBoxAdapter(
+                    child: Text(
+                      'Toko',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final merchant =
+                          productController.searchedMerchants[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          child: Icon(Icons.store),
+                        ),
+                        title: Text(merchant['store_name'] ?? 'Nama Toko'),
+                        subtitle: Text(
+                          merchant['store_description'] ??
+                              'Deskripsi tidak tersedia',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () {
+                          Get.to(() => StoreDetailScreen(merchant: merchant));
+                        },
+                      );
+                    },
+                    childCount: productController.searchedMerchants.length,
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Divider(height: 32),
+                ),
+              ],
               SliverPadding(
                 padding: EdgeInsets.all(16),
                 sliver: SliverToBoxAdapter(
                   child: Text(
-                    'Toko',
+                    productController.searchedMerchants.isEmpty
+                        ? 'Hasil Pencarian'
+                        : 'Produk dari Toko',
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.normal,
                     ),
                   ),
                 ),
               ),
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final merchant = productController.searchedMerchants[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        child: Icon(Icons.store),
-                      ),
-                      title: Text(merchant['store_name'] ?? 'Nama Toko'),
-                      subtitle: Text(
-                        merchant['store_description'] ??
-                            'Deskripsi tidak tersedia',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      onTap: () {
-                        Get.to(() => StoreDetailScreen(merchant: merchant));
-                      },
-                    );
-                  },
-                  childCount: productController.searchedMerchants.length,
-                ),
-              ),
-              SliverToBoxAdapter(
-                child: Divider(height: 32),
-              ),
-            ],
-            SliverPadding(
-              padding: EdgeInsets.all(16),
-              sliver: SliverToBoxAdapter(
-                child: Text(
-                  productController.searchedMerchants.isEmpty
-                      ? 'Hasil Pencarian'
-                      : 'Produk dari Toko',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.normal,
+              SliverPadding(
+                padding: EdgeInsets.all(16),
+                sliver: SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.65,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final product = productController.products[index];
+                      return ProductCard(product: product);
+                    },
+                    childCount: productController.products.length,
                   ),
                 ),
               ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.all(16),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.65,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final product = productController.products[index];
-                    return ProductCard(product: product);
-                  },
-                  childCount: productController.products.length,
-                ),
-              ),
-            ),
-          ],
-        );
-      }),
+            ],
+          );
+        }),
+      ),
     );
   }
 
