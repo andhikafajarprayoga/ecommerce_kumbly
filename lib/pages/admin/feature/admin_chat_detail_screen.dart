@@ -3,10 +3,19 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'dart:async';
+import 'package:intl/intl.dart';
+
+// Taruh di atas, setelah imports dan sebelum class AdminChatDetailScreen
+class MessageGroup {
+  final DateTime date;
+  final List<Map<String, dynamic>> messages;
+
+  MessageGroup(this.date, this.messages);
+}
 
 class AdminChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> chatRoom;
-  final Map<String, dynamic> buyer;
+  final String buyer;
 
   AdminChatDetailScreen({
     required this.chatRoom,
@@ -23,6 +32,7 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
   final RxList<Map<String, dynamic>> messages = <Map<String, dynamic>>[].obs;
   final ScrollController _scrollController = ScrollController();
   final isLoading = true.obs;
+  StreamSubscription? _messagesSubscription;
 
   @override
   void initState() {
@@ -33,6 +43,7 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
 
   @override
   void dispose() {
+    _messagesSubscription?.cancel();
     _scrollController.dispose();
     _messageController.dispose();
     super.dispose();
@@ -48,25 +59,63 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
     }
   }
 
-  void _initializeMessages() {
-    // Stream untuk messages
-    supabase
+  void _initializeMessages() async {
+    print('\nDEBUG: Initializing chat messages...');
+    print('  - Room ID: ${widget.chatRoom['id']}');
+
+    // Initial fetch dengan query yang sama
+    final data = await supabase
+        .from('admin_messages')
+        .select()
+        .eq('chat_room_id', widget.chatRoom['id'])
+        .order('created_at', ascending: true); // Tetap true untuk urutan chat
+
+    print('DEBUG: Found ${data.length} messages');
+
+    if (data.isNotEmpty) {
+      print('\nDEBUG: Messages data:');
+      print('  - First message: ${data.first['content']}');
+      print('  - Last message: ${data.last['content']}');
+      print('  - First time: ${data.first['created_at']}');
+      print('  - Last time: ${data.last['created_at']}');
+    }
+
+    messages.assignAll(data);
+    isLoading.value = false;
+
+    // Scroll ke pesan terakhir setelah data dimuat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+
+    // Listen to new messages
+    _messagesSubscription = supabase
         .from('admin_messages')
         .stream(primaryKey: ['id'])
         .eq('chat_room_id', widget.chatRoom['id'])
-        .order('created_at')
-        .listen((List<Map<String, dynamic>> data) {
-          messages.assignAll(data);
+        .order('created_at', ascending: true)
+        .listen(
+          (data) {
+            print('\nDEBUG: Stream update received');
+            print('  - Number of messages: ${data.length}');
+            if (data.isNotEmpty) {
+              print('  - Latest message: ${data.last['content']}');
+              print('  - Time: ${data.last['created_at']}');
+            }
 
-          // Scroll ke bawah ketika ada pesan baru
-          if (messages.isNotEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _scrollToBottom();
-            });
-          }
+            messages.assignAll(data);
 
-          isLoading.value = false;
-        });
+            // Scroll ke bawah hanya jika ada pesan baru
+            if (data.length > messages.length) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _scrollToBottom();
+              });
+            }
+          },
+          onError: (error) {
+            print('ERROR: Message stream error: $error');
+          },
+        );
   }
 
   Future<void> _markMessagesAsRead() async {
@@ -81,49 +130,51 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
         .eq('is_read', false);
   }
 
-  Future<void> _sendMessage() async {
+  void _sendMessage() {
     if (_messageController.text.trim().isEmpty) return;
-
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return;
 
     final messageContent = _messageController.text.trim();
     _messageController.clear();
 
-    final timestamp = DateTime.now().toUtc().toIso8601String();
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
 
-    try {
-      // Kirim pesan ke database
-      await supabase.from('admin_messages').insert({
-        'chat_room_id': widget.chatRoom['id'],
-        'sender_id': userId,
-        'content': messageContent,
-        'created_at': timestamp,
-        'is_read': false,
-      });
+    print('\nDEBUG: Sending new message:');
+    print('  - Content: $messageContent');
 
-      // Update chat room
-      await supabase.from('admin_chat_rooms').update({
-        'updated_at': timestamp,
-        'last_message': messageContent,
-        'last_message_time': timestamp
-      }).eq('id', widget.chatRoom['id']);
-    } catch (e) {
-      print('Error sending message: $e');
-      Get.snackbar(
-        'Error',
-        'Gagal mengirim pesan',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
+    // Update UI immediately tanpa timestamp
+    messages.add({
+      'chat_room_id': widget.chatRoom['id'],
+      'sender_id': userId,
+      'content': messageContent,
+      'is_read': false,
+    });
+
+    // Scroll ke pesan baru
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+    });
+
+    // Send to database without waiting
+    unawaited(supabase.from('admin_messages').insert({
+      'chat_room_id': widget.chatRoom['id'],
+      'sender_id': userId,
+      'content': messageContent,
+      'is_read': false,
+    }).then((_) {
+      print('DEBUG: Message inserted to database successfully');
+    }).catchError((error) {
+      print('ERROR: Failed to insert message: $error');
+    }));
+
+    print('DEBUG: Message processing completed');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.chatRoom['buyer_name'] ?? 'Chat'),
+        title: Text(widget.buyer),
         backgroundColor: AppTheme.primary,
       ),
       body: Column(
@@ -146,19 +197,29 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
                 );
               }
 
+              // Grup pesan berdasarkan tanggal
+              final groupedMessages = _groupMessagesByDate(messages);
+
               return ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
-                itemCount: messages.length,
+                itemCount: groupedMessages.length,
                 itemBuilder: (context, index) {
-                  final message = messages[index];
-                  final isMine =
-                      message['sender_id'] == supabase.auth.currentUser?.id;
-                  return _buildMessageBubble(
-                    message: message['content'],
-                    isMine: isMine,
-                    time: _formatTime(message['created_at']),
-                    isRead: message['is_read'] ?? false,
+                  final group = groupedMessages[index];
+                  return Column(
+                    children: [
+                      _buildDateHeader(group.date),
+                      ...group.messages.map((message) {
+                        final isMine = message['sender_id'] ==
+                            supabase.auth.currentUser?.id;
+                        return _buildMessageBubble(
+                          message: message['content'],
+                          isMine: isMine,
+                          time: message['created_at'],
+                          isRead: message['is_read'] ?? false,
+                        );
+                      }).toList(),
+                    ],
                   );
                 },
               );
@@ -170,10 +231,101 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
     );
   }
 
+  Widget _buildDateHeader(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    String headerText;
+    if (messageDate == today) {
+      headerText = 'Hari Ini';
+    } else if (messageDate == yesterday) {
+      headerText = 'Kemarin';
+    } else {
+      final day = date.day.toString().padLeft(2, '0');
+      final month = date.month.toString().padLeft(2, '0');
+      final year = date.year;
+      headerText = '$day/$month/$year';
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Center(
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            headerText,
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<MessageGroup> _groupMessagesByDate(List<Map<String, dynamic>> messages) {
+    final Map<String, List<Map<String, dynamic>>> groups = {};
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(Duration(days: 1));
+
+    for (var message in messages) {
+      final createdAt = message['created_at'];
+      DateTime messageDate;
+
+      if (createdAt == null) {
+        // Untuk pesan baru, gunakan 'Hari Ini'
+        messageDate = today;
+      } else {
+        messageDate = DateTime.parse(createdAt);
+      }
+
+      final date =
+          DateTime(messageDate.year, messageDate.month, messageDate.day);
+
+      String key;
+      if (date == today) {
+        key = 'today';
+      } else if (date == yesterday) {
+        key = 'yesterday';
+      } else {
+        key = '${date.year}-${date.month}-${date.day}';
+      }
+
+      if (!groups.containsKey(key)) {
+        groups[key] = [];
+      }
+      groups[key]!.add(message);
+    }
+
+    return groups.entries.map((entry) {
+      DateTime date;
+      if (entry.key == 'today') {
+        date = today;
+      } else if (entry.key == 'yesterday') {
+        date = yesterday;
+      } else {
+        final parts = entry.key.split('-');
+        date = DateTime(
+            int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      }
+      return MessageGroup(date, entry.value);
+    }).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+  }
+
   Widget _buildMessageBubble({
     required String message,
     required bool isMine,
-    required String time,
+    String? time,
     required bool isRead,
   }) {
     return Align(
@@ -199,7 +351,7 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  time,
+                  _formatMessageTime(time),
                   style: TextStyle(
                     fontSize: 10,
                     color: isMine ? Colors.white70 : Colors.grey,
@@ -265,39 +417,20 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
     );
   }
 
-  String _formatTime(String timestamp) {
-    final date = DateTime.parse(timestamp).toLocal();
-    final now = DateTime.now();
-    final difference = now.difference(date);
+  String _formatMessageTime(String? timestamp) {
+    try {
+      if (timestamp == null) return '';
 
-    // Jika hari ini
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
-      // Format: 14:30
-      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      final date = DateTime.parse(timestamp);
+      print('DEBUG: Formatting time:');
+      print('  - Original: $timestamp');
+
+      final hours = date.hour.toString().padLeft(2, '0');
+      final minutes = date.minute.toString().padLeft(2, '0');
+      return '$hours:$minutes';
+    } catch (e) {
+      print('ERROR: Failed to format time: $e');
+      return '';
     }
-
-    // Jika kemarin
-    if (difference.inDays == 1) {
-      return 'Kemarin ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    }
-
-    // Jika dalam minggu ini
-    if (difference.inDays < 7) {
-      final List<String> days = [
-        'Sen',
-        'Sel',
-        'Rab',
-        'Kam',
-        'Jum',
-        'Sab',
-        'Min'
-      ];
-      return '${days[date.weekday - 1]} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    }
-
-    // Jika lebih dari seminggu
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
