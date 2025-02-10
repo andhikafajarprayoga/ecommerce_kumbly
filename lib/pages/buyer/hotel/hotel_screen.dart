@@ -17,13 +17,13 @@ class HotelScreen extends StatefulWidget {
 class _HotelScreenState extends State<HotelScreen>
     with RouteAware, WidgetsBindingObserver {
   final supabase = Supabase.instance.client;
-  final TextEditingController _searchController = TextEditingController();
+  final searchController = TextEditingController();
   final TextEditingController _minPriceController =
       TextEditingController(text: '0');
   final TextEditingController _maxPriceController =
       TextEditingController(text: '10000000');
-  RxList<Map<String, dynamic>> hotels = <Map<String, dynamic>>[].obs;
-  RxBool isLoading = true.obs;
+  final RxList<Map<String, dynamic>> hotels = <Map<String, dynamic>>[].obs;
+  final isLoading = true.obs;
   String? sortBy;
   double _minPrice = 0;
   double _maxPrice = 10000000;
@@ -36,10 +36,8 @@ class _HotelScreenState extends State<HotelScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Reset filter saat pertama kali masuk
-    _isNearestActive = false;
-    _isPriceFilterActive = false;
-    _fetchHotels();
+    // Reset dan fetch semua hotel saat pertama kali dibuka
+    resetSearch();
     _getCurrentLocation();
   }
 
@@ -368,7 +366,7 @@ class _HotelScreenState extends State<HotelScreen>
                                     10000000;
                               }
                               Navigator.pop(context);
-                              _fetchHotels(search: _searchController.text);
+                              _fetchHotels(search: searchController.text);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primary,
@@ -400,15 +398,15 @@ class _HotelScreenState extends State<HotelScreen>
   }
 
   void resetSearch() {
-    _searchController.clear();
-    _isNearestActive = false;
-    _isPriceFilterActive = false;
-    sortBy = null;
+    searchController.clear();
     _minPriceController.text = '0';
     _maxPriceController.text = '10000000';
     _minPrice = 0;
     _maxPrice = 10000000;
-    _fetchHotels();
+    _isPriceFilterActive = false;
+    _isNearestActive = false;
+    sortBy = null;
+    _fetchHotels(); // Fetch semua hotel
   }
 
   @override
@@ -428,7 +426,7 @@ class _HotelScreenState extends State<HotelScreen>
                 child: SizedBox(
                   height: 40,
                   child: TextField(
-                    controller: _searchController,
+                    controller: searchController,
                     style: Theme.of(context).textTheme.bodyLarge,
                     decoration: InputDecoration(
                       filled: true,

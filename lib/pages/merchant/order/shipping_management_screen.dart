@@ -61,9 +61,17 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     supabase
         .from('orders')
         .stream(primaryKey: ['id'])
-        .eq('merchant_id', currentUserId)
+        .eq('merchant_id',
+            currentUserId) // Hanya bisa filter merchant_id di sini
         .listen((List<Map<String, dynamic>> updatedOrders) {
-          for (var order in updatedOrders) {
+          // Filter manual untuk status bukan 'canceled' dan admin_acc_note == 'Terima'
+          final filteredOrders = updatedOrders
+              .where((order) =>
+                  order['status'] != 'canceled' &&
+                  order['admin_acc_note'] == 'Terima')
+              .toList();
+
+          for (var order in filteredOrders) {
             final oldOrder =
                 orders.firstWhereOrNull((o) => o['id'] == order['id']);
             if (oldOrder != null && oldOrder['status'] != order['status']) {
@@ -77,6 +85,9 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
               }
             }
           }
+
+          // Perbarui daftar orders yang sudah difilter
+          orders.assignAll(filteredOrders);
         });
   }
 
@@ -117,6 +128,7 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             total_amount, 
             shipping_address, 
             courier_handover_photo,
+            admin_acc_note,
             order_items (
               quantity,
               price,
@@ -129,6 +141,8 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             )
           ''')
           .eq('merchant_id', currentUserId)
+          .neq('status', 'canceled')
+          .eq('admin_acc_note', 'Terima')
           .or('status.eq.pending,status.eq.processing,status.eq.shipping');
 
       orders.value = List<Map<String, dynamic>>.from(response);

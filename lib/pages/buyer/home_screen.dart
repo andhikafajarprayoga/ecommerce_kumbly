@@ -39,6 +39,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   late Stream<int> _unreadChatsStream;
   final CartController cartController = Get.put(CartController());
   StreamSubscription? _chatSubscription;
+  var searchQuery = ''.obs;
 
   @override
   void initState() {
@@ -93,6 +94,10 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     } catch (e) {
       print('Error fetching cart count: $e');
     }
+  }
+
+  void resetSearch() {
+    searchQuery.value = '';
   }
 
   void listenToCartChanges() {
@@ -156,17 +161,15 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     setState(() {
       if (_selectedIndex == index) {
         if (index == 1) {
-          // Tab Find/Search
+          // Reset Find/Search screen
           searchController.clear();
           productController.searchQuery.value = '';
           productController.products.clear();
           productController.searchedMerchants.clear();
+          productController.fetchProducts();
         } else if (index == 2) {
-          // Tab Hotel
+          // Reset Hotel screen
         }
-      } else if (index == 0 && productController.products.isEmpty) {
-        // Jika pindah ke tab home dan products kosong, fetch ulang
-        productController.fetchProducts();
       }
       _selectedIndex = index;
     });

@@ -26,20 +26,23 @@ class _FindScreenState extends State<FindScreen> {
   final formatter = NumberFormat('#,###');
   final isSearching = false.obs;
 
+  void resetSearch() {
+    searchController.clear();
+    productController.searchQuery.value = '';
+    productController.products.clear();
+    productController.searchedMerchants.clear();
+    productController.fetchProducts(); // Fetch semua produk
+  }
+
   @override
   void initState() {
     super.initState();
-
-    print('Debug: FindScreen initState');
-    searchController.text = productController.searchQuery.value;
-    productController.products.clear();
+    // Reset dan fetch semua produk saat pertama kali dibuka
+    resetSearch();
 
     final query = Get.arguments as String?;
-
     if (query != null && query.isNotEmpty) {
-      print('Debug: Memulai pencarian dengan query: $query');
       searchController.text = query;
-
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await performSearch(query);
       });
@@ -633,10 +636,7 @@ class _FindScreenState extends State<FindScreen> {
     return WillPopScope(
       onWillPop: () async {
         // Reset semua state pencarian
-        searchController.clear();
-        productController.searchQuery.value = '';
-        productController.products.clear();
-        productController.searchedMerchants.clear();
+        resetSearch();
         return true;
       },
       child: Scaffold(
@@ -788,12 +788,8 @@ class _FindScreenState extends State<FindScreen> {
 
   @override
   void dispose() {
-    // Gunakan addPostFrameCallback untuk menghindari error setState
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      productController.products.clear();
-      productController.searchedMerchants.clear();
-      productController.searchQuery.value = '';
-    });
+    // Jangan clear products dan searchQuery saat dispose
+    // Hanya clear controllers lokal
     searchController.dispose();
     minPriceController.dispose();
     maxPriceController.dispose();
@@ -900,15 +896,44 @@ class ProductCard extends StatelessWidget {
                             if (snapshot.hasData) {
                               final merchant = snapshot.data as Map;
                               try {
-                                final addressData = jsonDecode(
-                                    merchant['store_address'] ?? '{}');
+                                // Handle kasus dimana store_address null atau kosong
+                                if (merchant['store_address'] == null ||
+                                    merchant['store_address']
+                                        .toString()
+                                        .isEmpty) {
+                                  return Text(
+                                    'Alamat tidak tersedia',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                }
+
+                                // Parse address data dengan pengecekan
+                                Map<String, dynamic> addressData;
+                                try {
+                                  addressData =
+                                      jsonDecode(merchant['store_address']);
+                                } catch (e) {
+                                  // Jika gagal parse JSON, coba gunakan string address langsung
+                                  return Text(
+                                    merchant['store_address'].toString(),
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                    overflow: TextOverflow.ellipsis,
+                                  );
+                                }
+
+                                // Tampilkan kota jika ada, atau full address jika tidak ada kota
                                 return Text(
                                   addressData['city'] ??
+                                      addressData['full_address'] ??
                                       'Alamat tidak tersedia',
                                   style: Theme.of(context).textTheme.bodySmall,
                                   overflow: TextOverflow.ellipsis,
                                 );
                               } catch (e) {
+                                print('Error parsing address: $e');
                                 return Text(
                                   'Alamat tidak valid',
                                   style: Theme.of(context).textTheme.bodySmall,
