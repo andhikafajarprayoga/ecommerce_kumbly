@@ -91,7 +91,7 @@ class _AlamatScreenState extends State<AlamatScreen> {
           'Daftar Alamat',
           style: TextStyle(
             color: Colors.white,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.normal,
           ),
         ),
         leading: IconButton(

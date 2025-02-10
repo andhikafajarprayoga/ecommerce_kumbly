@@ -44,8 +44,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     super.initState();
     addressController =
         TextEditingController(text: widget.initialAddress['street'] ?? '');
-    detailAddressController =
-        TextEditingController(text: widget.initialAddress['street'] ?? '');
+    detailAddressController = TextEditingController(text: '');
     provinceController =
         TextEditingController(text: widget.initialAddress['province'] ?? '');
     cityController =
@@ -102,7 +101,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
 
         // Parse data alamat dari OpenStreetMap ke format kita
         setState(() {
-          detailAddressController.text = address['road'] ?? '';
+          if (widget.initialAddress.isEmpty) {
+            detailAddressController.text = address['road'] ?? '';
+          }
           print('Road: ${address['road']}');
 
           districtController.text =
