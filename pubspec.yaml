@@ -52,7 +52,8 @@ dependencies:
   table_calendar: ^3.2.0
   flutter_local_notifications: ^18.0.1
   workmanager: ^0.5.2
-
+  pdf: ^3.11.2
+  printing: ^5.14.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

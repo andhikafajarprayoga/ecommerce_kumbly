@@ -9,6 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:kumbly_ecommerce/pages/branch/address_screen.dart';
 import 'package:kumbly_ecommerce/pages/branch/manual_order_screen.dart';
+import 'package:kumbly_ecommerce/pages/branch/processing_orders_screen.dart';
+import 'package:kumbly_ecommerce/pages/branch/branch_inventory_screen.dart';
 
 class BranchHomeScreen extends StatefulWidget {
   const BranchHomeScreen({super.key});
@@ -245,6 +247,18 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        _buildLargeMenuCard(
+          title: 'Pesanan Masuk',
+          icon: Icons.inventory_2_outlined,
+          onTap: () => Get.to(() => const ProcessingOrdersScreen()),
+        ),
+        const SizedBox(height: 12),
+        _buildLargeMenuCard(
+          title: 'Inventory Cabang',
+          icon: Icons.inventory,
+          onTap: () => Get.to(() => const BranchInventoryScreen()),
         ),
       ],
     );
