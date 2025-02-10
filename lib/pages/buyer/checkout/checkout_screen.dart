@@ -131,9 +131,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         if (response['address4'] != null)
           userAddresses.add(response['address4']);
 
+        // Set alamat default jika ada
         if (userAddresses.isNotEmpty) {
+          // Pastikan alamat pertama diformat dengan benar
+          final firstAddress = Map<String, dynamic>.from(userAddresses[0]);
+          widget.data['shipping_address'] = {
+            'street': firstAddress['street'] ?? '',
+            'village': firstAddress['village'] ?? '',
+            'district': firstAddress['district'] ?? '',
+            'city': firstAddress['city'] ?? '',
+            'province': firstAddress['province'] ?? '',
+            'postal_code': firstAddress['postal_code'] ?? '',
+            'latitude': firstAddress['latitude'] ?? '',
+            'longitude': firstAddress['longitude'] ?? ''
+          };
           selectedAddress = userAddresses[0].toString();
-          widget.data['shipping_address'] = selectedAddress;
         }
       });
     } catch (e) {
@@ -1016,7 +1028,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             style: TextStyle(fontSize: 13)),
                                         if (method['account_number'] != null)
                                           Text(
-                                            '${method['account_number']} (${method['account_name']})',
+                                            '${method['account_number']} (${method['account_name']} ${method['admin']}',
                                             style: TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.grey),
@@ -1146,61 +1158,129 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       borderRadius:
                           BorderRadius.vertical(top: Radius.circular(15)),
                     ),
-                    builder: (context) => Padding(
-                      padding: const EdgeInsets.all(16.0),
+                    builder: (context) => Container(
+                      padding: const EdgeInsets.symmetric(vertical: 24.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Pilih Alamat',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                          Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 24.0),
+                            child: Text(
+                              'Pilih Alamat',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           SizedBox(height: 16),
+                          Divider(height: 1),
                           ...userAddresses
-                              .map((address) => ListTile(
-                                    title: Text(
-                                      parseAddress(
-                                          Map<String, dynamic>.from(address)),
-                                      style: TextStyle(fontSize: 13),
-                                    ),
-                                    selected:
-                                        selectedAddress == address.toString(),
+                              .map((address) => InkWell(
                                     onTap: () {
                                       setState(() {
                                         selectedAddress = address.toString();
                                         widget.data['shipping_address'] =
-                                            selectedAddress;
+                                            address;
                                       });
                                       Navigator.pop(context);
                                     },
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 24, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: widget
+                                                    .data['shipping_address'] ==
+                                                address
+                                            ? AppTheme.primary.withOpacity(0.1)
+                                            : Colors.transparent,
+                                        border: Border(
+                                          bottom: BorderSide(
+                                              color: Colors.grey.shade200),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              parseAddress(
+                                                  Map<String, dynamic>.from(
+                                                      address)),
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: widget.data[
+                                                            'shipping_address'] ==
+                                                        address
+                                                    ? AppTheme.primary
+                                                    : Colors.black87,
+                                              ),
+                                            ),
+                                          ),
+                                          if (widget.data['shipping_address'] ==
+                                              address)
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: AppTheme.primary,
+                                              size: 20,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
                                   ))
                               .toList(),
-                          Divider(),
-                          ListTile(
-                            leading: Icon(Icons.add, color: AppTheme.primary),
-                            title: Text('Tambah Alamat Baru'),
+                          Divider(height: 1),
+                          InkWell(
                             onTap: () async {
                               Navigator.pop(context);
-                              final updatedAddress =
+                              final Map<String, dynamic>? tempAddress =
                                   await Get.to(() => EditAddressScreen(
                                         initialAddress: '',
-                                        onSave: (newAddress) {
+                                        onSave: (Map<String, dynamic>
+                                            addressDetails) {
                                           setState(() {
+                                            selectedAddress =
+                                                addressDetails.toString();
                                             widget.data['shipping_address'] =
-                                                newAddress;
+                                                addressDetails;
                                           });
                                         },
                                       ));
-                              if (updatedAddress != null) {
+
+                              if (tempAddress != null) {
                                 setState(() {
-                                  widget.data['shipping_address'] =
-                                      updatedAddress;
+                                  selectedAddress = tempAddress.toString();
+                                  widget.data['shipping_address'] = tempAddress;
+                                  if (userAddresses.contains(tempAddress)) {
+                                    userAddresses.remove(tempAddress);
+                                  }
                                 });
+                                await calculateShippingCost();
                               }
                             },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 16),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.add_circle_outline,
+                                    color: AppTheme.primary,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Gunakan Alamat Lain',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppTheme.primary,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -1219,12 +1299,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (selectedAddress != null)
+                            if (widget.data['shipping_address'] != null)
                               Text(
-                                parseAddress(Map<String, dynamic>.from(
-                                    userAddresses.firstWhere((addr) =>
-                                        addr.toString() == selectedAddress))),
-                                style: TextStyle(fontSize: 13),
+                                widget.data['shipping_address'] is Map
+                                    ? _formatAddressDisplay(
+                                        Map<String, dynamic>.from(
+                                            widget.data['shipping_address']))
+                                    : widget.data['shipping_address']
+                                        .toString(),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.5,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
                               )
                             else
                               Text(
@@ -1338,24 +1426,72 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   String parseAddress(Map<String, dynamic> addressJson) {
     try {
+      // Bersihkan string dari karakter yang tidak diinginkan
+      Map<String, String> cleanAddress = {};
+      addressJson.forEach((key, value) {
+        if (value is String) {
+          // Bersihkan string dari karakter khusus dan spasi berlebih
+          cleanAddress[key] = value.replaceAll(RegExp(r'[{}"]'), '').trim();
+        }
+      });
+
       List<String> addressParts = [];
 
-      if (addressJson['street'] != null)
-        addressParts.add(addressJson['street']);
-      if (addressJson['village'] != null)
-        addressParts.add("Desa ${addressJson['village']}");
-      if (addressJson['district'] != null)
-        addressParts.add("Kec. ${addressJson['district']}");
-      if (addressJson['city'] != null) addressParts.add(addressJson['city']);
-      if (addressJson['province'] != null)
-        addressParts.add(addressJson['province']);
-      if (addressJson['postal_code'] != null)
-        addressParts.add(addressJson['postal_code']);
+      // Susun alamat sesuai format yang diinginkan
+      if (cleanAddress['street']?.isNotEmpty == true)
+        addressParts.add(cleanAddress['street']!);
 
-      return addressParts.join(', ');
+      if (cleanAddress['village']?.isNotEmpty == true)
+        addressParts.add("Desa ${cleanAddress['village']}");
+
+      if (cleanAddress['district']?.isNotEmpty == true)
+        addressParts.add("Kec. ${cleanAddress['district']}");
+
+      if (cleanAddress['city']?.isNotEmpty == true)
+        addressParts.add(cleanAddress['city']!);
+
+      if (cleanAddress['province']?.isNotEmpty == true)
+        addressParts.add(cleanAddress['province']!);
+
+      if (cleanAddress['postal_code']?.isNotEmpty == true)
+        addressParts.add(cleanAddress['postal_code']!);
+
+      // Gabungkan semua bagian alamat dengan koma
+      return addressParts.where((part) => part.isNotEmpty).join(', ');
     } catch (e) {
       print('Error parsing address: $e');
-      return addressJson.toString();
+      // Jika terjadi error, kembalikan string kosong atau pesan error
+      return 'Format alamat tidak valid';
+    }
+  }
+
+  // Tambahkan method baru untuk format tampilan alamat
+  String _formatAddressDisplay(Map<String, dynamic> address) {
+    try {
+      // Filter dan susun hanya informasi penting untuk tampilan awal
+      List<String> displayParts = [];
+
+      if (address['street']?.isNotEmpty == true)
+        displayParts.add(address['street']);
+
+      if (address['district']?.isNotEmpty == true)
+        displayParts.add("Kec. ${address['district']}");
+
+      if (address['city']?.isNotEmpty == true)
+        displayParts.add(address['city']);
+
+      if (address['province']?.isNotEmpty == true)
+        displayParts.add(address['province']);
+
+      // Hilangkan data koordinat dan informasi teknis lainnya
+      return displayParts
+          .where((part) => part.isNotEmpty)
+          .join(', ')
+          .replaceAll(RegExp(r'[{}"]'), '')
+          .trim();
+    } catch (e) {
+      print('Error formatting address display: $e');
+      return 'Pilih alamat pengiriman';
     }
   }
 }
