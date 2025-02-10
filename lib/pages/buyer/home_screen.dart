@@ -15,6 +15,7 @@ import 'hotel/hotel_screen.dart';
 import 'package:rxdart/rxdart.dart' hide Rx;
 import '../../controllers/cart_controller.dart';
 import 'dart:async';
+import 'notification/notification_screen.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -244,16 +245,61 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
               actions: [
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 0.2),
-                  child: IconButton(
-                    icon:
-                        Icon(Icons.notifications_outlined, color: Colors.white),
-                    onPressed: () {
-                      if (supabase.auth.currentUser == null) {
-                        Get.toNamed('/login');
-                      } else {
-                        Get.to(() => CartScreen());
-                      }
-                    },
+                  child: Stack(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.notifications_outlined,
+                            color: Colors.white),
+                        onPressed: () {
+                          if (supabase.auth.currentUser == null) {
+                            Get.toNamed('/login');
+                          } else {
+                            Get.to(() => NotificationScreen());
+                          }
+                        },
+                      ),
+                      StreamBuilder<List<Map<String, dynamic>>>(
+                        stream: supabase
+                            .from('notifications')
+                            .select()
+                            .eq('user_id', supabase.auth.currentUser?.id ?? '')
+                            .eq('is_read', false)
+                            .order('created_at', ascending: false)
+                            .asStream(),
+                        builder: (context, snapshot) {
+                          final unreadCount =
+                              (snapshot.data as List?)?.length ?? 0;
+                          if (unreadCount == 0) return SizedBox();
+
+                          return Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              constraints: BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                '$unreadCount',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 Padding(

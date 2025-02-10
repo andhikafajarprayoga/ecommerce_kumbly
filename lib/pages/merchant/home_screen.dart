@@ -17,6 +17,7 @@ import 'package:kumbly_ecommerce/pages/merchant/order/cancellation_requests_scre
 import 'package:kumbly_ecommerce/pages/merchant/profile/edit_store_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/hotel/hotel_management_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/hotel/hotel_bookings_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/notification/notification_seller_screen.dart';
 
 class MerchantHomeScreen extends StatefulWidget {
   final String sellerId;
@@ -297,6 +298,62 @@ class _HomeMenuState extends State<_HomeMenu> {
                         ],
                       ),
                     ),
+                    Stack(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            Icons.notifications_outlined,
+                            color: Colors.red,
+                            size: 24,
+                          ),
+                          onPressed: () =>
+                              Get.to(() => NotificationSellerScreen()),
+                        ),
+                        StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: supabase
+                              .from('notifikasi_seller')
+                              .select()
+                              .eq('merchant_id',
+                                  supabase.auth.currentUser?.id ?? '')
+                              .eq('is_read', false)
+                              .order('created_at', ascending: false)
+                              .asStream(),
+                          builder: (context, snapshot) {
+                            final unreadCount =
+                                (snapshot.data as List?)?.length ?? 0;
+                            if (unreadCount == 0) return SizedBox();
+
+                            return Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color: Colors.white, width: 1.5),
+                                ),
+                                constraints: BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '$unreadCount',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    SizedBox(width: 8),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.swap_horiz,
                           size: 14, color: Colors.white),
