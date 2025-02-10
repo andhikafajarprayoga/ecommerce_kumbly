@@ -7,13 +7,15 @@ import 'dart:convert';
 import '../hotel/hotel_detail_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math' show cos, sqrt, asin, sin, pi;
+import 'package:flutter/material.dart';
 
 class HotelScreen extends StatefulWidget {
   @override
   _HotelScreenState createState() => _HotelScreenState();
 }
 
-class _HotelScreenState extends State<HotelScreen> {
+class _HotelScreenState extends State<HotelScreen>
+    with RouteAware, WidgetsBindingObserver {
   final supabase = Supabase.instance.client;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _minPriceController =
@@ -28,15 +30,42 @@ class _HotelScreenState extends State<HotelScreen> {
   bool _isPriceFilterActive = false;
   Position? _currentPosition;
   bool _isNearestActive = false;
+  final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Reset filter saat pertama kali masuk
     _isNearestActive = false;
     _isPriceFilterActive = false;
     _fetchHotels();
     _getCurrentLocation();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      resetSearch();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute);
+  }
+
+  @override
+  void didPopNext() {
+    // Dipanggil ketika kembali ke halaman ini
+    resetSearch();
+  }
+
+  @override
+  void didPushNext() {
+    // Dipanggil ketika meninggalkan halaman ini
+    resetSearch();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -370,178 +399,202 @@ class _HotelScreenState extends State<HotelScreen> {
     );
   }
 
+  void resetSearch() {
+    _searchController.clear();
+    _isNearestActive = false;
+    _isPriceFilterActive = false;
+    sortBy = null;
+    _minPriceController.text = '0';
+    _maxPriceController.text = '10000000';
+    _minPrice = 0;
+    _maxPrice = 10000000;
+    _fetchHotels();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: AppTheme.primary,
-        title: Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: TextField(
-                  controller: _searchController,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    hintText: 'Cari Hotel atau Lokasi',
-                    hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.textHint,
-                        ),
-                    prefixIcon: Icon(Icons.search, color: AppTheme.textHint),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
+    return WillPopScope(
+      onWillPop: () async {
+        resetSearch();
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: AppTheme.primary,
+          automaticallyImplyLeading: false,
+          title: Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _searchController,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      hintText: 'Cari Hotel atau Lokasi',
+                      hintStyle:
+                          Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: AppTheme.textHint,
+                              ),
+                      prefixIcon: Icon(Icons.search, color: AppTheme.textHint),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: EdgeInsets.zero,
                     ),
-                    contentPadding: EdgeInsets.zero,
+                    onSubmitted: (value) => _fetchHotels(search: value),
                   ),
-                  onSubmitted: (value) => _fetchHotels(search: value),
                 ),
               ),
-            ),
-            IconButton(
-              icon: Icon(Icons.tune, color: Colors.white),
-              onPressed: _showFilterDialog,
+              IconButton(
+                icon: Icon(Icons.tune, color: Colors.white),
+                onPressed: () {
+                  _showFilterDialog();
+                },
+              ),
+            ],
+          ),
+        ),
+        body: Column(
+          children: [
+            // Existing Obx and ListView
+            Expanded(
+              child: Obx(() {
+                if (isLoading.value) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (hotels.isEmpty) {
+                  return const Center(child: Text('Tidak ada hotel tersedia'));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: hotels.length,
+                  itemBuilder: (context, index) {
+                    final hotel = hotels[index];
+                    final hotelAddress = hotel['address'] is Map
+                        ? (hotel['address'] as Map)['full_address']
+                        : hotel['address'] as String;
+
+                    // Tambahkan informasi jarak jika ada
+                    final String displayAddress = hotel['distance'] != null
+                        ? '$hotelAddress (${hotel['distance'] < 1 ? '${(hotel['distance'] * 1000).toStringAsFixed(0)}m' : '${hotel['distance'].toStringAsFixed(1)}km'})'
+                        : hotelAddress;
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: InkWell(
+                        onTap: () =>
+                            Get.to(() => HotelDetailScreen(hotel: hotel)),
+                        child: SizedBox(
+                          height: 120,
+                          child: Row(
+                            children: [
+                              // Hotel Image
+                              ClipRRect(
+                                borderRadius: const BorderRadius.horizontal(
+                                    left: Radius.circular(4)),
+                                child: Image.network(
+                                  hotel['image_url'][0],
+                                  width: 120,
+                                  height: 120,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // Hotel Name
+                                          Text(
+                                            hotel['name'],
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          // Location
+                                          Text(
+                                            hotel['display_address'] ??
+                                                'Alamat tidak tersedia',
+                                            style: TextStyle(
+                                              color: AppTheme.textHint,
+                                              fontSize: 12,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          // Rating
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.star,
+                                                  size: 14,
+                                                  color: Colors.amber),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                '${hotel['rating']?.toStringAsFixed(1) ?? 'N/A'}',
+                                                style: TextStyle(
+                                                  color: AppTheme.textHint,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          // Price
+                                          Text(
+                                            hotel['room_types'] != null
+                                                ? NumberFormat.currency(
+                                                    locale: 'id',
+                                                    symbol: 'Rp ',
+                                                    decimalDigits: 0,
+                                                  ).format(_getLowestPrice(
+                                                    hotel['room_types']))
+                                                : 'Harga tidak tersedia',
+                                            style: TextStyle(
+                                              color: AppTheme.primary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              }),
             ),
           ],
         ),
-      ),
-      body: Column(
-        children: [
-          // Existing Obx and ListView
-          Expanded(
-            child: Obx(() {
-              if (isLoading.value) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (hotels.isEmpty) {
-                return const Center(child: Text('Tidak ada hotel tersedia'));
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.all(8),
-                itemCount: hotels.length,
-                itemBuilder: (context, index) {
-                  final hotel = hotels[index];
-                  final hotelAddress = hotel['address'] is Map
-                      ? (hotel['address'] as Map)['full_address']
-                      : hotel['address'] as String;
-
-                  // Tambahkan informasi jarak jika ada
-                  final String displayAddress = hotel['distance'] != null
-                      ? '$hotelAddress (${hotel['distance'] < 1 ? '${(hotel['distance'] * 1000).toStringAsFixed(0)}m' : '${hotel['distance'].toStringAsFixed(1)}km'})'
-                      : hotelAddress;
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: InkWell(
-                      onTap: () =>
-                          Get.to(() => HotelDetailScreen(hotel: hotel)),
-                      child: SizedBox(
-                        height: 120,
-                        child: Row(
-                          children: [
-                            // Hotel Image
-                            ClipRRect(
-                              borderRadius: const BorderRadius.horizontal(
-                                  left: Radius.circular(4)),
-                              child: Image.network(
-                                hotel['image_url'][0],
-                                width: 120,
-                                height: 120,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Hotel Name
-                                        Text(
-                                          hotel['name'],
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        // Location
-                                        Text(
-                                          hotel['display_address'] ??
-                                              'Alamat tidak tersedia',
-                                          style: TextStyle(
-                                            color: AppTheme.textHint,
-                                            fontSize: 12,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        // Rating
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.star,
-                                                size: 14, color: Colors.amber),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '${hotel['rating']?.toStringAsFixed(1) ?? 'N/A'}',
-                                              style: TextStyle(
-                                                color: AppTheme.textHint,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        // Price
-                                        Text(
-                                          hotel['room_types'] != null
-                                              ? NumberFormat.currency(
-                                                  locale: 'id',
-                                                  symbol: 'Rp ',
-                                                  decimalDigits: 0,
-                                                ).format(_getLowestPrice(
-                                                  hotel['room_types']))
-                                              : 'Harga tidak tersedia',
-                                          style: TextStyle(
-                                            color: AppTheme.primary,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              );
-            }),
-          ),
-        ],
       ),
     );
   }
@@ -672,9 +725,8 @@ class _HotelScreenState extends State<HotelScreen> {
 
   @override
   void dispose() {
-    // Reset filter saat keluar screen
-    _isNearestActive = false;
-    _isPriceFilterActive = false;
+    routeObserver.unsubscribe(this);
+    WidgetsBinding.instance.removeObserver(this);
     _minPriceController.dispose();
     _maxPriceController.dispose();
     super.dispose();

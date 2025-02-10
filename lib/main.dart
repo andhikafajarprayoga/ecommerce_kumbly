@@ -63,6 +63,7 @@ void main() async {
   );
 
   Get.put(AuthController());
+  Get.put(RouteObserver<Route>());
   // Get.put(CartController());
 
   runApp(GetMaterialApp(
@@ -81,6 +82,7 @@ void main() async {
       GetPage(name: '/courier/home_screen', page: () => CourierHomeScreen()),
       GetPage(name: '/branch/home_screen', page: () => BranchHomeScreen()),
     ],
+    navigatorObservers: [RouteObserver<PageRoute>()],
   ));
 }
 

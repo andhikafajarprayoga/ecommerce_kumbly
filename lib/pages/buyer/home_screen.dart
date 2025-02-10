@@ -42,6 +42,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   @override
   void initState() {
     super.initState();
+    Get.put(RxInt(0), tag: 'selectedIndex');
     productController.fetchProducts();
     fetchBanners();
 
@@ -152,12 +153,21 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
 
   void _onItemTapped(int index) {
     setState(() {
-      _selectedIndex = index;
-      if (index == 0) {
-        searchController.clear();
-        productController.searchQuery.value = '';
-        productController.fetchProducts();
+      if (_selectedIndex == index) {
+        if (index == 1) {
+          // Tab Find/Search
+          searchController.clear();
+          productController.searchQuery.value = '';
+          productController.products.clear();
+          productController.searchedMerchants.clear();
+        } else if (index == 2) {
+          // Tab Hotel
+          // Update nilai RxInt untuk trigger listener di HotelScreen
+          Get.find<RxInt>(tag: 'selectedIndex').value = -1; // Reset dulu
+          Get.find<RxInt>(tag: 'selectedIndex').value = 2; // Set kembali ke 2
+        }
       }
+      _selectedIndex = index;
     });
   }
 
@@ -237,7 +247,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                   child: IconButton(
                     icon:
                         Icon(Icons.notifications_outlined, color: Colors.white),
-                    onPressed: () => Get.to(() => CartScreen()),
+                    onPressed: () {
+                      if (supabase.auth.currentUser == null) {
+                        Get.toNamed('/login');
+                      } else {
+                        Get.to(() => CartScreen());
+                      }
+                    },
                   ),
                 ),
                 Padding(
@@ -247,7 +263,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                       IconButton(
                         icon: Icon(Icons.shopping_cart_outlined,
                             color: Colors.white),
-                        onPressed: () => Get.to(() => CartScreen()),
+                        onPressed: () {
+                          if (supabase.auth.currentUser == null) {
+                            Get.toNamed('/login');
+                          } else {
+                            Get.to(() => CartScreen());
+                          }
+                        },
                       ),
                       Obx(() => cartController.cartItems.isNotEmpty
                           ? Positioned(
@@ -261,13 +283,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                       color: Colors.white, width: 1.5),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 4,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
                                 ),
                                 constraints: BoxConstraints(
                                   minWidth: 18,
@@ -292,7 +307,13 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                   children: [
                     IconButton(
                       icon: Icon(Icons.chat_outlined, color: Colors.white),
-                      onPressed: () => Get.to(() => ChatScreen()),
+                      onPressed: () {
+                        if (supabase.auth.currentUser == null) {
+                          Get.toNamed('/login');
+                        } else {
+                          Get.to(() => ChatScreen());
+                        }
+                      },
                     ),
                     Positioned(
                       right: 8,

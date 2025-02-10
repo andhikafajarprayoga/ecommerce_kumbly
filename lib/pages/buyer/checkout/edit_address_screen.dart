@@ -5,10 +5,11 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 
 class EditAddressScreen extends StatefulWidget {
   final String initialAddress;
-  final Function(String) onSave;
+  final Function(Map<String, dynamic>) onSave;
 
   EditAddressScreen({required this.initialAddress, required this.onSave});
 
@@ -21,8 +22,17 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   final mapController = MapController();
   String selectedAddress = '';
   bool isLoading = false;
-  final supabase = Supabase.instance.client;
   TextEditingController searchController = TextEditingController();
+  Map<String, String> addressDetails = {
+    "city": "",
+    "street": "",
+    "village": "",
+    "district": "",
+    "latitude": "",
+    "province": "",
+    "longitude": "",
+    "postal_code": ""
+  };
 
   @override
   void initState() {
@@ -32,6 +42,28 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     if (widget.initialAddress.isNotEmpty) {
       searchLocation(widget.initialAddress);
     }
+  }
+
+  Future<void> getCurrentLocation() async {
+    setState(() => isLoading = true);
+    try {
+      final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
+      LatLng currentLocation = LatLng(position.latitude, position.longitude);
+      setState(() => selectedLocation = currentLocation);
+      mapController.move(currentLocation, 16.0);
+      await getAddressFromLatLng(currentLocation);
+    } catch (e) {
+      print('Error getting current location: $e');
+      Get.snackbar(
+        'Error',
+        'Tidak dapat mengakses lokasi terkini',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+    setState(() => isLoading = false);
   }
 
   Future<void> getAddressFromLatLng(LatLng position) async {
@@ -44,6 +76,17 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
 
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
+        addressDetails = {
+          "city": place.subAdministrativeArea ?? "",
+          "street": place.street ?? "",
+          "village": place.subLocality ?? "",
+          "district": place.locality ?? "",
+          "latitude": position.latitude.toString(),
+          "province": place.administrativeArea ?? "",
+          "longitude": position.longitude.toString(),
+          "postal_code": place.postalCode ?? ""
+        };
+
         selectedAddress =
             '${place.street}, ${place.subLocality}, ${place.locality}, ${place.subAdministrativeArea}';
         setState(() {});
@@ -109,6 +152,24 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 filled: true,
               ),
               onSubmitted: (value) => searchLocation(value),
+            ),
+          ),
+          // Tambahkan tombol untuk mendapatkan lokasi terkini
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.white,
+            child: ElevatedButton.icon(
+              onPressed: getCurrentLocation,
+              icon: Icon(Icons.my_location, color: Colors.white),
+              label: Text('Gunakan Lokasi Saat Ini',
+                  style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                minimumSize: Size(double.infinity, 45),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
             ),
           ),
           Expanded(
@@ -211,8 +272,8 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                     onPressed: selectedAddress.isEmpty
                         ? null
                         : () {
-                            widget.onSave(selectedAddress);
-                            Get.back();
+                            widget.onSave(addressDetails);
+                            Get.back(result: addressDetails);
                           },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primary,
@@ -221,7 +282,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: Text('Simpan Alamat',
+                    child: Text('Gunakan Alamat Ini',
                         style: TextStyle(color: Colors.white)),
                   ),
                 ),

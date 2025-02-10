@@ -734,6 +734,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 height: 32,
                 child: ElevatedButton(
                   onPressed: () {
+                    final userId = supabase.auth.currentUser?.id;
+                    if (userId == null) {
+                      Get.toNamed('/login');
+                      return;
+                    }
                     cartController.addToCart(widget.product);
                     Get.snackbar(
                       'Sukses',
@@ -808,7 +813,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Future<void> _startChat() async {
     final buyerId = supabase.auth.currentUser?.id;
     if (buyerId == null) {
-      Get.snackbar('Error', 'Silakan login terlebih dahulu');
+      Get.toNamed('/login');
       return;
     }
 
@@ -856,7 +861,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void handleCheckout() async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
-      Get.snackbar('Error', 'Silakan login terlebih dahulu');
+      // Langsung arahkan ke halaman login
+      Get.toNamed('/login');
       return;
     }
 
@@ -908,12 +914,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         'admin_fee': 0,
       };
 
-      print('Debug - Checkout Data: $checkoutData'); // Debug print
-
       // Navigasi ke CheckoutScreen
       Get.to(() => CheckoutScreen(data: checkoutData));
     } catch (e) {
-      print('Error getting data: $e');
       Get.snackbar(
         'Error',
         'Terjadi kesalahan. Silakan coba lagi.',
