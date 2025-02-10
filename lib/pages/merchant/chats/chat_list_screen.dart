@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/controllers/chatrooms_controller.dart';
 import 'package:kumbly_ecommerce/pages/merchant/chats/chat_detail_screen.dart';
+import 'package:kumbly_ecommerce/pages/merchant/chats/merchant_admin_chat_detail_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import 'package:rxdart/rxdart.dart' as rx;
@@ -150,43 +151,131 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ),
         ),
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _chatRoomsStream,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.chat_bubble_outline,
-                      size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Belum ada pesan",
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                  ),
-                ],
+      body: Column(
+        children: [
+          // Customer Service Card
+          Card(
+            elevation: 0,
+            margin: const EdgeInsets.all(8),
+            child: ListTile(
+              contentPadding: const EdgeInsets.all(12),
+              leading: CircleAvatar(
+                backgroundColor: AppTheme.primary.withOpacity(0.1),
+                radius: 25,
+                child: Icon(
+                  Icons.support_agent,
+                  color: AppTheme.primary,
+                  size: 30,
+                ),
               ),
-            );
-          }
+              title: const Text(
+                'Customer Service',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: const Text(
+                'Hubungi kami jika ada pertanyaan',
+                style: TextStyle(fontSize: 13),
+              ),
+              onTap: () async {
+                // Cek apakah sudah ada chat room dengan admin
+                final existingRoom = await supabase
+                    .from('admin_chat_rooms')
+                    .select()
+                    .eq('buyer_id', widget.sellerId)
+                    .maybeSingle();
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: snapshot.data!.length,
-            itemBuilder: (context, index) {
-              final chat = snapshot.data![index];
-              return _buildChatItem(chat);
-            },
-          );
-        },
+                String roomId;
+                if (existingRoom != null) {
+                  roomId = existingRoom['id'];
+                } else {
+                  // Buat chat room baru dengan admin
+                  final newRoom = await supabase
+                      .from('admin_chat_rooms')
+                      .insert({
+                        'buyer_id': widget.sellerId,
+                      })
+                      .select()
+                      .single();
+                  roomId = newRoom['id'];
+                }
+
+                // Navigate ke chat detail dengan admin
+                Get.to(() => MerchantAdminChatDetailScreen(
+                      chatRoom: {
+                        'id': roomId,
+                        'buyer_id': widget.sellerId,
+                      },
+                    ));
+              },
+            ),
+          ),
+
+          // Divider
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Text(
+                    'Chat dengan Pembeli',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider()),
+              ],
+            ),
+          ),
+
+          // Existing Chat List
+          Expanded(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _chatRoomsStream,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.chat_bubble_outline,
+                            size: 80, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          "Belum ada pesan",
+                          style:
+                              TextStyle(fontSize: 16, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: snapshot.data!.length,
+                  itemBuilder: (context, index) {
+                    final chat = snapshot.data![index];
+                    return _buildChatItem(chat);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
