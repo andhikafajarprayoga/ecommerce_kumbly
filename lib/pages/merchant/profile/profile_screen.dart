@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kumbly_ecommerce/auth/login_page.dart';
 import 'package:kumbly_ecommerce/pages/buyer/home_screen.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import '../../../controllers/auth_controller.dart';
@@ -130,7 +131,7 @@ class ProfileScreen extends StatelessWidget {
                             TextButton(
                               onPressed: () async {
                                 await authController.signOut();
-                                Get.offAll(() => const HomeScreen());
+                                Get.offAll(() => const LoginPage());
                               },
                               child: const Text(
                                 'Ya',
