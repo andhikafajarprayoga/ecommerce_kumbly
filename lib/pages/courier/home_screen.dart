@@ -106,11 +106,11 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                 .toList();
             print('DEBUG: Orders for this courier: ${courierOrders.length}');
 
-            // Hitung paket dari seller (ready_to_ship)
+            // Hitung paket dari seller (processing)
             _sellerPackagesCount.value = data
                 .where((order) =>
                     order['courier_id'] == userId &&
-                    order['status'] == 'ready_to_ship')
+                    order['status'] == 'processing')
                 .length;
 
             // Hitung jemput paket cabang (branch_pickup)
