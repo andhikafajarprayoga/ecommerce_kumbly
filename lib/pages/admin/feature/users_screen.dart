@@ -392,13 +392,13 @@ class AddEditUserScreen extends StatefulWidget {
 class _AddEditUserScreenState extends State<AddEditUserScreen> {
   final supabase = Supabase.instance.client;
   final _formKey = GlobalKey<FormState>();
+  bool isLoading = false;
+  String? selectedRole;
 
   late TextEditingController emailController;
   late TextEditingController fullNameController;
   late TextEditingController phoneController;
   late TextEditingController addressController;
-  String selectedRole = 'buyer';
-  bool isLoading = false;
 
   @override
   void initState() {
@@ -423,36 +423,56 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
     super.dispose();
   }
 
-  Future<void> saveUser() async {
+  Future<void> _saveUser() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => isLoading = true);
 
     try {
-      if (widget.user != null) {
-        // Update users table (sesuaikan dengan nama tabel yang benar)
-        await supabase
-            .from('users') // Menggunakan 'users' alih-alih 'profiles'
-            .update({
-          'full_name': fullNameController.text,
-          'phone': phoneController.text,
-          'address': addressController.text,
-          'role': selectedRole,
-        }).eq('id', widget.user!['id']);
+      print('DEBUG: Memulai proses simpan user');
 
-        Get.back(result: true);
-        Get.snackbar(
-          'Sukses',
-          'Data user berhasil diperbarui',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+      if (widget.user != null) {
+        print('DEBUG: Attempting to update user ID: ${widget.user!['id']}');
+
+        // Verifikasi role admin terlebih dahulu
+        final currentUser = supabase.auth.currentUser;
+        if (currentUser?.id == null) throw Exception('User tidak ditemukan');
+
+        final adminCheck = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', currentUser!.id)
+            .single();
+
+        print('DEBUG: Admin check result: $adminCheck');
+
+        if (adminCheck['role'] != 'admin') {
+          throw Exception('Anda tidak memiliki akses admin');
+        }
+
+        // Update hanya role saja
+        final response = await supabase
+            .from('users')
+            .update({'role': selectedRole})
+            .eq('id', widget.user!['id'])
+            .select('id, role')
+            .single();
+
+        print('DEBUG: Update response: $response');
       }
+
+      Get.back(result: true);
+      Get.snackbar(
+        'Sukses',
+        'Data user berhasil disimpan',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
     } catch (e) {
-      print('Error saving user: $e');
+      print('DEBUG: Error saving user: $e');
       Get.snackbar(
         'Error',
-        'Gagal menyimpan data user: $e',
+        'Gagal menyimpan data user: ${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -465,10 +485,12 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.user != null ? 'Edit User' : 'Tambah User',
-            style: TextStyle(color: Colors.white)),
+        title: Text(
+          widget.user != null ? 'Edit User' : 'Tambah User',
+          style: TextStyle(color: Colors.white),
+        ),
         backgroundColor: AppTheme.primary,
-        foregroundColor: Colors.white,
+        elevation: 0,
       ),
       body: Form(
         key: _formKey,
@@ -531,28 +553,33 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
                 labelText: 'Role',
                 border: OutlineInputBorder(),
               ),
-              items: ['admin', 'seller', 'buyer', 'courier', 'branch']
-                  .map((role) => DropdownMenuItem(
-                        value: role,
-                        child: Text(role.toUpperCase()),
-                      ))
-                  .toList(),
+              items: [
+                DropdownMenuItem(value: 'admin', child: Text('Admin')),
+                DropdownMenuItem(value: 'seller', child: Text('Seller')),
+                DropdownMenuItem(value: 'buyer', child: Text('Buyer')),
+                DropdownMenuItem(value: 'courier', child: Text('Courier')),
+                DropdownMenuItem(value: 'branch', child: Text('Branch')),
+              ],
               onChanged: (value) {
-                if (value != null) {
-                  setState(() => selectedRole = value);
+                setState(() => selectedRole = value);
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Pilih role user';
                 }
+                return null;
               },
             ),
             SizedBox(height: 24),
             ElevatedButton(
-              onPressed: isLoading ? null : saveUser,
+              onPressed: isLoading ? null : _saveUser,
+              child: isLoading
+                  ? CircularProgressIndicator(color: Colors.white)
+                  : Text('Simpan'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 padding: EdgeInsets.symmetric(vertical: 16),
               ),
-              child: isLoading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : Text('Simpan'),
             ),
           ],
         ),
