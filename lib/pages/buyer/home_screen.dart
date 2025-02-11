@@ -16,6 +16,7 @@ import 'package:rxdart/rxdart.dart' hide Rx;
 import '../../controllers/cart_controller.dart';
 import 'dart:async';
 import 'notification/notification_screen.dart';
+import '../../controllers/hotel_screen_controller.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -169,6 +170,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           productController.fetchProducts();
         } else if (index == 2) {
           // Reset Hotel screen
+          Get.find<HotelScreenController>().resetSearch();
         }
       }
       _selectedIndex = index;

@@ -8,6 +8,7 @@ import '../hotel/hotel_detail_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:math' show cos, sqrt, asin, sin, pi;
 import 'package:flutter/material.dart';
+import '../../../controllers/hotel_screen_controller.dart';
 
 class HotelScreen extends StatefulWidget {
   @override
@@ -16,35 +17,26 @@ class HotelScreen extends StatefulWidget {
 
 class _HotelScreenState extends State<HotelScreen>
     with RouteAware, WidgetsBindingObserver {
+  final HotelScreenController controller = Get.put(HotelScreenController());
   final supabase = Supabase.instance.client;
   final searchController = TextEditingController();
   final TextEditingController _minPriceController =
       TextEditingController(text: '0');
   final TextEditingController _maxPriceController =
       TextEditingController(text: '10000000');
-  final RxList<Map<String, dynamic>> hotels = <Map<String, dynamic>>[].obs;
-  final isLoading = true.obs;
-  String? sortBy;
-  double _minPrice = 0;
-  double _maxPrice = 10000000;
-  bool _isPriceFilterActive = false;
-  Position? _currentPosition;
-  bool _isNearestActive = false;
   final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Reset dan fetch semua hotel saat pertama kali dibuka
-    resetSearch();
-    _getCurrentLocation();
+    controller.fetchHotels();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      resetSearch();
+      controller.resetSearch();
     }
   }
 
@@ -57,13 +49,13 @@ class _HotelScreenState extends State<HotelScreen>
   @override
   void didPopNext() {
     // Dipanggil ketika kembali ke halaman ini
-    resetSearch();
+    controller.resetSearch();
   }
 
   @override
   void didPushNext() {
     // Dipanggil ketika meninggalkan halaman ini
-    resetSearch();
+    controller.resetSearch();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -76,9 +68,7 @@ class _HotelScreenState extends State<HotelScreen>
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
         Position position = await Geolocator.getCurrentPosition();
-        setState(() {
-          _currentPosition = position;
-        });
+        controller.currentPosition.value = position;
       }
     } catch (e) {
       print('Error getting location: $e');
@@ -189,9 +179,10 @@ class _HotelScreenState extends State<HotelScreen>
                               RadioListTile<String>(
                                 title: Text('Harga Tertinggi'),
                                 value: 'price_high',
-                                groupValue: sortBy,
+                                groupValue: controller.sortBy.value,
                                 onChanged: (value) {
-                                  setModalState(() => sortBy = value);
+                                  setModalState(() =>
+                                      controller.sortBy.value = value ?? '');
                                 },
                                 activeColor: AppTheme.primary,
                               ),
@@ -199,9 +190,10 @@ class _HotelScreenState extends State<HotelScreen>
                               RadioListTile<String>(
                                 title: Text('Harga Terendah'),
                                 value: 'price_low',
-                                groupValue: sortBy,
+                                groupValue: controller.sortBy.value,
                                 onChanged: (value) {
-                                  setModalState(() => sortBy = value);
+                                  setModalState(() =>
+                                      controller.sortBy.value = value ?? '');
                                 },
                                 activeColor: AppTheme.primary,
                               ),
@@ -316,17 +308,19 @@ class _HotelScreenState extends State<HotelScreen>
                                   'Lokasi Terdekat',
                                   style: TextStyle(fontWeight: FontWeight.w500),
                                 ),
-                                value: _isNearestActive,
-                                onChanged: _currentPosition == null
-                                    ? null
-                                    : (value) {
-                                        setModalState(() {
-                                          _isNearestActive = value;
-                                        });
-                                      },
+                                value: controller.isNearestActive.value,
+                                onChanged:
+                                    controller.currentPosition.value == null
+                                        ? null
+                                        : (value) {
+                                            setModalState(() {
+                                              controller.isNearestActive.value =
+                                                  value;
+                                            });
+                                          },
                                 activeColor: AppTheme.primary,
                               ),
-                              if (_currentPosition == null)
+                              if (controller.currentPosition.value == null)
                                 Padding(
                                   padding: const EdgeInsets.only(
                                     left: 16,
@@ -351,22 +345,23 @@ class _HotelScreenState extends State<HotelScreen>
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: () {
-                              _isPriceFilterActive =
+                              controller.isPriceFilterActive.value =
                                   _minPriceController.text.isNotEmpty ||
                                       _maxPriceController.text.isNotEmpty;
-                              if (_isPriceFilterActive) {
+                              if (controller.isPriceFilterActive.value) {
                                 // Hapus koma sebelum parsing
-                                _minPrice = double.tryParse(_minPriceController
-                                        .text
-                                        .replaceAll(',', '')) ??
+                                controller.minPrice.value = double.tryParse(
+                                        _minPriceController.text
+                                            .replaceAll(',', '')) ??
                                     0;
-                                _maxPrice = double.tryParse(_maxPriceController
-                                        .text
-                                        .replaceAll(',', '')) ??
+                                controller.maxPrice.value = double.tryParse(
+                                        _maxPriceController.text
+                                            .replaceAll(',', '')) ??
                                     10000000;
                               }
                               Navigator.pop(context);
-                              _fetchHotels(search: searchController.text);
+                              controller.fetchHotels(
+                                  search: searchController.text);
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primary,
@@ -397,23 +392,11 @@ class _HotelScreenState extends State<HotelScreen>
     );
   }
 
-  void resetSearch() {
-    searchController.clear();
-    _minPriceController.text = '0';
-    _maxPriceController.text = '10000000';
-    _minPrice = 0;
-    _maxPrice = 10000000;
-    _isPriceFilterActive = false;
-    _isNearestActive = false;
-    sortBy = null;
-    _fetchHotels(); // Fetch semua hotel
-  }
-
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        resetSearch();
+        controller.resetSearch();
         return true;
       },
       child: Scaffold(
@@ -443,7 +426,8 @@ class _HotelScreenState extends State<HotelScreen>
                       ),
                       contentPadding: EdgeInsets.zero,
                     ),
-                    onSubmitted: (value) => _fetchHotels(search: value),
+                    onSubmitted: (value) =>
+                        controller.fetchHotels(search: value),
                   ),
                 ),
               ),
@@ -461,19 +445,19 @@ class _HotelScreenState extends State<HotelScreen>
             // Existing Obx and ListView
             Expanded(
               child: Obx(() {
-                if (isLoading.value) {
+                if (controller.isLoading.value) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (hotels.isEmpty) {
+                if (controller.hotels.isEmpty) {
                   return const Center(child: Text('Tidak ada hotel tersedia'));
                 }
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(8),
-                  itemCount: hotels.length,
+                  itemCount: controller.hotels.length,
                   itemBuilder: (context, index) {
-                    final hotel = hotels[index];
+                    final hotel = controller.hotels[index];
                     final hotelAddress = hotel['address'] is Map
                         ? (hotel['address'] as Map)['full_address']
                         : hotel['address'] as String;
@@ -567,8 +551,9 @@ class _HotelScreenState extends State<HotelScreen>
                                                     locale: 'id',
                                                     symbol: 'Rp ',
                                                     decimalDigits: 0,
-                                                  ).format(_getLowestPrice(
-                                                    hotel['room_types']))
+                                                  ).format(
+                                                    controller.getLowestPrice(
+                                                        hotel['room_types']))
                                                 : 'Harga tidak tersedia',
                                             style: TextStyle(
                                               color: AppTheme.primary,
@@ -595,130 +580,6 @@ class _HotelScreenState extends State<HotelScreen>
         ),
       ),
     );
-  }
-
-  Future<void> _fetchHotels({String? search}) async {
-    try {
-      isLoading.value = true;
-
-      // 1. Ambil data hotel dasar
-      final response = await supabase.from('hotels').select('''
-            *,
-            merchants:merchant_id (
-              store_name,
-              store_address
-            )
-          ''');
-
-      var filteredHotels = List<Map<String, dynamic>>.from(response);
-
-      // 2. Filter pencarian berdasarkan nama hotel atau alamat
-      if (search != null && search.isNotEmpty) {
-        filteredHotels = filteredHotels.where((hotel) {
-          final String hotelName = hotel['name'].toString().toLowerCase();
-          final String hotelAddress = hotel['address'] is Map
-              ? hotel['address']['full_address'].toString().toLowerCase()
-              : hotel['address'].toString().toLowerCase();
-
-          final String searchLower = search.toLowerCase();
-
-          // Cari berdasarkan nama hotel atau alamat
-          return hotelName.contains(searchLower) ||
-              hotelAddress.contains(searchLower);
-        }).toList();
-      }
-
-      // 3. Filter berdasarkan range harga
-      if (_isPriceFilterActive) {
-        filteredHotels = filteredHotels.where((hotel) {
-          if (hotel['room_types'] == null) return false;
-          double lowestPrice = _getLowestPrice(hotel['room_types']);
-          return lowestPrice >= _minPrice && lowestPrice <= _maxPrice;
-        }).toList();
-      }
-
-      // 4. Filter dan sort berdasarkan jarak
-      if (_isNearestActive && _currentPosition != null) {
-        // Hitung jarak untuk setiap hotel
-        for (var hotel in filteredHotels) {
-          if (hotel['latitude'] == null || hotel['longitude'] == null) {
-            hotel['distance'] = double.infinity;
-            continue;
-          }
-
-          try {
-            hotel['distance'] = _calculateDistance(
-              _currentPosition!.latitude,
-              _currentPosition!.longitude,
-              double.parse(hotel['latitude'].toString()),
-              double.parse(hotel['longitude'].toString()),
-            );
-          } catch (e) {
-            print('Error calculating distance for ${hotel['name']}: $e');
-            hotel['distance'] = double.infinity;
-          }
-        }
-
-        // Sort berdasarkan jarak
-        filteredHotels.sort((a, b) =>
-            (a['distance'] as double).compareTo(b['distance'] as double));
-      }
-
-      // 5. Sort berdasarkan harga jika dipilih
-      if (sortBy != null) {
-        switch (sortBy) {
-          case 'price_high':
-            filteredHotels.sort((a, b) {
-              final priceA = _getLowestPrice(a['room_types']);
-              final priceB = _getLowestPrice(b['room_types']);
-              return priceB.compareTo(priceA); // Harga tertinggi dulu
-            });
-            break;
-          case 'price_low':
-            filteredHotels.sort((a, b) {
-              final priceA = _getLowestPrice(a['room_types']);
-              final priceB = _getLowestPrice(b['room_types']);
-              return priceA.compareTo(priceB); // Harga terendah dulu
-            });
-            break;
-        }
-      }
-
-      // Handle alamat yang berbentuk Map
-      for (var hotel in filteredHotels) {
-        if (hotel['address'] is Map) {
-          hotel['display_address'] = hotel['address']['full_address'];
-        } else {
-          hotel['display_address'] = hotel['address'].toString();
-        }
-      }
-
-      hotels.value = filteredHotels;
-    } catch (e) {
-      print('Error in _fetchHotels: $e');
-      Get.snackbar(
-        'Error',
-        'Gagal memuat data hotel: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  // Helper function untuk mendapatkan harga terendah
-  double _getLowestPrice(List<dynamic> roomTypes) {
-    if (roomTypes.isEmpty) return 0;
-    try {
-      List<double> prices = roomTypes
-          .map((room) => double.parse(room['price_per_night'].toString()))
-          .toList();
-      return prices.reduce((curr, next) => curr < next ? curr : next);
-    } catch (e) {
-      print('Error parsing room price: $e');
-      return 0;
-    }
   }
 
   @override
