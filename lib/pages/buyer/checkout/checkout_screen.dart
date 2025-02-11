@@ -47,11 +47,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool isLoadingAddresses = false;
   Map<String, String> merchantShippingTypes = {};
   Map<String, double> merchantDistances = {};
-  Map<String, dynamic>? selectedShipping;
+  Map<String, dynamic>? selectedShippingMethod;
   List<Map<String, dynamic>> shippingMethods = [];
   List<Map<String, dynamic>> voucherList = [];
-  bool isLoading = false;
-  bool isLoadingShipping = false;
 
   @override
   void initState() {
@@ -190,43 +188,103 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> handleConfirmOrder() async {
-    setState(() => isLoading = true);
+    // Validasi alamat
+    if (widget.data['shipping_address'] == null ||
+        widget.data['shipping_address'].toString().trim().isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Silakan lengkapi alamat pengiriman terlebih dahulu',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+
+    // Pastikan setiap merchant memiliki shipping cost
+    for (var item in widget.data['items']) {
+      final merchantId = item['products']['seller_id'];
+      if (!merchantShippingCosts.containsKey(merchantId)) {
+        Get.snackbar(
+          'Error',
+          'Silakan pilih metode pengiriman terlebih dahulu',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+    }
+
     try {
-      // Validasi alamat dan metode pembayaran
-      if (!isAddressValid() ||
-          paymentMethod == null ||
-          selectedShipping == null) {
-        throw Exception(
-            'Alamat, metode pembayaran, dan pengiriman harus diisi');
-      }
+      print('Debug: Starting order creation process');
 
-      // Ambil merchant_id dari item pertama
-      final merchantId = widget.data['items'][0]['products']['seller_id'];
-      print('DEBUG: Merchant ID from first item: $merchantId');
+      // Cek apakah metode pembayaran adalah COD
+      final selectedMethod = paymentMethods.firstWhere(
+        (method) => method['id'].toString() == paymentMethod,
+        orElse: () => {'name': ''},
+      );
+      final isCOD =
+          selectedMethod['name'].toString().toLowerCase().contains('cod');
 
-      if (merchantId == null) {
-        throw Exception('Merchant ID tidak ditemukan');
-      }
+      // Parse alamat menjadi string yang rapi
+      String formattedAddress = '';
 
-      // Persiapkan data order
-      final orderData = {
-        'buyer_id': supabase.auth.currentUser!.id,
-        'status': 'pending',
-        'total_amount': widget.data['total_amount'],
-        'shipping_address': widget.data['shipping_address'].toString(),
-        'payment_method_id': int.parse(paymentMethod!),
-        'merchant_id': merchantId, // Gunakan merchant_id dari item
-        'shipping_cost': shippingCost,
-        'pengiriman_id': selectedShipping!['id_pengiriman'],
+      // Bersihkan string dan konversi ke Map
+      String cleanAddress =
+          selectedAddress!.replaceAll('{', '').replaceAll('}', '');
+
+      Map<String, String> addressMap = {};
+      cleanAddress.split(',').forEach((pair) {
+        var keyValue = pair.split(':');
+        if (keyValue.length == 2) {
+          addressMap[keyValue[0].trim()] = keyValue[1].trim();
+        }
+      });
+
+      // Format alamat menjadi string yang rapi
+      formattedAddress = [
+        addressMap['street'],
+        if (addressMap['village']?.isNotEmpty == true)
+          "Desa ${addressMap['village']}",
+        if (addressMap['district']?.isNotEmpty == true)
+          "Kec. ${addressMap['district']}",
+        addressMap['city'],
+        addressMap['province'],
+        addressMap['postal_code']
+      ].where((e) => e != null && e.isNotEmpty).join(', ');
+
+      final params = {
+        'p_buyer_id': supabase.auth.currentUser!.id,
+        'p_payment_method_id': int.parse(paymentMethod ?? '1'),
+        'p_shipping_address': formattedAddress,
+        'p_items': widget.data['items']
+            .map((item) => {
+                  'product_id': item['products']['id'],
+                  'quantity': item['quantity'],
+                  'price': item['products']['price'],
+                  'merchant_id': item['products']['seller_id'],
+                })
+            .toList(),
+        'p_shipping_costs': Map<String, dynamic>.fromEntries(
+          merchantShippingCosts.entries.map(
+            (e) => MapEntry(e.key, e.value.toDouble()),
+          ),
+        ),
+        'p_admin_fee': adminFee,
+        'p_total_amount': widget.data['total_amount'] + adminFee + shippingCost,
+        'p_total_shipping_cost': shippingCost,
       };
 
-      print('DEBUG: Order data to be inserted: $orderData');
+      final response = await supabase.rpc(
+        'create_order_with_items',
+        params: params,
+      );
 
-      // Insert order ke database
-      final response =
-          await supabase.from('orders').insert(orderData).select().single();
+      if (response == null || response['success'] == false) {
+        throw Exception(response?['message'] ?? 'Unknown error occurred');
+      }
 
-      print('DEBUG: Order created successfully: $response');
+      final paymentGroupId = response['payment_group_id'];
 
       await cartController.clearCart(
           widget.data['items'].map((item) => item['product_id']).toList());
@@ -235,26 +293,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       Get.off(() => PaymentScreen(
             orderData: {
               ...widget.data,
-              'payment_group_id': response['payment_group_id'],
+              'payment_group_id': paymentGroupId,
               'total_amount':
                   widget.data['total_amount'] + adminFee + shippingCost,
               'total_shipping_cost': shippingCost,
               'admin_fee': adminFee,
             },
-            paymentMethod: paymentMethods.firstWhere(
-              (method) => method['id'].toString() == paymentMethod,
-            ),
+            paymentMethod: selectedMethod,
           ));
     } catch (e) {
-      print('DEBUG: Error creating order: $e');
+      print('Error creating order: $e');
       Get.snackbar(
         'Error',
-        'Gagal membuat pesanan: ${e.toString()}',
+        'Terjadi kesalahan saat membuat pesanan',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
-    } finally {
-      setState(() => isLoading = false);
     }
   }
 
@@ -297,7 +351,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> calculateShippingCost() async {
-    if (selectedShipping == null) return;
+    if (selectedShippingMethod == null) return;
 
     try {
       merchantShippingCosts.clear();
@@ -311,9 +365,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             double.parse(widget.data['shipping_address']['longitude']);
 
         final perKg =
-            double.parse(selectedShipping!['harga_per_kg'].toString());
+            double.parse(selectedShippingMethod!['harga_per_kg'].toString());
         final perKm =
-            double.parse(selectedShipping!['harga_per_km'].toString());
+            double.parse(selectedShippingMethod!['harga_per_km'].toString());
 
         for (var item in widget.data['items']) {
           final merchantId = item['products']['seller_id'];
@@ -842,59 +896,58 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildShippingMethodSelector() {
+    print(
+        'Building shipping selector. Methods: $shippingMethods'); // Debug print
     return Card(
       elevation: 0.5,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.local_shipping, color: AppTheme.primary, size: 18),
+                Icon(Icons.local_shipping_outlined, color: AppTheme.primary),
                 SizedBox(width: 8),
-                Text(
-                  'Metode Pengiriman',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pilih Pengiriman',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
               ],
             ),
             SizedBox(height: 12),
-            if (isLoadingShipping)
-              Center(child: CircularProgressIndicator())
+            if (shippingMethods.isEmpty)
+              Center(
+                child: Text(
+                  'Tidak ada metode pengiriman tersedia',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              )
             else
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<Map<String, dynamic>>(
-                    isExpanded: true,
-                    value: selectedShipping,
-                    hint: Text('Pilih metode pengiriman'),
-                    items: shippingMethods.map((method) {
-                      return DropdownMenuItem(
-                        value: method,
-                        child: Text(
-                          '${method['nama_pengiriman']} - Rp ${NumberFormat('#,###').format(shippingCost)}',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) async {
-                      setState(() => selectedShipping = value);
-                      if (value != null) {
-                        await calculateShippingCost();
-                      }
-                    },
-                  ),
-                ),
-              ),
+              ...shippingMethods
+                  .map(
+                    (method) => RadioListTile<Map<String, dynamic>>(
+                      title: Text(method['nama_pengiriman']),
+                      value: method,
+                      groupValue: selectedShippingMethod,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedShippingMethod = value;
+                        });
+                        calculateShippingCost();
+                      },
+                    ),
+                  )
+                  .toList(),
           ],
         ),
       ),
