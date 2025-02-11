@@ -13,6 +13,7 @@ import 'screens/splash_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 import 'services/local_notification_service.dart';
+import 'services/notification_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -66,6 +67,8 @@ void main() async {
     ),
     debug: true,
   );
+
+  await NotificationService.initialize();
 
   Get.put(AuthController());
   Get.put(RouteObserver<Route>());
