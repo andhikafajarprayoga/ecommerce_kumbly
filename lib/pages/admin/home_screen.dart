@@ -21,6 +21,9 @@ import '../../pages/admin/hotel/hotel_management_screen.dart';
 import '../../controllers/admin_notification_controller.dart';
 import 'notification/admin_notifications_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'pengiriman/pengiriman_screen.dart';
+import './account/admin_account_screen.dart';
+import 'pengiriman/pengiriman_types_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -166,6 +169,13 @@ class AdminHomeScreen extends StatelessWidget {
                                   .length),
                         ),
                         _buildMenuCard(
+                          icon: Icons.local_shipping_outlined,
+                          title: 'Tipe Pengiriman',
+                          subtitle: 'Lihat Daftar Tipe Pengiriman',
+                          color: Colors.teal,
+                          onTap: () => Get.to(() => PengirimanTypesScreen()),
+                        ),
+                        _buildMenuCard(
                           icon: Icons.local_shipping,
                           title: 'Pengiriman',
                           subtitle: 'ACC Pengiriman',
@@ -192,6 +202,13 @@ class AdminHomeScreen extends StatelessWidget {
                           }).handleError((error) {
                             return 0;
                           }),
+                        ),
+                        _buildMenuCard(
+                          icon: Icons.local_shipping,
+                          title: 'Pengiriman',
+                          subtitle: 'Kelola Jasa Pengiriman',
+                          color: Colors.indigo,
+                          onTap: () => Get.to(() => PengirimanScreen()),
                         ),
                         _buildMenuCard(
                           icon: Icons.campaign,
@@ -253,6 +270,13 @@ class AdminHomeScreen extends StatelessWidget {
                                   .where(
                                       (order) => order['status'] == 'pending')
                                   .length),
+                        ),
+                        _buildMenuCard(
+                          icon: Icons.admin_panel_settings,
+                          title: 'Akun Admin',
+                          subtitle: 'Kelola Akun Admin',
+                          color: Colors.red,
+                          onTap: () => Get.to(() => AdminAccountScreen()),
                         ),
                       ],
                     ),
