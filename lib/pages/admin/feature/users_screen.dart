@@ -429,41 +429,30 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
     setState(() => isLoading = true);
 
     try {
-      final data = {
-        'email': emailController.text,
-        'full_name': fullNameController.text,
-        'phone': phoneController.text,
-        'address': addressController.text,
-        'role': selectedRole,
-      };
-
       if (widget.user != null) {
-        // Update existing user
-        await supabase.from('users').update(data).eq('id', widget.user!['id']);
-      } else {
-        // Create new user
-        // Note: In a real application, you would need to handle user authentication creation as well
+        // Update users table (sesuaikan dengan nama tabel yang benar)
+        await supabase
+            .from('users') // Menggunakan 'users' alih-alih 'profiles'
+            .update({
+          'full_name': fullNameController.text,
+          'phone': phoneController.text,
+          'address': addressController.text,
+          'role': selectedRole,
+        }).eq('id', widget.user!['id']);
+
+        Get.back(result: true);
         Get.snackbar(
-          'Info',
-          'Pembuatan user baru memerlukan proses pendaftaran',
-          backgroundColor: Colors.orange,
+          'Sukses',
+          'Data user berhasil diperbarui',
+          backgroundColor: Colors.green,
           colorText: Colors.white,
         );
-        return;
       }
-
-      Get.back(result: true);
-      Get.snackbar(
-        'Sukses',
-        'Data user berhasil disimpan',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
     } catch (e) {
       print('Error saving user: $e');
       Get.snackbar(
         'Error',
-        'Gagal menyimpan data user',
+        'Gagal menyimpan data user: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

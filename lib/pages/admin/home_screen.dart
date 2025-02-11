@@ -17,6 +17,7 @@ import 'account/account_deletion_screen.dart';
 import 'feature/branch_products_screen.dart';
 import '../../pages/admin/branch/branch_orders_screen.dart';
 import 'payment/payment_management_screen.dart';
+import '../../pages/admin/hotel/hotel_management_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -76,9 +77,9 @@ class AdminHomeScreen extends StatelessWidget {
                           onTap: () => Get.to(() => UsersScreen()),
                         ),
                         _buildMenuCard(
-                          icon: Icons.people,
+                          icon: Icons.money,
                           title: 'Pembayaran',
-                          subtitle: 'Pembayaran dari buyer',
+                          subtitle: 'Rekap Pembayaran',
                           color: Colors.blue,
                           onTap: () => Get.to(() => PaymentManagementScreen()),
                         ),
@@ -104,18 +105,18 @@ class AdminHomeScreen extends StatelessWidget {
                           onTap: () => Get.to(() => StoresScreen()),
                         ),
                         _buildMenuCard(
-                          icon: Icons.local_shipping,
-                          title: 'Pengiriman',
-                          subtitle: 'Atur pengiriman & logistik',
-                          color: Colors.orange,
-                          onTap: () => Get.to(() => ShipmentsScreen()),
+                          icon: Icons.hotel,
+                          title: 'Hotel',
+                          subtitle: 'Kelola Hotel',
+                          color: Colors.green,
+                          onTap: () => Get.to(() => HotelManagementScreen()),
                         ),
                         _buildMenuCard(
-                          icon: Icons.assessment,
-                          title: 'Laporan',
-                          subtitle: 'Lihat statistik & analisis',
-                          color: Colors.red,
-                          onTap: () => Get.to(() => ReportsScreen()),
+                          icon: Icons.local_shipping,
+                          title: 'Pengiriman',
+                          subtitle: 'ACC Pengiriman',
+                          color: Colors.orange,
+                          onTap: () => Get.to(() => ShipmentsScreen()),
                         ),
                         _buildMenuCard(
                           icon: Icons.campaign,

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../theme/app_theme.dart';
+import 'payment_summary_screen.dart';
 
 class PaymentManagementScreen extends StatefulWidget {
   @override
@@ -53,38 +54,44 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
     try {
       setState(() => isLoading = true);
 
-      // Ambil dulu data payment_groups
+      // 1. Ambil data payment
       final response = await supabase
           .from('payment_groups')
-          .select('*')
+          .select()
           .eq('payment_status', selectedStatus)
           .order('created_at', ascending: false);
 
-      final List<Map<String, dynamic>> paymentsData =
+      List<Map<String, dynamic>> paymentsData =
           List<Map<String, dynamic>>.from(response);
 
-      // Ambil data payment_methods secara terpisah
-      final methodsResponse =
-          await supabase.from('payment_methods').select('*');
+      // 2. Ambil semua payment methods
+      final methodsResponse = await supabase.from('payment_methods').select();
 
-      final List<Map<String, dynamic>> methodsData =
-          List<Map<String, dynamic>>.from(methodsResponse);
+      final methodsData = Map<int, dynamic>.fromEntries(
+          (methodsResponse as List)
+              .map((method) => MapEntry(method['id'], method)));
 
-      // Gabungkan data secara manual
-      final enrichedPayments = paymentsData.map((payment) {
-        final method = methodsData.firstWhere(
-          (m) => m['id'] == payment['payment_method_id'],
-          orElse: () => {'name': 'Unknown', 'admin': 0},
-        );
+      // 3. Ambil data buyer dan gabungkan semua data
+      for (var payment in paymentsData) {
+        // Tambahkan payment method
+        if (payment['payment_method_id'] != null) {
+          payment['payment_method'] = methodsData[payment['payment_method_id']];
+        }
 
-        return {
-          ...payment,
-          'payment_method': method,
-        };
-      }).toList();
+        // Tambahkan buyer info
+        if (payment['buyer_id'] != null) {
+          final buyerResponse = await supabase
+              .from('users')
+              .select('email, full_name, phone')
+              .eq('id', payment['buyer_id'])
+              .single();
+
+          payment['buyer'] = buyerResponse;
+        }
+      }
 
       setState(() {
-        payments = enrichedPayments;
+        payments = paymentsData;
         filteredPayments = List.from(payments);
         isLoading = false;
       });
@@ -127,110 +134,102 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Kalkulasi total
+    double totalProducts = 0;
+    double totalShipping = 0;
+    double totalAdmin = 0;
+    int totalCOD = 0;
+    int totalTransfer = 0;
+
+    for (var payment in filteredPayments) {
+      totalProducts += (payment['total_amount'] ?? 0).toDouble();
+      totalShipping += (payment['total_shipping_cost'] ?? 0).toDouble();
+      totalAdmin += (payment['admin_fee'] ?? 0).toDouble();
+      if (payment['payment_proof'] == 'COD')
+        totalCOD++;
+      else
+        totalTransfer++;
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kelola Pembayaran', style: TextStyle(color: Colors.white)),
-        backgroundColor: AppTheme.primary,
+        title: Text('Kelola Pembayaran'),
+        backgroundColor: Colors.pink,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.analytics),
+            onPressed: () {
+              Get.to(() => PaymentSummaryScreen(payments: filteredPayments));
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
+          // Summary Card
+
+          // Search Bar
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
               controller: searchController,
               decoration: InputDecoration(
                 hintText: 'Cari ID Pembayaran atau ID Pembeli...',
-                prefixIcon: Icon(Icons.search),
+                prefixIcon: Icon(Icons.search, color: Colors.grey),
+                filled: true,
+                fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
                 ),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
               ),
               onChanged: searchPayments,
             ),
           ),
-          _buildStatusFilter(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+
+          // Filter Chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Hasil: ${filteredPayments.length} pembayaran',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                if (searchController.text.isNotEmpty)
-                  TextButton.icon(
-                    onPressed: () {
-                      searchController.clear();
-                      searchPayments('');
-                    },
-                    icon: Icon(Icons.clear),
-                    label: Text('Hapus Filter'),
-                  ),
+                _buildFilterChip('pending', 'Menunggu'),
+                SizedBox(width: 8),
+                _buildFilterChip('confirmed', 'Dikonfirmasi'),
+                SizedBox(width: 8),
+                _buildFilterChip('rejected', 'Ditolak'),
+                SizedBox(width: 8),
+                _buildFilterChip('completed', 'Selesai'),
               ],
             ),
           ),
+
+          // Results Count
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Hasil: ${filteredPayments.length} pembayaran',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+
+          // Payment List
           Expanded(
-            child: isLoading
-                ? Center(child: CircularProgressIndicator())
-                : filteredPayments.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.search_off,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: 16),
-                            Text(
-                              searchController.text.isEmpty
-                                  ? 'Tidak ada pembayaran ${selectedStatus}'
-                                  : 'Tidak ada hasil pencarian',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: filteredPayments.length,
-                        padding: EdgeInsets.all(8),
-                        itemBuilder: (context, index) {
-                          return _buildPaymentCard(filteredPayments[index]);
-                        },
-                      ),
+            child: ListView.builder(
+              itemCount: filteredPayments.length,
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              itemBuilder: (context, index) {
+                final payment = filteredPayments[index];
+                return _buildPaymentListItem(payment);
+              },
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatusFilter() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildFilterChip('pending', 'Menunggu'),
-            SizedBox(width: 8),
-            _buildFilterChip('confirmed', 'Dikonfirmasi'),
-            SizedBox(width: 8),
-            _buildFilterChip('rejected', 'Ditolak'),
-            SizedBox(width: 8),
-            _buildFilterChip('completed', 'Selesai'),
-          ],
-        ),
       ),
     );
   }
@@ -251,11 +250,13 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
     );
   }
 
-  Widget _buildPaymentCard(Map<String, dynamic> payment) {
+  Widget _buildPaymentListItem(Map<String, dynamic> payment) {
     final paymentMethod = payment['payment_method'];
+    final buyer = payment['buyer'];
+    final paymentProof = payment['payment_proof'];
 
     return Card(
-      margin: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      margin: EdgeInsets.only(bottom: 8),
       child: ExpansionTile(
         title: Text(
           'ID: ${payment['id'].toString().substring(0, 8)}...',
@@ -264,18 +265,15 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Buyer ID: ${payment['buyer_id'] ?? 'Unknown'}'),
+            Text('Pembeli: ${payment['buyer']?['full_name'] ?? 'Unknown'}'),
+            Text('Email: ${payment['buyer']?['email'] ?? 'Unknown'}'),
+            Text('Telp: ${payment['buyer']?['phone'] ?? '-'}'),
             Text(
-                'Total: Rp ${NumberFormat('#,###').format(payment['total_amount'] ?? 0)}'),
-            Text('Status: ${payment['payment_status'] ?? 'Unknown'}'),
-            if (paymentMethod != null)
-              Text('Metode: ${paymentMethod['name']}',
-                  style: TextStyle(color: Colors.blue)),
-            if (payment['payment_proof'] != null &&
-                payment['payment_proof'] != 'COD')
-              Text('✓ Bukti Transfer', style: TextStyle(color: Colors.green))
-            else if (payment['payment_proof'] == 'COD')
-              Text('COD', style: TextStyle(color: Colors.orange)),
+                'Total Produk: Rp ${NumberFormat('#,###').format(payment['total_amount'] ?? 0)}'),
+            if (payment['payment_proof'] == 'COD')
+              Text('COD',
+                  style: TextStyle(
+                      color: Colors.orange, fontWeight: FontWeight.bold)),
           ],
         ),
         children: [
@@ -284,154 +282,199 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Payment Method Details
-                if (paymentMethod != null) ...[
-                  Text('Detail Metode Pembayaran:',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  SizedBox(height: 8),
-                  _buildDetailRow('Metode', paymentMethod['name']),
-                  if (paymentMethod['account_number'] != null)
-                    _buildDetailRow(
-                        'Nomor Rekening', paymentMethod['account_number']),
-                  if (paymentMethod['account_name'] != null)
-                    _buildDetailRow(
-                        'Nama Rekening', paymentMethod['account_name']),
-                  if (paymentMethod['description'] != null)
-                    _buildDetailRow('Keterangan', paymentMethod['description']),
-                  _buildDetailRow('Biaya Admin',
-                      'Rp ${NumberFormat('#,###').format(paymentMethod['admin'] ?? 0)}'),
-                  Divider(height: 24),
-                ],
-
-                // Payment Details
-                Text('Detail Pembayaran:',
+                Text('Rincian Pembayaran:',
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 SizedBox(height: 8),
-                _buildDetailRow('Admin Fee',
-                    'Rp ${NumberFormat('#,###').format(payment['admin_fee'] ?? 0)}'),
+                _buildDetailRow('Total Produk',
+                    'Rp ${NumberFormat('#,###').format(payment['total_amount'] ?? 0)}'),
                 _buildDetailRow('Ongkos Kirim',
                     'Rp ${NumberFormat('#,###').format(payment['total_shipping_cost'] ?? 0)}'),
+                _buildDetailRow('Biaya Admin',
+                    'Rp ${NumberFormat('#,###').format(payment['admin_fee'] ?? 0)}'),
+                Divider(),
                 _buildDetailRow('Total Pembayaran',
-                    'Rp ${NumberFormat('#,###').format(payment['total_amount'] ?? 0)}',
-                    valueColor: AppTheme.primary),
-                _buildDetailRow(
-                    'Tanggal',
-                    DateFormat('dd MMM yyyy HH:mm')
-                        .format(DateTime.parse(payment['created_at']))),
-
-                // Bukti Transfer
-                if (payment['payment_proof'] != null &&
-                    payment['payment_proof'] != 'COD') ...[
+                    'Rp ${NumberFormat('#,###').format((payment['total_amount'] ?? 0) + (payment['total_shipping_cost'] ?? 0) + (payment['admin_fee'] ?? 0))}',
+                    valueColor: Colors.pink, isBold: true),
+                if (payment['payment_proof'] == 'COD') ...[
                   SizedBox(height: 16),
-                  Text('Bukti Transfer:',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  SizedBox(height: 8),
                   Container(
+                    padding: EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
+                      color: Colors.orange.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange),
                     ),
-                    child: InkWell(
-                      onTap: () {
-                        // Tampilkan gambar dalam dialog untuk melihat lebih detail
-                        showDialog(
-                          context: context,
-                          builder: (context) => Dialog(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                AppBar(
-                                  title: Text('Bukti Transfer'),
-                                  leading: IconButton(
-                                    icon: Icon(Icons.close),
-                                    onPressed: () => Navigator.pop(context),
-                                  ),
-                                ),
-                                InteractiveViewer(
-                                  panEnabled: true,
-                                  boundaryMargin: EdgeInsets.all(20),
-                                  minScale: 0.5,
-                                  maxScale: 4,
-                                  child: Image.network(
-                                    payment['payment_proof'],
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Padding(
-                                        padding: const EdgeInsets.all(16.0),
-                                        child: Column(
-                                          children: [
-                                            Icon(Icons.broken_image,
-                                                size: 64, color: Colors.grey),
-                                            SizedBox(height: 8),
-                                            Text('Gagal memuat gambar'),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.local_shipping, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Pembayaran COD',
+                            style: TextStyle(color: Colors.orange),
                           ),
-                        );
-                      },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (paymentMethod != null) ...[
+                  SizedBox(height: 16),
+                  Text('Metode Pembayaran:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(paymentMethod['name'] ?? 'Unknown'),
+                ],
+                if (buyer != null) ...[
+                  SizedBox(height: 16),
+                  Text('Informasi Pembeli:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Nama: ${buyer['full_name'] ?? 'Unknown'}'),
+                  Text('Email: ${buyer['email'] ?? 'Unknown'}'),
+                  Text('Telepon: ${buyer['phone'] ?? '-'}'),
+                ],
+                SizedBox(height: 16),
+                Text('Bukti Pembayaran:',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                if (paymentProof == 'COD')
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.local_shipping, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Text(
+                          'Pembayaran COD',
+                          style: TextStyle(color: Colors.orange),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (paymentProof != null &&
+                    paymentProof.isNotEmpty &&
+                    paymentProof != 'COD')
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => Dialog(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AppBar(
+                                title: Text('Bukti Pembayaran'),
+                                backgroundColor: Colors.pink,
+                                foregroundColor: Colors.white,
+                                leading: IconButton(
+                                  icon: Icon(Icons.close),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                              ),
+                              Container(
+                                constraints: BoxConstraints(
+                                  maxHeight:
+                                      MediaQuery.of(context).size.height * 0.7,
+                                ),
+                                child: Image.network(
+                                  paymentProof,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder:
+                                      (context, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Center(
+                                      child: CircularProgressIndicator(
+                                        value: loadingProgress
+                                                    .expectedTotalBytes !=
+                                                null
+                                            ? loadingProgress
+                                                    .cumulativeBytesLoaded /
+                                                loadingProgress
+                                                    .expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      padding: EdgeInsets.all(16),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.error_outline,
+                                              color: Colors.red, size: 48),
+                                          SizedBox(height: 8),
+                                          Text('Gagal memuat gambar',
+                                              style:
+                                                  TextStyle(color: Colors.red)),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      height: 100,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.network(
-                          payment['payment_proof'],
-                          height: 200,
-                          width: double.infinity,
+                          paymentProof,
                           fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes !=
+                                        null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
-                              height: 200,
-                              width: double.infinity,
-                              color: Colors.grey[200],
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.broken_image,
-                                      size: 64, color: Colors.grey),
-                                  SizedBox(height: 8),
-                                  Text('Gagal memuat gambar'),
-                                ],
-                              ),
+                              padding: EdgeInsets.all(16),
+                              child: Icon(Icons.image_not_supported,
+                                  color: Colors.grey),
                             );
                           },
                         ),
                       ),
                     ),
-                  ),
-                ],
-
-                // Action Buttons
-                SizedBox(height: 16),
-                if (selectedStatus == 'pending')
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () =>
-                            updatePaymentStatus(payment['id'], 'confirmed'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
+                  )
+                else
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey[300]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.image_not_supported, color: Colors.grey),
+                        SizedBox(width: 8),
+                        Text(
+                          'Belum ada bukti pembayaran',
+                          style: TextStyle(color: Colors.grey),
                         ),
-                        child: Text('Konfirmasi',
-                            style: TextStyle(color: Colors.white)),
-                      ),
-                      ElevatedButton(
-                        onPressed: () =>
-                            updatePaymentStatus(payment['id'], 'rejected'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                        ),
-                        child: Text('Tolak',
-                            style: TextStyle(color: Colors.white)),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
               ],
             ),
@@ -441,28 +484,44 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+  Widget _buildDetailRow(String label, String value,
+      {Color? valueColor, bool isBold = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[600],
-              ),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.grey[600],
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: valueColor,
-              ),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value, {bool isTotal = false}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+              color: isTotal ? Colors.pink : null,
+              fontSize: 13,
             ),
           ),
         ],

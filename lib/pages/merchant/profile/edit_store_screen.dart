@@ -3,6 +3,11 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'dart:convert';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
 
 class EditStoreScreen extends StatefulWidget {
   @override
@@ -25,6 +30,18 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   final _provinceController = TextEditingController();
   final _postalCodeController = TextEditingController();
 
+  // Tambahkan controller untuk koordinat
+  final MapController _mapController = MapController();
+  LatLng _selectedLocation = LatLng(-6.200000, 106.816666); // Default Jakarta
+
+  // Tambahkan variable untuk menyimpan alamat referensi
+  String _referenceAddress = '';
+
+  // Tambahkan controller dan variable untuk search
+  final _searchController = TextEditingController();
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _isSearching = false;
+
   bool _isLoading = true;
 
   @override
@@ -44,6 +61,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     _cityController.dispose();
     _provinceController.dispose();
     _postalCodeController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -79,6 +97,13 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         _provinceController.text = addressData['province'] ?? '';
         _postalCodeController.text = addressData['postal_code'] ?? '';
 
+        // Tambahkan loading koordinat
+        if (addressData['latitude'] != null &&
+            addressData['longitude'] != null) {
+          _selectedLocation = LatLng(double.parse(addressData['latitude']),
+              double.parse(addressData['longitude']));
+        }
+
         _isLoading = false;
       });
     } catch (e) {
@@ -99,9 +124,16 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       setState(() => _isLoading = true);
 
       final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
+      if (userId == null) {
+        Get.snackbar(
+          'Error',
+          'User tidak ditemukan',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
 
-      // Buat objek alamat terstruktur
       final addressData = {
         'street': _streetController.text,
         'village': _villageController.text,
@@ -109,13 +141,15 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'city': _cityController.text,
         'province': _provinceController.text,
         'postal_code': _postalCodeController.text,
+        'latitude': _selectedLocation.latitude.toString(),
+        'longitude': _selectedLocation.longitude.toString(),
       };
 
       await supabase.from('merchants').update({
         'store_name': _storeNameController.text,
         'store_description': _storeDescriptionController.text,
         'store_phone': _storePhoneController.text,
-        'store_address': jsonEncode(addressData), // Simpan sebagai JSON string
+        'store_address': jsonEncode(addressData),
       }).eq('id', userId);
 
       Get.snackbar(
@@ -123,6 +157,8 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'Data toko berhasil diperbarui',
         backgroundColor: Colors.green,
         colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: Duration(seconds: 3),
       );
 
       Get.back();
@@ -130,12 +166,134 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       print('Error updating store: $e');
       Get.snackbar(
         'Error',
-        'Gagal memperbarui data toko',
+        'Gagal memperbarui data toko: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: Duration(seconds: 3),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _getAddressFromLatLng(LatLng position) async {
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        setState(() {
+          // Update reference address
+          _referenceAddress = '${place.street}, ${place.subLocality}, '
+              '${place.locality}, ${place.subAdministrativeArea}, '
+              '${place.administrativeArea} ${place.postalCode}';
+
+          // Update controllers
+          _streetController.text = '${place.street}';
+          _villageController.text = '${place.subLocality}';
+          _districtController.text = '${place.locality}';
+          _cityController.text = '${place.subAdministrativeArea}';
+          _provinceController.text = '${place.administrativeArea}';
+          _postalCodeController.text = '${place.postalCode}';
+        });
+      }
+    } catch (e) {
+      print('Error getting address: $e');
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition();
+        final newLocation = LatLng(position.latitude, position.longitude);
+        setState(() {
+          _selectedLocation = newLocation;
+        });
+        _mapController.move(_selectedLocation, 15);
+        await _getAddressFromLatLng(_selectedLocation);
+      }
+    } catch (e) {
+      print('Error getting location: $e');
+    }
+  }
+
+  // Tambahkan fungsi search
+  Future<void> _searchLocation(String query) async {
+    if (query.length < 3) {
+      // Minimal 3 karakter untuk mencari
+      setState(() {
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    try {
+      final encodedQuery = Uri.encodeComponent(query);
+      final url = 'https://nominatim.openstreetmap.org/search'
+          '?q=$encodedQuery'
+          '&format=json'
+          '&limit=5'
+          '&country=indonesia'; // Ganti countrycodes dengan country
+
+      print('Searching URL: $url'); // Debug URL
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Accept-Language': 'id',
+          'User-Agent': 'Kumbly/1.0',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        print('Search results: ${data.length}'); // Debug hasil
+
+        if (data.isNotEmpty) {
+          setState(() {
+            _searchResults = data
+                .map((item) => {
+                      'display_name': item['display_name'],
+                      'lat': double.parse(item['lat']),
+                      'lon': double.parse(item['lon']),
+                    })
+                .toList();
+          });
+        } else {
+          Get.snackbar(
+            'Info',
+            'Lokasi tidak ditemukan',
+            backgroundColor: Colors.blue,
+            colorText: Colors.white,
+          );
+        }
+      } else {
+        print('Error status code: ${response.statusCode}');
+        throw Exception('Failed to load search results');
+      }
+    } catch (e) {
+      print('Error detail: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mencari lokasi: ${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
     } finally {
-      setState(() => _isLoading = false);
+      setState(() => _isSearching = false);
     }
   }
 
@@ -167,17 +325,217 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 16),
+                    SizedBox(height: 12),
                     _buildTextField(
                       controller: _storeDescriptionController,
                       label: 'Deskripsi Toko',
                       hint: 'Masukkan deskripsi toko',
-                      maxLines: 3,
+                      maxLines: 2,
                     ),
-                    SizedBox(height: 16),
-                    // Field alamat terstruktur
+                    SizedBox(height: 12),
+                    _buildTextField(
+                      controller: _storePhoneController,
+                      label: 'Nomor Telepon',
+                      hint: 'Contoh: 08123456789',
+                      keyboardType: TextInputType.phone,
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) {
+                          return 'Nomor telepon tidak boleh kosong';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 12),
                     Text(
-                      'Alamat Toko',
+                      'Pilih Lokasi Toko',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Container(
+                      height: 300,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Stack(
+                        children: [
+                          FlutterMap(
+                            mapController: _mapController,
+                            options: MapOptions(
+                              initialCenter: _selectedLocation,
+                              initialZoom: 15,
+                              onTap: (tapPosition, point) async {
+                                setState(() {
+                                  _selectedLocation = point;
+                                });
+                                await _getAddressFromLatLng(point);
+                              },
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate:
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.example.app',
+                              ),
+                              MarkerLayer(
+                                markers: [
+                                  Marker(
+                                    point: _selectedLocation,
+                                    width: 80,
+                                    height: 80,
+                                    child: Icon(
+                                      Icons.location_pin,
+                                      color: AppTheme.primary,
+                                      size: 40,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Positioned(
+                            top: 8,
+                            left: 8,
+                            right: 8,
+                            child: Column(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                  child: TextField(
+                                    controller: _searchController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Cari lokasi...',
+                                      prefixIcon: Icon(Icons.search),
+                                      border: InputBorder.none,
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 12),
+                                    ),
+                                    onChanged: (value) =>
+                                        _searchLocation(value),
+                                  ),
+                                ),
+                                if (_searchResults.isNotEmpty)
+                                  Container(
+                                    margin: EdgeInsets.only(top: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      children: _searchResults
+                                          .map(
+                                            (result) => ListTile(
+                                              title: Text(
+                                                result['display_name'],
+                                                style: TextStyle(fontSize: 14),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              onTap: () async {
+                                                final newLocation = LatLng(
+                                                  result['lat'],
+                                                  result['lon'],
+                                                );
+                                                setState(() {
+                                                  _selectedLocation =
+                                                      newLocation;
+                                                  _searchResults = [];
+                                                  _searchController.clear();
+                                                });
+                                                _mapController.move(
+                                                    newLocation, 15);
+                                                await _getAddressFromLatLng(
+                                                    newLocation);
+                                              },
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Positioned(
+                            right: 10,
+                            bottom: 10,
+                            child: FloatingActionButton(
+                              mini: true,
+                              onPressed: _getCurrentLocation,
+                              child: Icon(Icons.my_location),
+                              backgroundColor: AppTheme.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      margin: EdgeInsets.only(top: 8, bottom: 16),
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.location_on,
+                                  size: 16, color: AppTheme.primary),
+                              SizedBox(width: 4),
+                              Text(
+                                'Koordinat: ',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  '${_selectedLocation.latitude.toStringAsFixed(6)}, ${_selectedLocation.longitude.toStringAsFixed(6)}',
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_referenceAddress.isNotEmpty) ...[
+                            SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Icon(Icons.home,
+                                    size: 16, color: AppTheme.primary),
+                                SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    _referenceAddress,
+                                    style: TextStyle(color: Colors.grey[700]),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Text(
+                      'Detail Alamat',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -222,13 +580,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                       hint: 'Masukkan kode pos',
                       keyboardType: TextInputType.number,
                     ),
-                    SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _storePhoneController,
-                      label: 'Nomor Telepon',
-                      hint: 'Masukkan nomor telepon',
-                      keyboardType: TextInputType.phone,
-                    ),
                     SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: _isLoading ? null : _updateStore,
@@ -241,7 +592,10 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                       ),
                       child: Text(
                         _isLoading ? 'Menyimpan...' : 'Simpan Perubahan',
-                        style: TextStyle(fontSize: 16),
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -265,12 +619,12 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.bold,
             color: Colors.grey[800],
           ),
         ),
-        SizedBox(height: 8),
+        SizedBox(height: 4),
         TextFormField(
           controller: controller,
           decoration: InputDecoration(
@@ -279,9 +633,10 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
               borderRadius: BorderRadius.circular(8),
             ),
             contentPadding: EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
+              horizontal: 12,
+              vertical: 8,
             ),
+            isDense: true,
           ),
           validator: validator,
           maxLines: maxLines ?? 1,

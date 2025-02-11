@@ -287,54 +287,102 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
                 if (booking['status'] == 'pending')
                   Container(
                     padding: EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                    child: Row(
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _updateBookingStatus(
-                                booking['id'], 'confirmed'),
-                            icon: Icon(Icons.check_circle_outline,
-                                color: Colors.white),
-                            label: Text(
-                              'Konfirmasi',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        // Status Pembayaran
+                        Container(
+                          margin: EdgeInsets.only(bottom: 16),
+                          padding: EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: booking['keterangan'] == true
+                                ? Colors.green.withOpacity(0.1)
+                                : Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: booking['keterangan'] == true
+                                  ? Colors.green
+                                  : Colors.orange,
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                booking['keterangan'] == true
+                                    ? Icons.check_circle
+                                    : Icons.warning,
+                                color: booking['keterangan'] == true
+                                    ? Colors.green
+                                    : Colors.orange,
                               ),
-                              elevation: 0,
-                            ),
+                              SizedBox(width: 8),
+                              Text(
+                                booking['keterangan'] == true
+                                    ? 'Pembayaran sudah dikonfirmasi admin'
+                                    : 'Menunggu konfirmasi keterangan dari admin',
+                                style: TextStyle(
+                                  color: booking['keterangan'] == true
+                                      ? Colors.green
+                                      : Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _updateBookingStatus(
-                                booking['id'], 'cancelled'),
-                            icon: Icon(Icons.cancel_outlined,
-                                color: Colors.white),
-                            label: Text(
-                              'Tolak',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                        // Tombol Aksi
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: booking['keterangan'] == true
+                                    ? () => _updateBookingStatus(
+                                        booking['id'], 'TRUE')
+                                    : null,
+                                icon: Icon(Icons.check_circle_outline,
+                                    color: Colors.white),
+                                label: Text(
+                                  'Konfirmasi',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  elevation: 0,
+                                  disabledBackgroundColor: Colors.grey,
+                                ),
                               ),
                             ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _updateBookingStatus(
+                                    booking['id'], 'cancelled'),
+                                icon: Icon(Icons.cancel_outlined,
+                                    color: Colors.white),
+                                label: Text(
+                                  'Tolak',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  elevation: 0,
+                                ),
                               ),
-                              elevation: 0,
                             ),
-                          ),
+                          ],
                         ),
                       ],
                     ),

@@ -11,19 +11,63 @@ class ShipmentsScreen extends StatefulWidget {
 
 class _ShipmentsScreenState extends State<ShipmentsScreen> {
   final ShipmentsController controller = Get.put(ShipmentsController());
+  final supabase = Supabase.instance.client;
   RealtimeChannel? _ordersSubscription;
+  String selectedStatus = 'all';
+  List<Map<String, dynamic>> allOrders = [];
+  List<Map<String, dynamic>> filteredOrders = [];
+  final TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    fetchOrders();
     _initializeRealtime();
+  }
+
+  Future<void> fetchOrders() async {
+    try {
+      var query = supabase
+          .from('orders')
+          .select('*, users!orders_buyer_id_fkey(email, full_name, phone)');
+
+      if (selectedStatus != 'all') {
+        query = query.eq('status', selectedStatus);
+      }
+
+      final response = await query.order('created_at', ascending: false);
+
+      setState(() {
+        allOrders = List<Map<String, dynamic>>.from(response);
+        applyFilters(searchController.text);
+      });
+    } catch (e) {
+      print('Error fetching orders: $e');
+    }
+  }
+
+  void applyFilters(String searchQuery) {
+    setState(() {
+      filteredOrders = allOrders.where((order) {
+        // Jika ada query pencarian
+        if (searchQuery.isNotEmpty) {
+          final id = order['id'].toString().toLowerCase();
+          final buyerId = order['buyer_id'].toString().toLowerCase();
+          final buyerName =
+              order['users']?['full_name']?.toString().toLowerCase() ?? '';
+          final searchLower = searchQuery.toLowerCase();
+
+          return (id.contains(searchLower) ||
+              buyerId.contains(searchLower) ||
+              buyerName.contains(searchLower));
+        }
+        return true;
+      }).toList();
+    });
   }
 
   void _initializeRealtime() {
     final supabase = Supabase.instance.client;
-
-    // Initial fetch
-    controller.fetchOrders();
 
     // Setup realtime subscription
     _ordersSubscription = supabase
@@ -33,7 +77,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
           schema: 'public',
           table: 'orders',
           callback: (payload) {
-            controller.fetchOrders();
+            fetchOrders();
           },
         )
         .subscribe();
@@ -49,226 +93,228 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Pengiriman',
-          style: TextStyle(fontWeight: FontWeight.normal),
-        ),
-        elevation: 0,
-        backgroundColor: AppTheme.primary,
-        foregroundColor: const Color.fromARGB(221, 255, 255, 255),
+        title: Text('Pengiriman'),
+        backgroundColor: Colors.pink,
+        foregroundColor: Colors.white,
       ),
-      body: Container(
-        color: Colors.grey[50],
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              _buildFilterSection(),
-              SizedBox(height: 16),
-              _buildShipmentsList(),
-            ],
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                hintText: 'Cari ID Pengiriman atau Nama Pembeli...',
+                prefixIcon: Icon(Icons.search, color: Colors.grey),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onChanged: applyFilters,
+            ),
           ),
-        ),
+
+          // Filter Chips
+          _buildFilterSection(),
+
+          // Results Count
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Hasil: ${filteredOrders.length} pengiriman',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                Text(
+                  selectedStatus != 'all'
+                      ? _getStatusIndonesia(selectedStatus)
+                      : 'Semua Status',
+                  style: TextStyle(
+                    color: Colors.pink,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Orders List
+          Expanded(
+            child: filteredOrders.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.local_shipping_outlined,
+                            size: 80, color: Colors.grey[300]),
+                        SizedBox(height: 16),
+                        Text(
+                          'Tidak ada data pengiriman',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: filteredOrders.length,
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    itemBuilder: (context, index) {
+                      final order = filteredOrders[index];
+                      return _buildOrderCard(order);
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildFilterSection() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: controller.searchController,
-              onChanged: (value) => controller.filterShipments(),
-              decoration: InputDecoration(
-                hintText: 'Cari ID atau alamat pengiriman...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.blue, width: 1),
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Obx(() => DropdownButton<String>(
-                    value: controller.selectedStatus.value,
-                    isExpanded: true,
-                    underline: SizedBox(),
-                    items: [
-                      'Semua',
-                      'Menunggu',
-                      'Menunggu Pembatalan',
-                      'Diproses',
-                      'Transit',
-                      'Dikirim',
-                      'Terkirim',
-                      'Selesai',
-                      'Dibatalkan',
-                    ].map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        controller.filterByStatus(newValue);
-                      }
-                    },
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontSize: 15,
-                    ),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded),
-                  )),
-            ),
-          ],
-        ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          _buildFilterChip('all', 'Semua'),
+          SizedBox(width: 8),
+          _buildFilterChip('pending', 'Menunggu'),
+          SizedBox(width: 8),
+          _buildFilterChip('pending_cancellation', 'Menunggu Pembatalan'),
+          SizedBox(width: 8),
+          _buildFilterChip('processing', 'Diproses'),
+          SizedBox(width: 8),
+          _buildFilterChip('transit', 'Transit'),
+          SizedBox(width: 8),
+          _buildFilterChip('shipping', 'Dikirim'),
+          SizedBox(width: 8),
+          _buildFilterChip('delivered', 'Terkirim'),
+          SizedBox(width: 8),
+          _buildFilterChip('completed', 'Selesai'),
+          SizedBox(width: 8),
+          _buildFilterChip('cancelled', 'Dibatalkan'),
+        ],
       ),
     );
   }
 
-  Widget _buildShipmentsList() {
-    return Expanded(
-      child: Obx(() => controller.filteredOrders.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildFilterChip(String status, String label) {
+    return FilterChip(
+      selected: selectedStatus == status,
+      label: Text(label),
+      onSelected: (bool selected) {
+        setState(() {
+          selectedStatus = status;
+        });
+        fetchOrders(); // Ambil data baru sesuai filter
+      },
+      backgroundColor: Colors.grey[200],
+      selectedColor: Colors.pink.withOpacity(0.2),
+      labelStyle: TextStyle(
+        color: selectedStatus == status ? Colors.pink : Colors.black87,
+        fontWeight:
+            selectedStatus == status ? FontWeight.bold : FontWeight.normal,
+      ),
+      checkmarkColor: Colors.pink,
+    );
+  }
+
+  Widget _buildOrderCard(Map<String, dynamic> order) {
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!, width: 1),
+      ),
+      child: InkWell(
+        onTap: () => controller.goToDetail(order),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Icon(Icons.local_shipping_outlined,
-                      size: 80, color: Colors.grey[300]),
-                  SizedBox(height: 16),
-                  Text(
-                    'Tidak ada data pengiriman',
-                    style: TextStyle(
-                      color: Colors.grey[500],
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.shopping_bag_outlined,
+                      color: Colors.blue,
+                      size: 20,
                     ),
                   ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'ID: ${order['id']}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  _buildStatusChip(order['status']),
                 ],
               ),
-            )
-          : ListView.builder(
-              itemCount: controller.filteredOrders.length,
-              itemBuilder: (context, index) {
-                final orderData = controller.filteredOrders[index];
-                return Card(
-                  elevation: 0,
-                  margin: EdgeInsets.only(bottom: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey[200]!, width: 1),
-                  ),
-                  child: InkWell(
-                    onTap: () => controller.goToDetail(orderData),
-                    borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue[50],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.shopping_bag_outlined,
-                                  color: Colors.blue,
-                                  size: 20,
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'ID: ${orderData['id']}',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              _buildStatusChip(orderData['status']),
-                            ],
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 40),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Icon(Icons.location_on_outlined,
-                                        color: Colors.grey[500], size: 20),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        orderData['shipping_address'],
-                                        style: TextStyle(
-                                          color: Colors.grey[700],
-                                          fontSize: 14,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 2,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Icon(Icons.payments_outlined,
-                                        color: Colors.grey[500], size: 20),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Rp ${orderData['total_amount']}',
-                                      style: TextStyle(
-                                        color: Colors.grey[900],
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+              Padding(
+                padding: const EdgeInsets.only(left: 40),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.location_on_outlined,
+                            color: Colors.grey[500], size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            order['shipping_address'],
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 14,
                             ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 2,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ),
-                );
-              },
-            )),
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.payments_outlined,
+                            color: Colors.grey[500], size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Rp ${order['total_amount']}',
+                          style: TextStyle(
+                            color: Colors.grey[900],
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -310,5 +356,24 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
         ),
       ),
     );
+  }
+
+  String _getStatusIndonesia(String status) {
+    // Implementasi untuk mengonversi status ke bahasa Indonesia
+    // Contoh: Menggunakan switch statement untuk kasus sederhana
+    switch (status) {
+      case 'pending':
+        return 'Menunggu';
+      case 'processing':
+        return 'Diproses';
+      case 'shipping':
+        return 'Dikirim';
+      case 'completed':
+        return 'Selesai';
+      case 'cancelled':
+        return 'Dibatalkan';
+      default:
+        return 'Status Tidak Diketahui';
+    }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class ShipmentDetailScreen extends StatefulWidget {
   @override
@@ -22,11 +23,30 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   @override
   void initState() {
     super.initState();
-    print('Debug - Order Data: $orderData');
+    print('Debug - Initial Order Data: $orderData');
     selectedStatus = orderData['status'];
+    fetchOrderDetails();
     checkCancellationRequest();
     fetchMerchantAddress();
     fetchOrderItems();
+  }
+
+  Future<void> fetchOrderDetails() async {
+    try {
+      final response = await supabase
+          .from('orders')
+          .select('*, name_courier')
+          .eq('id', orderData['id'])
+          .single();
+
+      print('Debug - Fetched Order Details: $response');
+
+      setState(() {
+        orderData.addAll(response); // Update orderData dengan data terbaru
+      });
+    } catch (e) {
+      print('Error fetching order details: $e');
+    }
   }
 
   Future<void> checkCancellationRequest() async {
@@ -294,6 +314,9 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   }
 
   Widget _buildShippingSection() {
+    print('Debug - Full Order Data: $orderData');
+    print('Debug - Courier Name: ${orderData['name_courier']}');
+
     return Container(
       padding: EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -329,7 +352,29 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
             'Biaya Pengiriman:',
             style: TextStyle(fontWeight: FontWeight.w500),
           ),
-          Text('Rp ${orderData['shipping_cost']}'),
+          Text(
+              'Rp ${NumberFormat('#,###').format(orderData['shipping_cost'] ?? 0)}'),
+          SizedBox(height: 8),
+          Text(
+            'Kurir:',
+            style: TextStyle(fontWeight: FontWeight.w500),
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade100,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              orderData['name_courier']?.toString().isNotEmpty == true
+                  ? orderData['name_courier']
+                  : 'Belum ada kurir jemput',
+              style: TextStyle(
+                color: Colors.blue.shade900,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );
