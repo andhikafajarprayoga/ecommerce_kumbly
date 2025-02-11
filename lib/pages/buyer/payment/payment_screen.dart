@@ -34,51 +34,57 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   Future<void> _fetchOrderDetails() async {
     try {
-      // Ambil order items berdasarkan payment_group_id
+      final paymentGroupId = widget.orderData['payment_group_id'];
+      print('Debug: Payment Group ID: $paymentGroupId');
+
+      if (paymentGroupId == null) {
+        throw Exception('Payment group ID is required');
+      }
+
+      print(
+          'Debug: Fetching order details for payment_group_id: $paymentGroupId');
+
       final response = await supabase.from('orders').select('''
-          *,
-          order_items!inner (
-            id,
-            quantity,
-            price,
-            product:products (
+            *,
+            order_items (
               id,
-              name,
-              image_url,
-              description
+              quantity,
+              price,
+              products (
+                id,
+                name,
+                image_url,
+                description
+              )
             )
-          )
-        ''').eq('payment_group_id', widget.orderData['payment_group_id']);
+          ''').eq('payment_group_id', paymentGroupId).order('created_at');
 
-      setState(() {
-        orderItems = List<Map<String, dynamic>>.from(response);
-      });
+      print('Debug: Raw response: $response');
 
-      print('Debug: Order items fetched: $orderItems');
-    } catch (e) {
+      if (response != null) {
+        setState(() {
+          orderItems = List<Map<String, dynamic>>.from(response);
+        });
+
+        print('Debug: Order items fetched successfully');
+        print('Debug: Number of orders: ${orderItems.length}');
+        print('Debug: Order items data: $orderItems');
+      }
+    } catch (e, stackTrace) {
       print('Error fetching order details: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 
   // Widget untuk menampilkan daftar produk
   Widget _buildOrderItems() {
-    String _getFirstImageUrl(Map<String, dynamic> product) {
-      List<String> imageUrls = [];
-      if (product['image_url'] != null) {
-        try {
-          if (product['image_url'] is List) {
-            imageUrls = List<String>.from(product['image_url']);
-          } else if (product['image_url'] is String) {
-            final List<dynamic> urls = json.decode(product['image_url']);
-            imageUrls = List<String>.from(urls);
-          }
-        } catch (e) {
-          print('Error parsing image URLs: $e');
-        }
-      }
-      return imageUrls.isNotEmpty
-          ? imageUrls.first
-          : 'https://via.placeholder.com/150';
+    if (orderItems.isEmpty) {
+      return Center(
+        child: Text(
+          'Tidak ada detail pesanan',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
     }
 
     return Card(
@@ -95,78 +101,111 @@ class _PaymentScreenState extends State<PaymentScreen> {
               ),
             ),
             SizedBox(height: 12),
-            ...orderItems.expand((order) {
-              final items =
-                  List<Map<String, dynamic>>.from(order['order_items']);
-              return items.map((item) {
-                final product = item['product'];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Foto Produk
-                      if (product['image_url'] != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            _getFirstImageUrl(product),
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
+            ListView.builder(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              itemCount: orderItems.length,
+              itemBuilder: (context, orderIndex) {
+                final order = orderItems[orderIndex];
+                final items =
+                    List<Map<String, dynamic>>.from(order['order_items'] ?? []);
+
+                return Column(
+                  children: items.map((item) {
+                    final product = item['products'];
+                    if (product == null) {
+                      print('Debug: Product data is null for item: $item');
+                      return SizedBox.shrink();
+                    }
+
+                    print('Debug: Rendering product: ${product['name']}');
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Foto Produk
+                          if (product['image_url'] != null) ...[
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                _getFirstImageUrl(product),
                                 width: 60,
                                 height: 60,
-                                color: Colors.grey[200],
-                                child: Icon(Icons.image_not_supported,
-                                    color: Colors.grey[400]),
-                              );
-                            },
-                          ),
-                        ),
-                      SizedBox(width: 12),
-
-                      // Detail Produk
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product['name'] ?? 'Produk',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w500,
-                                fontSize: 14,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              '${item['quantity']} x Rp${NumberFormat('#,###').format(item['price'])}',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              'Total: Rp${NumberFormat('#,###').format(item['quantity'] * item['price'])}',
-                              style: TextStyle(
-                                color: AppTheme.primary,
-                                fontWeight: FontWeight.w500,
-                                fontSize: 13,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  print('Debug: Error loading image: $error');
+                                  return Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.grey[200],
+                                    child: Icon(Icons.image_not_supported,
+                                        color: Colors.grey[400]),
+                                  );
+                                },
                               ),
                             ),
                           ],
-                        ),
+                          SizedBox(width: 12),
+
+                          // Detail Produk
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  product['name'] ?? 'Produk',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  '${item['quantity']} x Rp${NumberFormat('#,###').format(item['price'])}',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Text(
+                                  'Total: Rp${NumberFormat('#,###').format(item['quantity'] * item['price'])}',
+                                  style: TextStyle(
+                                    color: AppTheme.primary,
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 );
-              });
-            }).toList(),
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+
+  String _getFirstImageUrl(Map<String, dynamic> product) {
+    try {
+      if (product['image_url'] != null) {
+        if (product['image_url'] is List) {
+          return product['image_url'][0];
+        } else if (product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(product['image_url']);
+          return urls.first;
+        }
+      }
+    } catch (e) {
+      print('Debug: Error getting first image URL: $e');
+    }
+    return 'https://via.placeholder.com/150';
   }
 
   Future<void> _uploadPaymentProof() async {

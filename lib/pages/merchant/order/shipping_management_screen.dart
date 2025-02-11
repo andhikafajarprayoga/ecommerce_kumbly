@@ -31,6 +31,12 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     _listenToOrderChanges();
   }
 
+  @override
+  void dispose() {
+    // Batalkan subscription stream jika ada
+    super.dispose();
+  }
+
   Future<void> _initializeNotifications() async {
     const initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -61,15 +67,21 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     supabase
         .from('orders')
         .stream(primaryKey: ['id'])
-        .eq('merchant_id',
-            currentUserId) // Hanya bisa filter merchant_id di sini
+        .eq('merchant_id', currentUserId)
         .listen((List<Map<String, dynamic>> updatedOrders) {
-          // Filter manual untuk status bukan 'canceled' dan admin_acc_note == 'Terima'
+          print(
+              'DEBUG: Stream received update with ${updatedOrders.length} orders'); // Debug print
+
+          // Filter untuk status yang relevan
           final filteredOrders = updatedOrders
               .where((order) =>
-                  order['status'] != 'canceled' &&
-                  order['admin_acc_note'] == 'Terima')
+                  order['status'] != 'cancelled' &&
+                  ['pending', 'processing', 'shipping', 'transit']
+                      .contains(order['status']))
               .toList();
+
+          print(
+              'DEBUG: Filtered orders count: ${filteredOrders.length}'); // Debug print
 
           for (var order in filteredOrders) {
             final oldOrder =
@@ -86,8 +98,11 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             }
           }
 
-          // Perbarui daftar orders yang sudah difilter
-          orders.assignAll(filteredOrders);
+          if (mounted) {
+            orders.assignAll(filteredOrders);
+            print(
+                'DEBUG: Updated orders list with ${orders.length} items'); // Debug print
+          }
         });
   }
 
@@ -120,19 +135,18 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
       final currentUserId = supabase.auth.currentUser?.id;
       if (currentUserId == null) return;
 
+      print('DEBUG: Fetching orders for merchant: $currentUserId');
+
       final response = await supabase
           .from('orders')
           .select('''
-            id, 
-            status, 
-            total_amount, 
-            shipping_address, 
-            courier_handover_photo,
-            admin_acc_note,
-            order_items (
+            *,
+            order_items!inner (
+              id,
               quantity,
               price,
-              product:products (
+              product_id,
+              products!inner (
                 id,
                 name,
                 image_url,
@@ -141,13 +155,36 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             )
           ''')
           .eq('merchant_id', currentUserId)
-          .neq('status', 'canceled')
-          .eq('admin_acc_note', 'Terima')
-          .or('status.eq.pending,status.eq.processing,status.eq.shipping');
+          .neq('status', 'cancelled')
+          .inFilter('status', ['pending', 'processing', 'shipping', 'transit'])
+          .order('created_at', ascending: false);
 
-      orders.value = List<Map<String, dynamic>>.from(response);
-    } catch (e) {
+      print(
+          'DEBUG: Raw response: $response'); // Debug print untuk melihat response mentah
+
+      if (response != null && response is List) {
+        orders.value = List<Map<String, dynamic>>.from(response);
+        print('DEBUG: Orders loaded: ${orders.length}');
+
+        // Debug print untuk setiap order
+        for (var order in orders) {
+          print('DEBUG: Order ID: ${order['id']}');
+          print('DEBUG: Order Status: ${order['status']}');
+          print(
+              'DEBUG: Order Items Length: ${(order['order_items'] as List?)?.length ?? 0}');
+          print('DEBUG: Full Order Data: $order'); // Tambahan debug print
+        }
+      }
+    } catch (e, stackTrace) {
       print('Error fetching orders: $e');
+      print(
+          'Stack trace: $stackTrace'); // Tambahan debug print untuk stack trace
+      Get.snackbar(
+        'Error',
+        'Gagal mengambil data pesanan: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 
@@ -611,8 +648,6 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
   }
 
   Widget _buildProductList(List<Map<String, dynamic>> orderItems) {
-    print('Debug orderItems: $orderItems'); // Debug print
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -639,28 +674,19 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
           itemCount: orderItems.length,
           itemBuilder: (context, index) {
             final item = orderItems[index];
-            final product = item['product'];
+            final product = item['products'];
 
-            print('Debug product data: $product'); // Debug print
-
-            // Ambil URL gambar dari product
+            // Ambil URL gambar pertama dari array
             String? imageUrl;
-            if (product != null && product['image_url'] != null) {
-              try {
-                var imageUrls = product['image_url'];
-                if (imageUrls is String) {
-                  // Jika string JSON, parse dulu
-                  List<dynamic> parsedUrls = jsonDecode(imageUrls);
-                  if (parsedUrls.isNotEmpty) {
-                    imageUrl = parsedUrls.first.toString();
-                  }
-                } else if (imageUrls is List && imageUrls.isNotEmpty) {
-                  imageUrl = imageUrls.first.toString();
-                }
-                print('Debug final imageUrl: $imageUrl'); // Debug print
-              } catch (e) {
-                print('Error extracting image URL: $e');
-              }
+            if (product != null &&
+                product['image_url'] != null &&
+                product['image_url'] is List &&
+                (product['image_url'] as List).isNotEmpty) {
+              imageUrl = (product['image_url'] as List)[0] as String;
+              print('Debug - Product: $product'); // Debug print
+              print(
+                  'Debug - Image URLs: ${product['image_url']}'); // Debug print
+              print('Debug - Selected Image URL: $imageUrl'); // Debug print
             }
 
             return Container(
@@ -676,29 +702,29 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: imageUrl != null && imageUrl.startsWith('http')
-                        ? Image.network(
-                            imageUrl,
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              print(
-                                  'Error loading image: $error'); // Debug print
-                              return _buildImagePlaceholder();
-                            },
-                          )
-                        : _buildImagePlaceholder(),
-                  ),
+                  if (imageUrl != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        imageUrl,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          print('Error loading image: $error'); // Debug print
+                          return _buildImagePlaceholder();
+                        },
+                      ),
+                    ),
+                  ] else
+                    _buildImagePlaceholder(),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          product['name'] ?? 'Nama Produk Tidak Tersedia',
+                          product?['name'] ?? 'Nama Produk Tidak Tersedia',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
