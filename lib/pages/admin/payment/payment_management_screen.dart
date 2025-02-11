@@ -52,6 +52,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
 
   Future<void> fetchPayments() async {
     try {
+      if (!mounted) return;
       setState(() => isLoading = true);
 
       // 1. Ambil data payment
@@ -90,6 +91,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
         }
       }
 
+      if (!mounted) return;
       setState(() {
         payments = paymentsData;
         filteredPayments = List.from(payments);
@@ -97,6 +99,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
       });
     } catch (e) {
       print('Error fetching payments: $e');
+      if (!mounted) return;
       setState(() => isLoading = false);
       Get.snackbar(
         'Error',

@@ -3,9 +3,50 @@ import 'package:get/get.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../controllers/admin_notification_controller.dart';
 import '../../../theme/app_theme.dart';
+import '../../../services/local_notification_service.dart';
 
-class AdminNotificationsScreen extends StatelessWidget {
+class AdminNotificationsScreen extends StatefulWidget {
+  @override
+  _AdminNotificationsScreenState createState() =>
+      _AdminNotificationsScreenState();
+}
+
+class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   final controller = Get.find<AdminNotificationController>();
+  final LocalNotificationService _notificationService =
+      LocalNotificationService();
+  int lastNotificationCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+    _setupNotificationListener();
+  }
+
+  Future<void> _initializeNotifications() async {
+    await _notificationService.initNotification();
+    lastNotificationCount = controller.notifications.length;
+  }
+
+  void _setupNotificationListener() {
+    ever(controller.notifications, (notifications) {
+      if (notifications.length > lastNotificationCount) {
+        // Ada notifikasi baru
+        final newNotification = notifications.first;
+        _showLocalNotification(newNotification);
+      }
+      lastNotificationCount = notifications.length;
+    });
+  }
+
+  void _showLocalNotification(Map<String, dynamic> notification) {
+    _notificationService.showNotification(
+      title: 'Notifikasi Admin Baru',
+      body: notification['message'] ?? 'Ada notifikasi baru',
+      payload: '/admin/notifications',
+    );
+  }
 
   Future<void> _markAllAsRead() async {
     try {

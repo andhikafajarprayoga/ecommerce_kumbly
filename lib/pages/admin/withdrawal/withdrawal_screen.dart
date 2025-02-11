@@ -23,8 +23,31 @@ class WithdrawalScreen extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
+        final pendingRequests = controller.filteredRequests
+            .where((request) => request.status.toLowerCase() == 'pending')
+            .length;
+
         return Column(
           children: [
+            if (pendingRequests > 0)
+              Container(
+                padding: EdgeInsets.all(8),
+                margin: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text(
+                      'Ada $pendingRequests permintaan pencairan menunggu',
+                      style: TextStyle(color: Colors.orange.shade900),
+                    ),
+                  ],
+                ),
+              ),
             _buildSummaryCards(),
             _buildSearchBar(),
             const Padding(

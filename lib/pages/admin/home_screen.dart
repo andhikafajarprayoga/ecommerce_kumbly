@@ -20,12 +20,14 @@ import 'payment/payment_management_screen.dart';
 import '../../pages/admin/hotel/hotel_management_screen.dart';
 import '../../controllers/admin_notification_controller.dart';
 import 'notification/admin_notifications_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
   final StatsController statsController = Get.put(StatsController());
   final AdminNotificationController notificationController =
       Get.put(AdminNotificationController());
+  final supabase = Supabase.instance.client;
 
   AdminHomeScreen({super.key});
 
@@ -80,6 +82,11 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Atur pengguna & hak akses',
                           color: Colors.blue,
                           onTap: () => Get.to(() => UsersScreen()),
+                          badgeStream: supabase
+                              .from('users')
+                              .stream(primaryKey: ['id']).map((data) => data
+                                  .where((user) => user['status'] == 'pending')
+                                  .length),
                         ),
                         _buildMenuCard(
                           icon: Icons.money,
@@ -87,6 +94,12 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Rekap Pembayaran',
                           color: Colors.blue,
                           onTap: () => Get.to(() => PaymentManagementScreen()),
+                          badgeStream: supabase
+                              .from('payment_groups')
+                              .stream(primaryKey: ['id']).map((data) => data
+                                  .where((payment) =>
+                                      payment['payment_status'] == 'pending')
+                                  .length),
                         ),
                         _buildMenuCard(
                           icon: Icons.payments,
@@ -94,6 +107,22 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Pencairan dana seller',
                           color: const Color.fromARGB(255, 14, 14, 15),
                           onTap: () => Get.to(() => WithdrawalScreen()),
+                          badgeStream: supabase
+                              .from('withdrawal_requests')
+                              .stream(primaryKey: ['id']).map((event) {
+                            final data = event as List;
+                            final pendingCount = data
+                                .where((withdrawal) =>
+                                    withdrawal['status']
+                                        ?.toString()
+                                        .toLowerCase() ==
+                                    'pending')
+                                .length;
+
+                            return pendingCount;
+                          }).handleError((error) {
+                            return 0;
+                          }),
                         ),
                         _buildMenuCard(
                           icon: Icons.chat,
@@ -101,6 +130,14 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Buyer',
                           color: Colors.blue,
                           onTap: () => Get.to(() => AdminChatScreen()),
+                          badgeStream: supabase
+                              .from('chats')
+                              .stream(primaryKey: ['id']).map((data) => data
+                                  .where((chat) =>
+                                      chat['is_read'] == false &&
+                                      chat['receiver_id'] ==
+                                          supabase.auth.currentUser?.id)
+                                  .length),
                         ),
                         _buildMenuCard(
                           icon: Icons.store,
@@ -108,6 +145,12 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Kelola toko & produk',
                           color: Colors.green,
                           onTap: () => Get.to(() => StoresScreen()),
+                          badgeStream: supabase
+                              .from('merchants')
+                              .stream(primaryKey: ['id']).map((data) => data
+                                  .where(
+                                      (store) => store['status'] == 'pending')
+                                  .length),
                         ),
                         _buildMenuCard(
                           icon: Icons.hotel,
@@ -115,6 +158,12 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Kelola Hotel',
                           color: Colors.green,
                           onTap: () => Get.to(() => HotelManagementScreen()),
+                          badgeStream: supabase
+                              .from('hotels')
+                              .stream(primaryKey: ['id']).map((data) => data
+                                  .where(
+                                      (hotel) => hotel['status'] == 'pending')
+                                  .length),
                         ),
                         _buildMenuCard(
                           icon: Icons.local_shipping,
@@ -122,6 +171,27 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'ACC Pengiriman',
                           color: Colors.orange,
                           onTap: () => Get.to(() => ShipmentsScreen()),
+                          badgeStream: supabase
+                              .from('orders')
+                              .stream(primaryKey: ['id']).map((event) {
+                            final data = event as List;
+                            final pendingCount = data
+                                .where((order) =>
+                                        order['status']
+                                                ?.toString()
+                                                .toLowerCase() ==
+                                            'pending' || // Menambahkan status pending
+                                        order['status']
+                                                ?.toString()
+                                                .toLowerCase() ==
+                                            'pending_cancellation' // Menambahkan status pending_cancellation
+                                    )
+                                .length;
+
+                            return pendingCount;
+                          }).handleError((error) {
+                            return 0;
+                          }),
                         ),
                         _buildMenuCard(
                           icon: Icons.campaign,
@@ -157,6 +227,12 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Seller & User',
                           color: Colors.cyan,
                           onTap: () => Get.to(() => AccountDeletionScreen()),
+                          badgeStream: supabase
+                              .from('account_deletion_requests')
+                              .stream(primaryKey: ['id']).map((data) => data
+                                  .where((request) =>
+                                      request['status'] == 'pending')
+                                  .length),
                         ),
                         _buildMenuCard(
                           icon: Icons.store,
@@ -171,6 +247,12 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Kelola pesanan manual cabang',
                           color: Colors.deepPurple,
                           onTap: () => Get.to(() => BranchOrdersScreen()),
+                          badgeStream: supabase
+                              .from('branch_orders')
+                              .stream(primaryKey: ['id']).map((data) => data
+                                  .where(
+                                      (order) => order['status'] == 'pending')
+                                  .length),
                         ),
                       ],
                     ),
@@ -302,51 +384,90 @@ class AdminHomeScreen extends StatelessWidget {
     required String subtitle,
     required Color color,
     required VoidCallback onTap,
+    Stream<int>? badgeStream,
   }) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 24, color: color),
+      child: Stack(
+        children: [
+          InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              width: double.infinity,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 24, color: color),
+                  ),
+                  SizedBox(height: 8),
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Flexible(
+                    child: Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.black54,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.black54,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+            ),
           ),
-        ),
+          if (badgeStream != null)
+            Positioned(
+              right: 8,
+              top: 8,
+              child: StreamBuilder<int>(
+                stream: badgeStream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data! > 0) {
+                    return Container(
+                      padding: EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        snapshot.data! > 99 ? '99+' : '${snapshot.data}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }
+                  return SizedBox();
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
