@@ -118,7 +118,20 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   }
 
   Future<void> _updateStore() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      Get.snackbar(
+        'Error',
+        'Mohon lengkapi data yang diperlukan',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: Duration(seconds: 3),
+        margin: EdgeInsets.all(10),
+        borderRadius: 8,
+        icon: Icon(Icons.error, color: Colors.white),
+      );
+      return;
+    }
 
     try {
       setState(() => _isLoading = true);
@@ -130,6 +143,11 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
           'User tidak ditemukan',
           backgroundColor: Colors.red,
           colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          duration: Duration(seconds: 3),
+          margin: EdgeInsets.all(10),
+          borderRadius: 8,
+          icon: Icon(Icons.error, color: Colors.white),
         );
         return;
       }
@@ -159,8 +177,12 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
         duration: Duration(seconds: 3),
+        margin: EdgeInsets.all(10),
+        borderRadius: 8,
+        icon: Icon(Icons.check_circle, color: Colors.white),
       );
 
+      await Future.delayed(Duration(seconds: 1)); // Tunggu snackbar muncul
       Get.back();
     } catch (e) {
       print('Error updating store: $e');
@@ -171,6 +193,9 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         colorText: Colors.white,
         snackPosition: SnackPosition.TOP,
         duration: Duration(seconds: 3),
+        margin: EdgeInsets.all(10),
+        borderRadius: 8,
+        icon: Icon(Icons.error, color: Colors.white),
       );
     } finally {
       setState(() => _isLoading = false);
@@ -187,12 +212,10 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         setState(() {
-          // Update reference address
           _referenceAddress = '${place.street}, ${place.subLocality}, '
               '${place.locality}, ${place.subAdministrativeArea}, '
               '${place.administrativeArea} ${place.postalCode}';
 
-          // Update controllers
           _streetController.text = '${place.street}';
           _villageController.text = '${place.subLocality}';
           _districtController.text = '${place.locality}';
@@ -200,9 +223,32 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
           _provinceController.text = '${place.administrativeArea}';
           _postalCodeController.text = '${place.postalCode}';
         });
+
+        Get.snackbar(
+          'Sukses',
+          'Lokasi berhasil dipilih',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+          snackPosition: SnackPosition.TOP,
+          duration: Duration(seconds: 3),
+          margin: EdgeInsets.all(10),
+          borderRadius: 8,
+          icon: Icon(Icons.check_circle, color: Colors.white),
+        );
       }
     } catch (e) {
       print('Error getting address: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mendapatkan alamat: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: Duration(seconds: 3),
+        margin: EdgeInsets.all(10),
+        borderRadius: 8,
+        icon: Icon(Icons.error, color: Colors.white),
+      );
     }
   }
 
@@ -231,7 +277,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   // Tambahkan fungsi search
   Future<void> _searchLocation(String query) async {
     if (query.length < 3) {
-      // Minimal 3 karakter untuk mencari
       setState(() {
         _searchResults = [];
       });
@@ -246,9 +291,9 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
           '?q=$encodedQuery'
           '&format=json'
           '&limit=5'
-          '&country=indonesia'; // Ganti countrycodes dengan country
+          '&country=indonesia';
 
-      print('Searching URL: $url'); // Debug URL
+      print('Searching URL: $url');
 
       final response = await http.get(
         Uri.parse(url),
@@ -260,7 +305,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        print('Search results: ${data.length}'); // Debug hasil
+        print('Search results: ${data.length}');
 
         if (data.isNotEmpty) {
           setState(() {
@@ -278,6 +323,11 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
             'Lokasi tidak ditemukan',
             backgroundColor: Colors.blue,
             colorText: Colors.white,
+            snackPosition: SnackPosition.TOP,
+            duration: Duration(seconds: 3),
+            margin: EdgeInsets.all(10),
+            borderRadius: 8,
+            icon: Icon(Icons.info, color: Colors.white),
           );
         }
       } else {
@@ -291,6 +341,11 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'Gagal mencari lokasi: ${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: Duration(seconds: 3),
+        margin: EdgeInsets.all(10),
+        borderRadius: 8,
+        icon: Icon(Icons.error, color: Colors.white),
       );
     } finally {
       setState(() => _isSearching = false);
