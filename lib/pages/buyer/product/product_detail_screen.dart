@@ -28,26 +28,16 @@ class ProductDetailController extends GetxController {
   final searchController = TextEditingController();
 
   void updateSearchVisibility(double offset) {
-    Future.delayed(Duration.zero, () {
-      showSearch.value = offset > 200;
-    });
+    showSearch.value = offset > 200;
   }
 
   void performSearch(String value) {
     if (value.isEmpty) return;
 
-    print('Debug: Memulai pencarian untuk query: $value');
-
-    try {
-      print('Debug: Setting query ke ProductController');
-      productController.searchQuery.value = value;
-
-      print('Debug: Navigasi ke FindScreen dengan query');
-      Get.off(() => FindScreen(), arguments: value);
-    } catch (e) {
-      print('Debug: Error dalam navigasi: $e');
-      print('Debug: Stack trace: ${StackTrace.current}');
-    }
+    // Navigasi ke FindScreen dengan query baru sebagai String
+    Get.off(() => FindScreen(),
+        arguments: value, // Kirim value sebagai String untuk query pencarian
+        preventDuplicates: false);
   }
 
   @override

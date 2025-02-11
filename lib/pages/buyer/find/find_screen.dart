@@ -29,23 +29,31 @@ class _FindScreenState extends State<FindScreen> {
   void resetSearch() {
     searchController.clear();
     productController.searchQuery.value = '';
-    productController.products.clear();
-    productController.searchedMerchants.clear();
-    productController.fetchProducts(); // Fetch semua produk
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      productController.products.clear();
+      productController.searchedMerchants.clear();
+    });
   }
 
   @override
   void initState() {
     super.initState();
-    // Reset dan fetch semua produk saat pertama kali dibuka
-    resetSearch();
 
-    final query = Get.arguments as String?;
-    if (query != null && query.isNotEmpty) {
-      searchController.text = query;
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await performSearch(query);
-      });
+    // Cek tipe arguments untuk menentukan apakah query pencarian atau index navigasi
+    final arguments = Get.arguments;
+    if (arguments != null) {
+      if (arguments is String) {
+        // Jika arguments adalah String, itu adalah query pencarian
+        searchController.text = arguments;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          performSearch(arguments);
+        });
+      } else if (arguments is int) {
+        // Jika arguments adalah int, itu adalah index navigasi
+        // Tidak perlu melakukan apa-apa karena sudah di handle di bottom navigation
+      }
+    } else {
+      resetSearch();
     }
   }
 
@@ -635,12 +643,15 @@ class _FindScreenState extends State<FindScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // Reset semua state pencarian
-        resetSearch();
-        return true;
+        navigateBack();
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back),
+            onPressed: navigateBack,
+          ),
           automaticallyImplyLeading: false,
           backgroundColor: AppTheme.primary,
           title: Row(
@@ -650,7 +661,7 @@ class _FindScreenState extends State<FindScreen> {
                   height: 40,
                   child: TextField(
                     controller: searchController,
-                    autofocus: true,
+                    autofocus: Get.arguments is String,
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: Colors.white,
@@ -788,12 +799,15 @@ class _FindScreenState extends State<FindScreen> {
 
   @override
   void dispose() {
-    // Jangan clear products dan searchQuery saat dispose
-    // Hanya clear controllers lokal
-    searchController.dispose();
-    minPriceController.dispose();
-    maxPriceController.dispose();
+    // Reset state pencarian saat meninggalkan FindScreen
+    productController.searchQuery.value = '';
     super.dispose();
+  }
+
+  void navigateBack() {
+    resetSearch();
+    // Kembali ke home screen dengan index 0 (Beranda) untuk reset
+    Get.off(() => BuyerHomeScreen(), arguments: 0);
   }
 }
 

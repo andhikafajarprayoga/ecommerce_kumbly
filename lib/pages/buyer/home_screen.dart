@@ -46,7 +46,20 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   void initState() {
     super.initState();
     Get.put(RxInt(0), tag: 'selectedIndex');
-    productController.fetchProducts();
+
+    // Reset data jika kembali dari FindScreen
+    final arguments = Get.arguments;
+    if (arguments != null && arguments is int && arguments == 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        productController.products.clear();
+        productController.searchQuery.value = '';
+        productController.searchedMerchants.clear();
+        productController.fetchProducts();
+      });
+    } else {
+      productController.fetchProducts();
+    }
+
     fetchBanners();
 
     // Hanya jalankan fungsi yang membutuhkan auth jika user sudah login
@@ -161,7 +174,15 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   void _onItemTapped(int index) {
     setState(() {
       if (_selectedIndex == index) {
-        if (index == 1) {
+        if (index == 0) {
+          // Reset Beranda
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            productController.products.clear();
+            productController.searchQuery.value = '';
+            productController.searchedMerchants.clear();
+            productController.fetchProducts();
+          });
+        } else if (index == 1) {
           // Reset Find/Search screen
           searchController.clear();
           productController.searchQuery.value = '';
