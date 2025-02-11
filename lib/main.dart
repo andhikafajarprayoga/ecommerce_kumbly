@@ -12,6 +12,7 @@ import 'pages/branch/home_screen.dart';
 import 'screens/splash_screen.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
+import 'services/local_notification_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -45,6 +46,10 @@ Future<void> showNotification() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize local notifications
+  await LocalNotificationService().initNotification();
+
   await _initializeNotifications();
 
   await Workmanager().initialize(

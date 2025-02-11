@@ -18,10 +18,14 @@ import 'feature/branch_products_screen.dart';
 import '../../pages/admin/branch/branch_orders_screen.dart';
 import 'payment/payment_management_screen.dart';
 import '../../pages/admin/hotel/hotel_management_screen.dart';
+import '../../controllers/admin_notification_controller.dart';
+import 'notification/admin_notifications_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
   final StatsController statsController = Get.put(StatsController());
+  final AdminNotificationController notificationController =
+      Get.put(AdminNotificationController());
 
   AdminHomeScreen({super.key});
 
@@ -39,6 +43,7 @@ class AdminHomeScreen extends StatelessWidget {
           ),
         ),
         actions: [
+          _buildNotificationButton(),
           _buildProfileButton(),
         ],
       ),
@@ -351,26 +356,31 @@ class AdminHomeScreen extends StatelessWidget {
       children: [
         IconButton(
           icon: Icon(Icons.notifications_outlined, color: Colors.white),
-          onPressed: () => Get.toNamed('/admin/notifications'),
+          onPressed: () => Get.to(() => AdminNotificationsScreen()),
         ),
-        Positioned(
-          right: 8,
-          top: 8,
-          child: Container(
-            padding: EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.red,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '3',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 10,
+        Obx(() {
+          if (notificationController.unreadCount.value > 0) {
+            return Positioned(
+              right: 8,
+              top: 8,
+              child: Container(
+                padding: EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '${notificationController.unreadCount}',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ),
+            );
+          }
+          return SizedBox();
+        }),
       ],
     );
   }
