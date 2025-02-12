@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kumbly_ecommerce/pages/courier/completed_deliveries_screen.dart';
 import '../../controllers/auth_controller.dart';
 import 'active_deliveries_screen.dart';
 import 'pickup_orders_screen.dart';
@@ -28,6 +29,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
   final RxInt _sellerPackagesCount = 0.obs;
   final RxInt _branchPickupCount = 0.obs;
   final RxInt _branchPackagesCount = 0.obs;
+  final RxInt _completedDeliveriesCount = 0.obs;
   StreamSubscription? _notificationSubscription;
   StreamSubscription? _ordersSubscription;
 
@@ -125,6 +127,13 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                 .where((order) =>
                     order['courier_id'] == userId &&
                     order['status'] == 'branch_delivery')
+                .length;
+
+            // Tambahkan perhitungan untuk pengiriman selesai
+            _completedDeliveriesCount.value = data
+                .where((order) =>
+                    order['courier_id'] == userId &&
+                    order['status'] == 'completed')
                 .length;
           }
         });
@@ -236,6 +245,14 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                     color: Colors.blue,
                     onTap: () => Get.to(() => const BranchProductsScreen()),
                     badgeCount: _branchPackagesCount.value,
+                  )),
+              Obx(() => _buildMenuListItem(
+                    icon: Icons.check_circle_outline,
+                    title: 'Pengiriman Selesai',
+                    subtitle: 'Riwayat pengiriman yang telah selesai',
+                    color: Colors.green,
+                    onTap: () => Get.to(() => CompletedDeliveriesScreen()),
+                    badgeCount: _completedDeliveriesCount.value,
                   )),
             ],
           ),
