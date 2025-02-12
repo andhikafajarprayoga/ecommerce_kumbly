@@ -118,7 +118,23 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   }
 
   Future<void> _updateStore() async {
-    if (!_formKey.currentState!.validate()) {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      Get.snackbar(
+        'Error',
+        'User tidak ditemukan',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.TOP,
+        duration: Duration(seconds: 3),
+        margin: EdgeInsets.all(10),
+        borderRadius: 8,
+        icon: Icon(Icons.error, color: Colors.white),
+      );
+      return;
+    }
+
+    if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
       Get.snackbar(
         'Error',
         'Mohon lengkapi data yang diperlukan',
@@ -135,22 +151,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
 
     try {
       setState(() => _isLoading = true);
-
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) {
-        Get.snackbar(
-          'Error',
-          'User tidak ditemukan',
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          snackPosition: SnackPosition.TOP,
-          duration: Duration(seconds: 3),
-          margin: EdgeInsets.all(10),
-          borderRadius: 8,
-          icon: Icon(Icons.error, color: Colors.white),
-        );
-        return;
-      }
 
       final addressData = {
         'street': _streetController.text,
@@ -183,7 +183,8 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       );
 
       await Future.delayed(Duration(seconds: 1)); // Tunggu snackbar muncul
-      Get.back();
+      Get.offAllNamed(
+          '/merchant/home_screen'); // Ganti dengan rute yang sesuai untuk homescreen
     } catch (e) {
       print('Error updating store: $e');
       Get.snackbar(
@@ -290,8 +291,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
       final url = 'https://nominatim.openstreetmap.org/search'
           '?q=$encodedQuery'
           '&format=json'
-          '&limit=5'
-          '&country=indonesia';
+          '&limit=5';
 
       print('Searching URL: $url');
 
