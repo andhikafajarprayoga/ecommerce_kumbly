@@ -318,7 +318,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
                               Text(
                                 booking['keterangan'] == true
                                     ? 'Pembayaran sudah dikonfirmasi admin'
-                                    : 'Menunggu konfirmasi keterangan dari admin',
+                                    : 'Menunggu konfirmasi dari admin',
                                 style: TextStyle(
                                   color: booking['keterangan'] == true
                                       ? Colors.green
@@ -336,7 +336,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
                               child: ElevatedButton.icon(
                                 onPressed: booking['keterangan'] == true
                                     ? () => _updateBookingStatus(
-                                        booking['id'], 'TRUE')
+                                        booking['id'], 'confirmed')
                                     : null,
                                 icon: Icon(Icons.check_circle_outline,
                                     color: Colors.white),

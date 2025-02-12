@@ -246,7 +246,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
       Get.back();
       Get.snackbar(
         'Berhasil',
-        'Permintaan pembatalan telah dikirim dan menunggu persetujuan admin',
+        'Permintaan pembatalan telah dikirim dan menunggu persetujuan Seller',
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
@@ -377,7 +377,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              'Menunggu Persetujuan Admin',
+              'Menunggu Persetujuan seller',
               style: AppTheme.textTheme.bodySmall?.copyWith(
                 color: Colors.orange.shade900,
                 fontWeight: FontWeight.w600,
@@ -793,73 +793,53 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
               ],
             ),
           ),
-          if (booking['status'] == 'pending')
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade200),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton(
-                      onPressed: () {
-                        Get.to(
-                            () => DetailPesananHotelScreen(booking: booking));
-                      },
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Lihat Detail',
-                            style: TextStyle(
-                              color: AppTheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(
-                            Icons.arrow_forward_ios,
-                            size: 14,
-                            color: AppTheme.primary,
-                          ),
-                        ],
-                      )),
-                ],
+          // Tombol Detail - Selalu tampil untuk semua status
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade200),
               ),
             ),
-          if (booking['status'] == 'delivered')
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade200),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton(
-                    onPressed: () => _showCompleteBookingDialog(booking),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    Get.to(() => DetailPesananHotelScreen(booking: booking));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-                    child: const Text(
-                      'Selesaikan Pesanan',
-                      style: TextStyle(color: Colors.white),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                ],
-              ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Lihat Detail',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );

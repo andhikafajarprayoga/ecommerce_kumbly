@@ -7,6 +7,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class ShippingManagementScreen extends StatefulWidget {
   const ShippingManagementScreen({Key? key}) : super(key: key);
@@ -257,6 +262,85 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     }
   }
 
+  Future<void> _generateAndDownloadReceipt(Map<String, dynamic> order) async {
+    try {
+      final merchantData = await supabase
+          .from('merchants')
+          .select('store_name, store_address, store_phone')
+          .eq('id', order['merchant_id'])
+          .single();
+
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Text('RESI PENGIRIMAN',
+                      style: pw.TextStyle(fontSize: 24)),
+                ),
+                pw.SizedBox(height: 20),
+
+                // Informasi Order
+                pw.Text(
+                    'No. Order: #${order['id'].toString().substring(0, 8)}'),
+                pw.Text(
+                    'Tanggal: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(order['created_at']))}'),
+                pw.SizedBox(height: 20),
+
+                // Informasi Merchant
+                pw.Text('INFORMASI PENJUAL:'),
+                pw.Text('Nama: ${merchantData['store_name']}'),
+                pw.Text('Alamat: ${merchantData['store_address']}'),
+                pw.Text('Telepon: ${merchantData['store_phone']}'),
+                pw.SizedBox(height: 20),
+
+                // Informasi Pengiriman
+                pw.Text('INFORMASI PENERIMA:'),
+                pw.Text(
+                    'Nama: ${order['customer_name'] ?? 'Nama tidak tersedia'}'),
+                pw.Text(
+                    'Alamat: ${order['shipping_address'] ?? 'Alamat tidak tersedia'}'),
+                pw.Text(
+                    'Telepon: ${order['customer_phone'] ?? 'Telepon tidak tersedia'}'),
+                pw.SizedBox(height: 20),
+
+                // Total
+                pw.Text(
+                    'Total Pembayaran: Rp${NumberFormat('#,###').format(order['total_amount'])}'),
+              ],
+            );
+          },
+        ),
+      );
+
+      // Simpan PDF
+      final output = await getTemporaryDirectory();
+      final file = File(
+          '${output.path}/resi_${order['id'].toString().substring(0, 8)}.pdf');
+      await file.writeAsBytes(await pdf.save());
+
+      Get.snackbar(
+        'Sukses',
+        'PDF tersimpan di: ${file.path}',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    } catch (e) {
+      print('Error generating receipt: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal membuat resi: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -453,22 +537,55 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
   }
 
   Widget _buildActionButtons(Map<String, dynamic> order) {
+    // Tambahkan pengecekan admin_acc_note
+    final String? adminAccNote = order['admin_acc_note'];
+
+    if (adminAccNote == 'Tolak') {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cancel_outlined, color: Colors.red, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'Dibatalkan karena ongkir tidak sesuai',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     switch (order['status']) {
       case 'pending':
         return Row(
           children: [
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () =>
-                    _showConfirmationDialog(order['id'], order['status']),
+                onPressed: adminAccNote == 'Terima'
+                    ? () =>
+                        _showConfirmationDialog(order['id'], order['status'])
+                    : null,
                 icon: const Icon(Icons.local_shipping,
                     size: 18, color: Colors.white),
-                label: const Text(
-                  'Siapkan Pesanan',
-                  style: TextStyle(color: Colors.white),
+                label: Text(
+                  adminAccNote == 'Terima'
+                      ? 'Siapkan Pesanan'
+                      : 'Menunggu Konfirmasi Admin',
+                  style: const TextStyle(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primary,
+                  backgroundColor:
+                      adminAccNote == 'Terima' ? AppTheme.primary : Colors.grey,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
@@ -486,6 +603,13 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: () => _generateAndDownloadReceipt(order),
+              icon: const Icon(Icons.receipt_long),
+              tooltip: 'Print Resi',
+              color: AppTheme.primary,
             ),
           ],
         );
@@ -519,6 +643,13 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: () => _generateAndDownloadReceipt(order),
+              icon: const Icon(Icons.receipt_long),
+              tooltip: 'Print Resi',
+              color: AppTheme.primary,
             ),
           ],
         );
@@ -560,6 +691,17 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: () => _generateAndDownloadReceipt(order),
+              icon: const Icon(Icons.receipt_long, color: Colors.white),
+              label: const Text('Print Resi',
+                  style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ],
@@ -676,17 +818,21 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             final item = orderItems[index];
             final product = item['products'];
 
-            // Ambil URL gambar pertama dari array
+            // Perbaikan cara mengambil URL gambar
             String? imageUrl;
-            if (product != null &&
-                product['image_url'] != null &&
-                product['image_url'] is List &&
-                (product['image_url'] as List).isNotEmpty) {
-              imageUrl = (product['image_url'] as List)[0] as String;
-              print('Debug - Product: $product'); // Debug print
-              print(
-                  'Debug - Image URLs: ${product['image_url']}'); // Debug print
-              print('Debug - Selected Image URL: $imageUrl'); // Debug print
+            if (product != null && product['image_url'] != null) {
+              try {
+                // Parse string JSON array menjadi List
+                final List<dynamic> imageUrls =
+                    json.decode(product['image_url']);
+                if (imageUrls.isNotEmpty) {
+                  imageUrl = imageUrls[0]; // Ambil URL pertama
+                }
+                print('Debug - Image URL: $imageUrl'); // Debug print
+              } catch (e) {
+                print('Error parsing image URL: $e');
+                imageUrl = null;
+              }
             }
 
             return Container(
@@ -702,7 +848,7 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (imageUrl != null) ...[
+                  if (imageUrl != null && imageUrl.isNotEmpty) ...[
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.network(

@@ -172,55 +172,180 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
     final checkIn = DateTime.parse(booking['check_in']);
     final checkOut = DateTime.parse(booking['check_out']);
 
+    // Hitung total keseluruhan
+    double totalPrice = (booking['total_price'] ?? 0).toDouble();
+    double adminFee = (booking['admin_fee'] ?? 0).toDouble();
+    double appFee = (booking['app_fee'] ?? 0).toDouble();
+    double grandTotal = totalPrice + adminFee + appFee;
+
     return Card(
+      elevation: 3,
       margin: EdgeInsets.only(bottom: 16),
-      child: ListTile(
-        title: Text(
-          'Booking ID: ${booking['id'].toString().substring(0, 8)}...',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Hotel: ${booking['hotels']?['name'] ?? 'Unknown'}'),
-            Text('Tamu: ${booking['guest_name']}'),
-            Text('Check-in: ${DateFormat('dd MMM yyyy').format(checkIn)}'),
-            Text('Check-out: ${DateFormat('dd MMM yyyy').format(checkOut)}'),
-            Text(
-                'Total: Rp ${NumberFormat('#,###').format(booking['total_price'])}'),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Booking ID: ${booking['id'].toString().substring(0, 8)}...',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                _buildStatusChip(booking['status']),
+              ],
+            ),
+            Divider(height: 24),
             Row(
               children: [
-                _buildStatusChip(booking['status']),
+                Icon(Icons.hotel, color: AppTheme.primary, size: 20),
                 SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: Icon(
-                    booking['keterangan'] ?? false
-                        ? Icons.check_circle
-                        : Icons.cancel,
-                    color: booking['keterangan'] ?? false
-                        ? Colors.white
-                        : Colors.white,
+                Expanded(
+                  child: Text(
+                    '${booking['hotels']?['name'] ?? 'Unknown'}',
+                    style: TextStyle(fontSize: 15),
                   ),
-                  label: Text(
-                    booking['keterangan'] ?? false
-                        ? 'Sudah Bayar'
-                        : 'Belum Bayar',
-                    style: TextStyle(color: Colors.white),
+                ),
+              ],
+            ),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.person, color: AppTheme.primary, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  '${booking['guest_name']}',
+                  style: TextStyle(fontSize: 15),
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Check-in',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 13,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        DateFormat('dd MMM yyyy').format(checkIn),
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
                   ),
+                ),
+                Icon(Icons.arrow_forward, color: Colors.grey),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Check-out',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 13,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        DateFormat('dd MMM yyyy').format(checkOut),
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.payment, color: AppTheme.primary, size: 20),
+                SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Total Pembayaran:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                    Text(
+                      'Rp ${NumberFormat('#,###').format(grandTotal)}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: Icon(
+                      booking['keterangan'] ?? false
+                          ? Icons.check_circle
+                          : Icons.cancel,
+                      color: Colors.white,
+                    ),
+                    label: Text(
+                      booking['keterangan'] ?? false
+                          ? 'Sudah Bayar'
+                          : 'Belum Bayar',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: booking['keterangan'] ?? false
+                          ? Colors.green
+                          : Colors.red,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    onPressed: () => _updateKeterangan(
+                        booking['id'], !(booking['keterangan'] ?? false)),
+                  ),
+                ),
+                SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () =>
+                      Get.to(() => HotelBookingDetailScreen(booking: booking)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: booking['keterangan'] ?? false
-                        ? Colors.green
-                        : Colors.red,
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    backgroundColor: AppTheme.primary,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                  onPressed: () => _updateKeterangan(
-                      booking['id'], !(booking['keterangan'] ?? false)),
+                  child: Icon(Icons.arrow_forward, color: Colors.white),
                 ),
               ],
             ),
           ],
         ),
-        onTap: () => Get.to(() => HotelBookingDetailScreen(booking: booking)),
       ),
     );
   }

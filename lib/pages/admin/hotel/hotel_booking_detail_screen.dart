@@ -50,6 +50,8 @@ class HotelBookingDetailScreen extends StatelessWidget {
                 'Rp ${NumberFormat('#,###').format(booking['admin_fee'])}'),
             _buildDetailRow('App Fee',
                 'Rp ${NumberFormat('#,###').format(booking['app_fee'])}'),
+            Divider(thickness: 1),
+            _buildTotalSummary(),
             _buildDetailRow('Status', booking['status']),
             _buildDetailRow('Metode Pembayaran',
                 booking['payment_methods']?['name'] ?? 'Unknown'),
@@ -158,6 +160,88 @@ class HotelBookingDetailScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTotalSummary() {
+    // Ubah tipe data menjadi double
+    double totalPrice = (booking['total_price'] ?? 0).toDouble();
+    double adminFee = (booking['admin_fee'] ?? 0).toDouble();
+    double appFee = (booking['app_fee'] ?? 0).toDouble();
+    double grandTotal = totalPrice + adminFee + appFee;
+
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Ringkasan Pembayaran',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppTheme.primary,
+            ),
+          ),
+          SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total Harga Kamar:'),
+              Text(
+                'Rp ${NumberFormat('#,###').format(totalPrice)}',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Biaya Admin:'),
+              Text(
+                'Rp ${NumberFormat('#,###').format(adminFee)}',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Biaya Aplikasi:'),
+              Text(
+                'Rp ${NumberFormat('#,###').format(appFee)}',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          Divider(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total Pembayaran:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                'Rp ${NumberFormat('#,###').format(grandTotal)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.primary,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
