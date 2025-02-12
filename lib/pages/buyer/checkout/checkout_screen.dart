@@ -9,7 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/pages/buyer/payment/payment_screen.dart';
 import 'package:kumbly_ecommerce/pages/buyer/chat/chat_detail_screen.dart';
 import 'dart:convert';
-import 'dart:math' show cos, sqrt, asin, pi;
+import 'dart:math' show cos, sqrt, asin, pi, max, min;
 import 'dart:math' show sin;
 
 class CheckoutScreen extends StatefulWidget {
@@ -206,6 +206,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Map<String, dynamic>.from(widget.data['shipping_address']))
           : widget.data['shipping_address'].toString();
 
+      // Hitung ulang shipping cost yang sudah didiskon
+      double shippingDiscount =
+          discountAmount > 0 ? min(discountAmount, shippingCost) : 0;
+      double discountedShipping = max(0, shippingCost - shippingDiscount);
+      double finalTotal =
+          widget.data['total_amount'] + adminFee + discountedShipping;
+
       final params = {
         'p_buyer_id': supabase.auth.currentUser!.id,
         'p_payment_method_id': int.parse(paymentMethod ?? '1'),
@@ -220,12 +227,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             .toList(),
         'p_shipping_costs': Map<String, dynamic>.fromEntries(
           merchantShippingCosts.entries.map(
-            (e) => MapEntry(e.key, e.value.toDouble()),
+            (e) => MapEntry(e.key,
+                discountedShipping), // Gunakan ongkir yang sudah didiskon
           ),
         ),
         'p_admin_fee': adminFee,
-        'p_total_amount': widget.data['total_amount'] + adminFee + shippingCost,
-        'p_total_shipping_cost': shippingCost,
+        'p_total_amount': finalTotal,
+        'p_total_shipping_cost': discountedShipping,
         'p_pengiriman_id': widget.data['pengiriman_id'],
       };
 
@@ -260,9 +268,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       Get.off(() => PaymentScreen(
             orderData: {
               'payment_group_id': paymentGroupId,
-              'total_amount':
-                  widget.data['total_amount'] + adminFee + shippingCost,
-              'total_shipping_cost': shippingCost,
+              'total_amount': finalTotal,
+              'total_shipping_cost': discountedShipping,
               'admin_fee': adminFee,
             },
             paymentMethod: selectedMethod,
@@ -320,6 +327,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (selectedShippingMethod == null) return;
 
     try {
+      print('\n=== DEBUG PERHITUNGAN ONGKIR ===');
       merchantShippingCosts.clear();
       merchantDistances.clear();
       double totalShippingCost = 0;
@@ -330,15 +338,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         double buyerLon =
             double.parse(widget.data['shipping_address']['longitude']);
 
+        print('Koordinat Pembeli:');
+        print('Latitude: $buyerLat');
+        print('Longitude: $buyerLon');
+
         final perKg =
             double.parse(selectedShippingMethod!['harga_per_kg'].toString());
         final perKm =
             double.parse(selectedShippingMethod!['harga_per_km'].toString());
 
+        print('\nTarif Dasar:');
+        print('Harga per KG: Rp $perKg');
+        print('Harga per KM: Rp $perKm');
+
         for (var item in widget.data['items']) {
           final merchantId = item['products']['seller_id'];
           final product = item['products'];
           final quantity = item['quantity'];
+
+          print('\n--- Perhitungan untuk Merchant ID: $merchantId ---');
 
           final actualWeight = (product['weight'] ?? 1000) / 1000.0;
           final volumetricWeight = calculateVolumetricWeight(
@@ -349,6 +367,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           final itemWeight =
               actualWeight > volumetricWeight ? actualWeight : volumetricWeight;
           final totalWeight = roundWeight(itemWeight * quantity);
+
+          print('Berat Aktual: $actualWeight kg');
+          print('Berat Volumetrik: $volumetricWeight kg');
+          print('Berat yang digunakan: $itemWeight kg');
+          print('Total Berat (dengan quantity): $totalWeight kg');
 
           final merchantData = await supabase
               .from('merchants')
@@ -362,24 +385,52 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             double storeLat = double.parse(storeAddress['latitude']);
             double storeLon = double.parse(storeAddress['longitude']);
 
+            print('\nKoordinat Toko:');
+            print('Latitude: $storeLat');
+            print('Longitude: $storeLon');
+
             double distance =
                 calculateDistance(buyerLat, buyerLon, storeLat, storeLon);
             merchantDistances[merchantId] = distance;
+
+            print('Jarak: $distance km');
 
             double ongkirBerat = (perKg * roundWeight(totalWeight)).toDouble();
             double ongkirJarak = (perKm * distance).toDouble();
             double merchantOngkir = roundToThousand(ongkirBerat + ongkirJarak);
 
-            print('DEBUG ONGKIR:');
+            print('\nPerhitungan Ongkir:');
             print(
-                'Berat: ${roundWeight(totalWeight)} kg x Rp $perKg = Rp $ongkirBerat');
-            print('Jarak: $distance km x Rp $perKm = Rp $ongkirJarak');
+                'Ongkir Berat: $totalWeight kg x Rp $perKg = Rp $ongkirBerat');
+            print('Ongkir Jarak: $distance km x Rp $perKm = Rp $ongkirJarak');
             print('Total sebelum pembulatan: ${ongkirBerat + ongkirJarak}');
             print('Total setelah pembulatan: $merchantOngkir');
 
-            merchantShippingCosts[merchantId] = merchantOngkir;
-            totalShippingCost += merchantOngkir;
+            // Perhitungan diskon ongkir
+            if (discountAmount > 0) {
+              double discountedOngkir = merchantOngkir;
+              if (discountVoucher != null &&
+                  discountVoucher!['type'] == 'shipping') {
+                discountedOngkir = max(0, merchantOngkir - discountAmount);
+                print('\nPerhitungan Setelah Diskon Ongkir:');
+                print('Diskon yang diterapkan: Rp $discountAmount');
+                print('Ongkir setelah diskon: Rp $discountedOngkir');
+              }
+              merchantShippingCosts[merchantId] = discountedOngkir;
+              totalShippingCost += discountedOngkir;
+            } else {
+              merchantShippingCosts[merchantId] = merchantOngkir;
+              totalShippingCost += merchantOngkir;
+            }
           }
+        }
+
+        print('\n=== TOTAL ONGKIR ===');
+        print('Total Ongkir Sebelum Diskon: Rp $totalShippingCost');
+        if (discountAmount > 0) {
+          print('Total Diskon: Rp $discountAmount');
+          print(
+              'Total Ongkir Setelah Diskon: Rp ${totalShippingCost - discountAmount}');
         }
 
         setState(() {
@@ -1556,43 +1607,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildPaymentSummary() {
+    print('\n=== DEBUG DETAIL PERHITUNGAN AKHIR ===');
+
+    // 1. Hitung komponen dasar
+    double productTotal = widget.data['total_amount'].toDouble();
+    double adminFeeTotal = adminFee;
+    double shippingTotal = shippingCost;
+
+    print('1. Komponen Dasar:');
+    print('- Total Produk: Rp $productTotal');
+    print('- Biaya Admin: Rp $adminFeeTotal');
+    print('- Ongkos Kirim Awal: Rp $shippingTotal');
+    print('- Status Voucher: ${discountVoucher != null ? 'Ada' : 'Tidak Ada'}');
+    print('- Tipe Voucher: ${discountVoucher?['type']}');
+    print('- Nilai Diskon: $discountAmount');
+
+    // 2. Hitung ongkir setelah diskon
+    double discountedShipping = shippingTotal;
+    double appliedDiscount = 0;
+
+    if (discountVoucher != null && discountAmount > 0) {
+      appliedDiscount = min(discountAmount, shippingTotal);
+      discountedShipping = max(0, shippingTotal - appliedDiscount);
+
+      print('\n2. Perhitungan Diskon:');
+      print('- Ongkir Awal: Rp $shippingTotal');
+      print('- Diskon Diterapkan: Rp $appliedDiscount');
+      print('- Ongkir Setelah Diskon: Rp $discountedShipping');
+    }
+
+    // 3. Hitung total akhir
+    double finalTotal = productTotal + adminFeeTotal + discountedShipping;
+
+    print('\n3. Total Akhir:');
+    print('Total Produk: Rp $productTotal');
+    print('Biaya Admin: Rp $adminFeeTotal');
+    print('Ongkir (setelah diskon): Rp $discountedShipping');
+    print('Total Pembayaran: Rp $finalTotal');
+
     return Card(
-      elevation: 0.5,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Ringkasan Pembayaran',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 12),
-            _buildPaymentDetail(
-                'Total Harga', widget.data['total_amount'].toDouble()),
-            _buildPaymentDetail('Biaya Penanganan', adminFee),
-            _buildPaymentDetail('Ongkos Kirim', shippingCost,
-                note:
-                    discountAmount >= shippingCost ? '(Gratis Ongkir)' : null),
-            if (discountAmount > 0)
-              _buildPaymentDetail('Diskon Voucher', -discountAmount,
-                  isDiscount: true),
-            Divider(height: 16),
-            _buildPaymentDetail(
-              'Total Pembayaran',
-              (widget.data['total_amount'].toDouble() +
-                      adminFee +
-                      shippingCost) -
-                  (discountAmount > shippingCost
-                      ? shippingCost
-                      : discountAmount),
-              isTotal: true,
-            ),
-          ],
-        ),
+      child: Column(
+        children: [
+          _buildPaymentDetail('Total Harga', productTotal),
+          _buildPaymentDetail('Biaya Penanganan', adminFeeTotal),
+          _buildPaymentDetail('Ongkos Kirim', shippingTotal),
+          if (appliedDiscount > 0)
+            _buildPaymentDetail('Diskon Ongkir', -appliedDiscount,
+                isDiscount: true),
+          Divider(height: 16),
+          _buildPaymentDetail('Total Pembayaran', finalTotal, isTotal: true),
+        ],
       ),
     );
   }

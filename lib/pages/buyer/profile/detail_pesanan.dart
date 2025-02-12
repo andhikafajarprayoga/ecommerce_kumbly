@@ -408,43 +408,7 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
             ),
 
             // Rincian Pembayaran
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Rincian Pembayaran',
-                    style: AppTheme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildPaymentRow('Subtotal Produk', subtotal),
-                  const SizedBox(height: 8),
-                  _buildPaymentRow('Biaya Pengiriman', shippingCost),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(),
-                  ),
-                  _buildPaymentRow('Total Pembayaran', totalPayment,
-                      isTotal: true),
-                ],
-              ),
-            ),
+            _buildPaymentSummary(),
 
             // Bukti Pembayaran
             _buildPaymentProof(),
@@ -506,6 +470,100 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildPaymentSummary() {
+    final items = widget.order['items'] ?? [];
+    final shippingCost =
+        double.tryParse(widget.order['shipping_cost'].toString()) ?? 0.0;
+    final totalAmount =
+        double.tryParse(widget.order['total_amount'].toString()) ?? 0.0;
+    final paymentGroupId = widget.order['payment_group_id'];
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Rincian Pembayaran',
+            style: AppTheme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildPaymentRow('Subtotal Produk', totalAmount),
+          const SizedBox(height: 8),
+          _buildPaymentRow('Biaya Pengiriman', shippingCost),
+          FutureBuilder<Map<String, dynamic>?>(
+            future: _fetchPaymentGroupDetails(paymentGroupId),
+            builder: (context, snapshot) {
+              if (snapshot.hasData && snapshot.data != null) {
+                final adminFee =
+                    double.tryParse(snapshot.data!['admin_fee'].toString()) ??
+                        0.0;
+                return Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    _buildPaymentRow('Biaya Admin', adminFee),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(),
+                    ),
+                    _buildPaymentRow('Total Pembayaran',
+                        totalAmount + shippingCost + adminFee,
+                        isTotal: true),
+                  ],
+                );
+              }
+              return Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Divider(),
+                  ),
+                  _buildPaymentRow(
+                      'Total Pembayaran', totalAmount + shippingCost,
+                      isTotal: true),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _fetchPaymentGroupDetails(
+      String? paymentGroupId) async {
+    if (paymentGroupId == null) return null;
+
+    try {
+      final response = await supabase
+          .from('payment_groups')
+          .select()
+          .eq('id', paymentGroupId)
+          .single();
+
+      print('Payment Group Details: $response'); // Debug print
+      return response;
+    } catch (e) {
+      print('Error fetching payment group details: $e');
+      return null;
+    }
   }
 
   Widget _buildPaymentProof() {
