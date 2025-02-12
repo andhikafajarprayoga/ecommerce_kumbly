@@ -195,11 +195,15 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         }
       }
       _selectedIndex = index;
+      if (_selectedIndex == 0) {
+        // Panggil fetchProducts saat kembali ke beranda
+        productController.fetchProducts();
+      }
     });
   }
 
   void _performSearch(String value) async {
-    setState(() => _selectedIndex = 1);
+    setState(() => _selectedIndex = 0);
     productController.searchQuery.value = value;
 
     try {

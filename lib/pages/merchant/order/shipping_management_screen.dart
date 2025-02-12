@@ -330,10 +330,19 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
         ),
       );
 
-      // Simpan PDF
-      final output = await getExternalStorageDirectory();
+      // Mendapatkan direktori Downloads
+      final Directory? downloadsDirectory = await getExternalStorageDirectory();
+      final String downloadPath = '${downloadsDirectory?.path}/Download';
+
+      // Membuat folder Download jika belum ada
+      final Directory downloadFolder = Directory(downloadPath);
+      if (!await downloadFolder.exists()) {
+        await downloadFolder.create(recursive: true);
+      }
+
+      // Simpan PDF di folder Downloads
       final file = File(
-          '${output?.path}/resi_${order['id'].toString().substring(0, 8)}.pdf');
+          '${downloadFolder.path}/resi_${order['id'].toString().substring(0, 8)}.pdf');
       await file.writeAsBytes(await pdf.save());
 
       Get.snackbar(
@@ -654,6 +663,7 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     switch (order['status']) {
       case 'pending':
         return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: ElevatedButton.icon(
@@ -673,6 +683,9 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                   backgroundColor:
                       adminAccNote == 'Terima' ? AppTheme.primary : Colors.grey,
                   padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ),
@@ -687,6 +700,9 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color.fromARGB(255, 104, 104, 104),
                   padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ),
@@ -694,7 +710,7 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             IconButton(
               onPressed: () => _generateAndDownloadReceipt(order),
               icon: const Icon(Icons.receipt_long),
-              tooltip: 'Print Resi',
+              tooltip: 'Resi',
               color: AppTheme.primary,
             ),
           ],
@@ -702,6 +718,7 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
 
       case 'processing':
         return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: ElevatedButton.icon(
@@ -713,6 +730,9 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey,
                   padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ),
@@ -727,6 +747,9 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ),
@@ -734,7 +757,7 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             IconButton(
               onPressed: () => _generateAndDownloadReceipt(order),
               icon: const Icon(Icons.receipt_long),
-              tooltip: 'Print Resi',
+              tooltip: 'Resi',
               color: AppTheme.primary,
             ),
           ],
@@ -746,7 +769,7 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             if (order['courier_handover_photo'] != null) ...[
               Container(
                 width: double.infinity,
-                height: 150, // Ukuran foto lebih kecil
+                height: 150,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
@@ -783,11 +806,13 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             ElevatedButton.icon(
               onPressed: () => _generateAndDownloadReceipt(order),
               icon: const Icon(Icons.receipt_long, color: Colors.white),
-              label: const Text('Print Resi',
-                  style: TextStyle(color: Colors.white)),
+              label: const Text('Resi', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -839,7 +864,8 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
             ),
-            child: const Text('Ya, Siap Dijemput'),
+            child: const Text('Ya, Siap Dijemput',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

@@ -648,10 +648,6 @@ class _FindScreenState extends State<FindScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            icon: Icon(Icons.arrow_back),
-            onPressed: navigateBack,
-          ),
           automaticallyImplyLeading: false,
           backgroundColor: AppTheme.primary,
           title: Row(
@@ -713,6 +709,19 @@ class _FindScreenState extends State<FindScreen> {
         body: Obx(() {
           if (productController.isLoading.value) {
             return Center(child: CircularProgressIndicator());
+          }
+
+          // Cek apakah ada produk yang ditemukan
+          if (productController.products.isEmpty &&
+              productController.searchedMerchants.isEmpty) {
+            return Center(
+                child: Text(
+                    'Tidak ada produk ditemukan')); // Menampilkan pesan jika tidak ada produk
+          }
+
+          // Tampilkan produk secara langsung saat awal masuk
+          if (productController.products.isEmpty) {
+            performSearch(''); // Memanggil performSearch dengan string kosong
           }
 
           return CustomScrollView(
