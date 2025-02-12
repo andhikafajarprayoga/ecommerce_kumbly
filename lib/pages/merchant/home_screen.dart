@@ -28,7 +28,7 @@ class MerchantHomeScreen extends StatefulWidget {
 }
 
 class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
-  final ProductController productController = Get.find<ProductController>();
+  final ProductController productController = Get.put(ProductController());
   int _selectedIndex = 0;
   PageController _pageController = PageController();
   int _currentBannerIndex = 0;

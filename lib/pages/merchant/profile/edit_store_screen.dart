@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kumbly_ecommerce/pages/merchant/home_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'dart:convert';
@@ -125,11 +126,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'User tidak ditemukan',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        margin: EdgeInsets.all(10),
-        borderRadius: 8,
-        icon: Icon(Icons.error, color: Colors.white),
       );
       return;
     }
@@ -140,11 +136,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'Mohon lengkapi data yang diperlukan',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        margin: EdgeInsets.all(10),
-        borderRadius: 8,
-        icon: Icon(Icons.error, color: Colors.white),
       );
       return;
     }
@@ -175,16 +166,10 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'Data toko berhasil diperbarui',
         backgroundColor: Colors.green,
         colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        margin: EdgeInsets.all(10),
-        borderRadius: 8,
-        icon: Icon(Icons.check_circle, color: Colors.white),
       );
 
-      await Future.delayed(Duration(seconds: 1)); // Tunggu snackbar muncul
-      Get.offAllNamed(
-          '/merchant/home_screen'); // Ganti dengan rute yang sesuai untuk homescreen
+      await Future.delayed(Duration(seconds: 1));
+      Get.offAll(() => MerchantHomeScreen(sellerId: userId));
     } catch (e) {
       print('Error updating store: $e');
       Get.snackbar(
@@ -192,11 +177,6 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         'Gagal memperbarui data toko: ${e.toString()}',
         backgroundColor: Colors.red,
         colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        duration: Duration(seconds: 3),
-        margin: EdgeInsets.all(10),
-        borderRadius: 8,
-        icon: Icon(Icons.error, color: Colors.white),
       );
     } finally {
       setState(() => _isLoading = false);
