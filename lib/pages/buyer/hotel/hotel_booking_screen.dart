@@ -67,8 +67,9 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
     try {
       final response = await supabase
           .from('payment_methods')
-          .select()
+          .select('*, admin_fees(*)')
           .eq('is_active', true)
+          .neq('name', 'COD')
           .order('name');
 
       setState(() {
@@ -86,23 +87,36 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
           .from('admin_fees')
           .select()
           .eq('is_active', true)
-          .single();
+          .eq('name', 'Biaya Aplikasi')
+          .maybeSingle();
 
       setState(() {
-        _appFee = (response['fee'] as num).toDouble();
+        _appFee = response != null ? (response['fee'] as num).toDouble() : 0;
         _calculateTotalWithAdmin();
       });
     } catch (e) {
       print('Error fetching app fee: $e');
+      setState(() {
+        _appFee = 0;
+        _calculateTotalWithAdmin();
+      });
     }
   }
 
   void _updateSelectedPaymentMethod(int? value) {
+    if (value == null) return;
+
     setState(() {
       selectedPaymentMethodId = value;
-      _adminFee = paymentMethods
-          .firstWhere((method) => method['id'] == value)['admin']
-          .toDouble();
+      final selectedMethod =
+          paymentMethods.firstWhere((method) => method['id'] == value);
+
+      if (selectedMethod['admin_fees'] != null) {
+        _adminFee = (selectedMethod['admin_fees']['fee'] as num).toDouble();
+      } else {
+        _adminFee = 0;
+      }
+
       _calculateTotalWithAdmin();
     });
   }
