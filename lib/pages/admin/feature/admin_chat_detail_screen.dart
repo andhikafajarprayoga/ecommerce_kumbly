@@ -38,7 +38,7 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
   void initState() {
     super.initState();
     _initializeMessages();
-    _markMessagesAsRead();
+    Future.delayed(Duration(milliseconds: 300), _markMessagesAsRead);
   }
 
   @override
@@ -119,15 +119,64 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
   }
 
   Future<void> _markMessagesAsRead() async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return;
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
 
-    await supabase
-        .from('admin_messages')
-        .update({'is_read': true})
-        .eq('chat_room_id', widget.chatRoom['id'])
-        .neq('sender_id', userId)
-        .eq('is_read', false);
+      print(
+          'DEBUG: Marking messages as read for room ${widget.chatRoom['id']}');
+
+      // Ambil pesan yang diterima oleh admin
+      final unreadMessages = await supabase
+          .from('admin_messages')
+          .select()
+          .eq('chat_room_id', widget.chatRoom['id'])
+          .neq('sender_id', userId) // Hanya pesan yang diterima oleh admin
+          .eq('is_read', false);
+
+      print('DEBUG: Found ${unreadMessages.length} unread messages');
+
+      if (unreadMessages.isNotEmpty) {
+        final response = await supabase
+            .from('admin_messages')
+            .update({'is_read': true}).inFilter(
+                'id', unreadMessages.map((msg) => msg['id']).toList());
+
+        print('DEBUG: Update response: $response');
+
+        // Verifikasi update
+        final updatedMessages = await supabase
+            .from('admin_messages')
+            .select('id, is_read')
+            .eq('chat_room_id', widget.chatRoom['id'])
+            .eq('is_read', false);
+
+        print(
+            'DEBUG: Remaining unread messages after update: ${updatedMessages.length}');
+
+        final countCheck = await supabase
+            .from('admin_messages')
+            .select('id')
+            .eq('chat_room_id', widget.chatRoom['id'])
+            .neq('sender_id', userId)
+            .eq('is_read', false)
+            .count(CountOption.exact);
+
+        print('DEBUG: Total messages to update: $countCheck');
+        // Update local messages
+        for (var i = 0; i < messages.length; i++) {
+          if (messages[i]['sender_id'] != userId &&
+              messages[i]['is_read'] == false) {
+            messages[i] = {...messages[i], 'is_read': true};
+          }
+        }
+        messages.refresh();
+      }
+
+      print('DEBUG: Messages marked as read successfully');
+    } catch (e) {
+      print('ERROR: Failed to mark messages as read: $e');
+    }
   }
 
   void _sendMessage() {
