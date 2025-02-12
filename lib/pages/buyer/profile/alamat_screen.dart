@@ -15,6 +15,7 @@ class _AlamatScreenState extends State<AlamatScreen> {
   final SupabaseClient supabase = Supabase.instance.client;
   List<Map<String, dynamic>> addresses = [];
   bool isLoading = true;
+  Map<String, dynamic>? userResponse;
 
   @override
   void initState() {
@@ -33,14 +34,14 @@ class _AlamatScreenState extends State<AlamatScreen> {
           .eq('id', userId)
           .single();
 
-      List<Map<String, dynamic>> tempAddresses = [];
-      if (response['address'] != null) tempAddresses.add(response['address']);
-      if (response['address2'] != null) tempAddresses.add(response['address2']);
-      if (response['address3'] != null) tempAddresses.add(response['address3']);
-      if (response['address4'] != null) tempAddresses.add(response['address4']);
-
       setState(() {
-        addresses = tempAddresses;
+        userResponse = response;
+        addresses = [
+          if (response['address'] != null) response['address'],
+          if (response['address2'] != null) response['address2'],
+          if (response['address3'] != null) response['address3'],
+          if (response['address4'] != null) response['address4'],
+        ];
         isLoading = false;
       });
     } catch (e) {
@@ -99,40 +100,49 @@ class _AlamatScreenState extends State<AlamatScreen> {
           onPressed: () => Get.back(),
         ),
       ),
-      floatingActionButton: addresses.length < 4
-          ? FloatingActionButton.extended(
-              onPressed: () => Get.to(() => EditAddressScreen(
-                    initialAddress: {},
-                    onSave: (Map<String, dynamic> newAddress) async {
-                      try {
-                        final userId = supabase.auth.currentUser?.id;
-                        if (userId == null) return;
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Get.to(() => EditAddressScreen(
+              initialAddress: {},
+              addressField: _getNextAvailableField(),
+              onSave: (Map<String, dynamic> newAddress) async {
+                try {
+                  final userId = supabase.auth.currentUser?.id;
+                  if (userId == null) return;
 
-                        String field = addresses.isEmpty
-                            ? 'address'
-                            : 'address${addresses.length}';
-                        await supabase
-                            .from('users')
-                            .update({field: newAddress}).eq('id', userId);
+                  String field = _getNextAvailableField();
+                  await supabase
+                      .from('users')
+                      .update({field: newAddress}).eq('id', userId);
 
-                        await fetchAddresses();
-                      } catch (e) {
-                        Get.snackbar('Error', 'Gagal menambah alamat: $e');
-                      }
-                    },
-                  )),
-              backgroundColor: AppTheme.primary,
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Tambah Alamat',
-                  style: TextStyle(color: Colors.white)),
-            )
-          : null,
+                  await fetchAddresses();
+                } catch (e) {
+                  Get.snackbar('Error', 'Gagal menambah alamat: $e');
+                }
+              },
+            )),
+        backgroundColor: AppTheme.primary,
+        icon: const Icon(Icons.add, color: Colors.white),
+        label:
+            const Text('Tambah Alamat', style: TextStyle(color: Colors.white)),
+      ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : addresses.isEmpty
+          : userResponse == null ||
+                  (userResponse?['address'] == null &&
+                      userResponse?['address2'] == null &&
+                      userResponse?['address3'] == null &&
+                      userResponse?['address4'] == null)
               ? _buildEmptyState()
               : _buildAddressList(),
     );
+  }
+
+  String _getNextAvailableField() {
+    if (userResponse?['address'] == null) return 'address';
+    if (userResponse?['address2'] == null) return 'address2';
+    if (userResponse?['address3'] == null) return 'address3';
+    if (userResponse?['address4'] == null) return 'address4';
+    return '';
   }
 
   Widget _buildEmptyState() {
@@ -162,6 +172,7 @@ class _AlamatScreenState extends State<AlamatScreen> {
           ElevatedButton.icon(
             onPressed: () => Get.to(() => EditAddressScreen(
                   initialAddress: {},
+                  addressField: 'address',
                   onSave: (Map<String, dynamic> newAddress) async {
                     try {
                       final userId = supabase.auth.currentUser?.id;
@@ -193,122 +204,144 @@ class _AlamatScreenState extends State<AlamatScreen> {
   }
 
   Widget _buildAddressList() {
-    return ListView.builder(
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: addresses.length,
-      itemBuilder: (context, index) {
-        final address = addresses[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey[200]!),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildAddressCard(
+            'Alamat 1', 'address', addresses.isNotEmpty ? addresses[0] : null),
+        SizedBox(height: 12),
+        _buildAddressCard(
+            'Alamat 2', 'address2', addresses.length > 1 ? addresses[1] : null),
+        SizedBox(height: 12),
+        _buildAddressCard(
+            'Alamat 3', 'address3', addresses.length > 2 ? addresses[2] : null),
+        SizedBox(height: 12),
+        _buildAddressCard(
+            'Alamat 4', 'address4', addresses.length > 3 ? addresses[3] : null),
+      ],
+    );
+  }
+
+  Widget _buildAddressCard(
+      String label, String field, Map<String, dynamic>? address) {
+    final bool hasAddress = address != null;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Alamat ${index + 1}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primary,
-                        ),
-                      ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primary,
                     ),
-                    const Spacer(),
-                    PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert),
-                      onSelected: (value) {
-                        if (value == 'edit') {
-                          Get.to(() => EditAddressScreen(
-                                initialAddress: address,
-                                onSave: (Map<String, dynamic>
-                                    updatedAddress) async {
-                                  try {
-                                    final userId =
-                                        supabase.auth.currentUser?.id;
-                                    if (userId == null) return;
+                  ),
+                ),
+                const Spacer(),
+                if (hasAddress)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        Get.to(() => EditAddressScreen(
+                              initialAddress: address,
+                              addressField: field,
+                              onSave:
+                                  (Map<String, dynamic> updatedAddress) async {
+                                try {
+                                  final userId = supabase.auth.currentUser?.id;
+                                  if (userId == null) return;
 
-                                    String field = index == 0
-                                        ? 'address'
-                                        : 'address$index';
-                                    await supabase
-                                        .from('users')
-                                        .update({field: updatedAddress}).eq(
-                                            'id', userId);
+                                  await supabase.from('users').update(
+                                      {field: updatedAddress}).eq('id', userId);
 
-                                    await fetchAddresses();
-                                  } catch (e) {
-                                    Get.snackbar(
-                                        'Error', 'Gagal mengubah alamat: $e');
-                                  }
-                                },
-                              ));
-                        } else if (value == 'delete') {
-                          _showDeleteConfirmation(index);
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, size: 20),
-                              SizedBox(width: 8),
-                              Text('Edit'),
-                            ],
-                          ),
+                                  await fetchAddresses();
+                                } catch (e) {
+                                  Get.snackbar(
+                                      'Error', 'Gagal mengubah alamat: $e');
+                                }
+                              },
+                            ));
+                      } else if (value == 'delete') {
+                        _showDeleteConfirmation(field);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit, size: 20),
+                            SizedBox(width: 8),
+                            Text('Edit'),
+                          ],
                         ),
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, size: 20, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text('Hapus',
-                                  style: TextStyle(color: Colors.red)),
-                            ],
-                          ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete, size: 20, color: Colors.red),
+                            SizedBox(width: 8),
+                            Text('Hapus', style: TextStyle(color: Colors.red)),
+                          ],
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _buildAddressDetail(
-                  icon: Icons.location_on_outlined,
-                  text: address['street'] ?? '',
-                ),
-                const SizedBox(height: 8),
-                _buildAddressDetail(
-                  icon: Icons.location_city_outlined,
-                  text:
-                      'Kec. ${address['district'] ?? ''}, ${address['city'] ?? ''}',
-                ),
-                const SizedBox(height: 8),
-                _buildAddressDetail(
-                  icon: Icons.map_outlined,
-                  text:
-                      '${address['province'] ?? ''}, ${address['postal_code'] ?? ''}',
-                ),
+                      ),
+                    ],
+                  ),
               ],
             ),
-          ),
-        );
-      },
+            if (hasAddress) ...[
+              const SizedBox(height: 16),
+              _buildAddressDetail(
+                icon: Icons.location_on_outlined,
+                text: address['street'] ?? '',
+              ),
+              const SizedBox(height: 8),
+              _buildAddressDetail(
+                icon: Icons.location_city_outlined,
+                text:
+                    'Kec. ${address['district'] ?? ''}, ${address['city'] ?? ''}',
+              ),
+              const SizedBox(height: 8),
+              _buildAddressDetail(
+                icon: Icons.map_outlined,
+                text:
+                    '${address['province'] ?? ''}, ${address['postal_code'] ?? ''}',
+              ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  'Tambah Alamat Baru',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -332,7 +365,7 @@ class _AlamatScreenState extends State<AlamatScreen> {
     );
   }
 
-  void _showDeleteConfirmation(int index) {
+  void _showDeleteConfirmation(String field) {
     Get.dialog(
       AlertDialog(
         title: const Text('Hapus Alamat'),
@@ -349,9 +382,21 @@ class _AlamatScreenState extends State<AlamatScreen> {
             ),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Get.back();
-              deleteAddress(index);
+              try {
+                final userId = supabase.auth.currentUser?.id;
+                if (userId == null) return;
+
+                await supabase
+                    .from('users')
+                    .update({field: null}).eq('id', userId);
+
+                await fetchAddresses();
+                Get.snackbar('Sukses', 'Alamat berhasil dihapus');
+              } catch (e) {
+                Get.snackbar('Error', 'Gagal menghapus alamat: $e');
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,

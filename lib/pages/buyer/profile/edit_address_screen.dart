@@ -12,11 +12,13 @@ import 'package:geolocator/geolocator.dart';
 class EditAddressScreen extends StatefulWidget {
   final Map<String, dynamic> initialAddress;
   final Function(Map<String, dynamic>) onSave;
+  final String? addressField;
 
   const EditAddressScreen({
     super.key,
     required this.initialAddress,
     required this.onSave,
+    this.addressField,
   });
 
   @override
@@ -228,57 +230,18 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         'longitude': selectedLocation.longitude.toString(),
       };
 
-      // Cek alamat yang tersedia
-      final userResponse = await supabase
-          .from('users')
-          .select('address, address2, address3, address4')
-          .eq('id', userId)
-          .single();
+      // Tentukan field yang akan diupdate berdasarkan parameter yang dikirim
+      String targetField = widget.addressField ??
+          ''; // Tambahkan parameter addressField di constructor
 
-      String fieldToUpdate = '';
-
-      // Jika sedang edit alamat yang sudah ada
-      if (widget.initialAddress.isNotEmpty) {
-        // Cek persis di field mana alamat yang sedang diedit
-        if (mapEquals(userResponse['address'], widget.initialAddress)) {
-          fieldToUpdate = 'address';
-        } else if (mapEquals(userResponse['address2'], widget.initialAddress)) {
-          fieldToUpdate = 'address2';
-        } else if (mapEquals(userResponse['address3'], widget.initialAddress)) {
-          fieldToUpdate = 'address3';
-        } else if (mapEquals(userResponse['address4'], widget.initialAddress)) {
-          fieldToUpdate = 'address4';
-        }
-
-        // Jika tidak ditemukan field yang cocok, kembalikan error
-        if (fieldToUpdate.isEmpty) {
-          throw Exception('Alamat yang diedit tidak ditemukan');
-        }
-      }
-      // Jika menambah alamat baru
-      else {
-        // Cari slot kosong pertama
-        if (userResponse['address'] == null) {
-          fieldToUpdate = 'address';
-        } else if (userResponse['address2'] == null) {
-          fieldToUpdate = 'address2';
-        } else if (userResponse['address3'] == null) {
-          fieldToUpdate = 'address3';
-        } else if (userResponse['address4'] == null) {
-          fieldToUpdate = 'address4';
-        }
-
-        if (fieldToUpdate.isEmpty) {
-          throw Exception('Tidak ada slot alamat yang tersedia');
-        }
+      if (targetField.isEmpty) {
+        throw Exception('Silakan pilih slot alamat (1-4)');
       }
 
-      print('Saving address to field: $fieldToUpdate'); // Debug print
-
-      // Update alamat
+      // Update alamat ke field yang ditentukan
       await supabase
           .from('users')
-          .update({fieldToUpdate: addressData}).eq('id', userId);
+          .update({targetField: addressData}).eq('id', userId);
 
       widget.onSave(addressData);
       Get.back();
@@ -289,7 +252,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         colorText: Colors.white,
       );
     } catch (e) {
-      print('Error saving address: $e'); // Debug print
+      print('Error saving address: $e');
       Get.snackbar(
         'Error',
         'Gagal menyimpan alamat: $e',
@@ -322,6 +285,67 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
+    }
+  }
+
+  Future<void> deleteAddress() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      setState(() {
+        isLoading = true;
+      });
+
+      // Cek alamat yang akan dihapus
+      final userResponse = await supabase
+          .from('users')
+          .select('address, address2, address3, address4')
+          .eq('id', userId)
+          .single();
+
+      String fieldToDelete = '';
+
+      // Tentukan field yang akan dihapus dengan membandingkan nilai sebenarnya
+      if (mapEquals(userResponse['address'], widget.initialAddress)) {
+        fieldToDelete = 'address';
+      } else if (mapEquals(userResponse['address2'], widget.initialAddress)) {
+        fieldToDelete = 'address2';
+      } else if (mapEquals(userResponse['address3'], widget.initialAddress)) {
+        fieldToDelete = 'address3';
+      } else if (mapEquals(userResponse['address4'], widget.initialAddress)) {
+        fieldToDelete = 'address4';
+      }
+
+      if (fieldToDelete.isEmpty) {
+        throw Exception('Alamat tidak ditemukan');
+      }
+
+      // Update hanya field yang akan dihapus
+      Map<String, dynamic> updateData = {fieldToDelete: null};
+
+      // Update database dengan menghapus alamat yang dipilih
+      await supabase.from('users').update(updateData).eq('id', userId);
+
+      Get.back();
+      Get.snackbar(
+        'Sukses',
+        'Alamat berhasil dihapus',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      print('Error deleting address: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal menghapus alamat: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
