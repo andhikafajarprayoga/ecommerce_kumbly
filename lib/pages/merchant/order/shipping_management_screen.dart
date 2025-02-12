@@ -275,83 +275,295 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     }
   }
 
+  // Fungsi helper untuk format alamat
+  String _formatAddress(String? addressText) {
+    if (addressText == null || addressText.isEmpty) return '-';
+
+    try {
+      // Hapus karakter JSON yang tidak diperlukan
+      String cleanAddress = addressText
+          .replaceAll('{', '')
+          .replaceAll('}', '')
+          .replaceAll('"', '')
+          .replaceAll('street:', '')
+          .replaceAll('village:', '')
+          .replaceAll('district:', '')
+          .replaceAll('city:', '')
+          .replaceAll('province:', '')
+          .replaceAll('postal_code:', '')
+          .replaceAll('latitude:', '')
+          .replaceAll('longitude:', '');
+
+      // Pisahkan berdasarkan koma dan hapus spasi berlebih
+      List<String> addressParts = cleanAddress
+          .split(',')
+          .map((part) => part.trim())
+          .where((part) =>
+              part.isNotEmpty &&
+              !part.contains('-8.') && // Skip latitude
+              !part.contains('116.')) // Skip longitude
+          .toList();
+
+      return addressParts.join('\n');
+    } catch (e) {
+      print('Error formatting address: $e');
+      return addressText;
+    }
+  }
+
+  // Fungsi helper untuk menyembunyikan nomor telepon
+  String _maskPhoneNumber(String? phone) {
+    if (phone == null || phone.isEmpty) return '-';
+
+    // Hapus karakter non-digit
+    String cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+
+    if (cleanPhone.length <= 4) {
+      return cleanPhone;
+    }
+
+    // Ambil 4 digit terakhir
+    String lastFourDigits = cleanPhone.substring(cleanPhone.length - 4);
+    // Buat mask sesuai panjang digit sebelumnya
+    String mask = '*' * (cleanPhone.length - 4);
+
+    return '$mask$lastFourDigits';
+  }
+
   Future<void> _generateAndDownloadReceipt(Map<String, dynamic> order) async {
     try {
+      // Ambil data merchant
       final merchantData = await supabase
           .from('merchants')
           .select('store_name, store_address, store_phone')
           .eq('id', order['merchant_id'])
           .single();
 
+      // Ambil data buyer
+      final buyerData = await supabase
+          .from('users')
+          .select('full_name, phone')
+          .eq('id', order['buyer_id'])
+          .single();
+
+      // Format kedua alamat
+      final formattedStoreAddress =
+          _formatAddress(merchantData['store_address']);
+      final formattedShippingAddress =
+          _formatAddress(order['shipping_address']);
+
+      // Ambil data order items dengan detail produk
+      final orderItems =
+          List<Map<String, dynamic>>.from(order['order_items'] ?? []);
+
+      // Format nomor telepon
+      final maskedMerchantPhone = _maskPhoneNumber(merchantData['store_phone']);
+      final maskedBuyerPhone = _maskPhoneNumber(buyerData['phone']);
+
+      // Buat PDF
       final pdf = pw.Document();
+
+      // Load font
+      final font = await rootBundle.load("fonts/Poppins-Regular.ttf");
+      final ttf = pw.Font.ttf(font);
+
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
           build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Center(
-                  child: pw.Text('RESI PENGIRIMAN',
-                      style: pw.TextStyle(fontSize: 24)),
-                ),
-                pw.SizedBox(height: 20),
+            return pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('RESI PENGIRIMAN',
+                              style: pw.TextStyle(
+                                font: ttf,
+                                fontSize: 24,
+                                fontWeight: pw.FontWeight.bold,
+                              )),
+                          pw.SizedBox(height: 5),
+                          pw.Text(
+                            'No. Order: #${order['id'].toString().substring(0, 8)}',
+                            style: pw.TextStyle(font: ttf, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: order['id'],
+                        width: 70,
+                        height: 70,
+                      ),
+                    ],
+                  ),
+                  pw.Divider(thickness: 2),
+                  pw.SizedBox(height: 20),
 
-                // Informasi Order
-                pw.Text(
-                    'No. Order: #${order['id'].toString().substring(0, 8)}'),
-                pw.Text(
-                    'Tanggal: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(order['created_at']))}'),
-                pw.SizedBox(height: 20),
+                  // Informasi Merchant dan Pembeli
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Informasi Pengirim
+                      pw.Expanded(
+                        child: pw.Container(
+                          padding: const pw.EdgeInsets.all(10),
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(),
+                            borderRadius: const pw.BorderRadius.all(
+                                pw.Radius.circular(5)),
+                          ),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('PENGIRIM:',
+                                  style: pw.TextStyle(
+                                    font: ttf,
+                                    fontWeight: pw.FontWeight.bold,
+                                  )),
+                              pw.SizedBox(height: 5),
+                              pw.Text(merchantData['store_name'],
+                                  style: pw.TextStyle(font: ttf)),
+                              pw.Text(maskedMerchantPhone,
+                                  style: pw.TextStyle(font: ttf)),
+                              pw.Text(formattedStoreAddress,
+                                  style: pw.TextStyle(font: ttf)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(width: 20),
+                      // Informasi Penerima
+                      pw.Expanded(
+                        child: pw.Container(
+                          padding: const pw.EdgeInsets.all(10),
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(),
+                            borderRadius: const pw.BorderRadius.all(
+                                pw.Radius.circular(5)),
+                          ),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('PENERIMA:',
+                                  style: pw.TextStyle(
+                                    font: ttf,
+                                    fontWeight: pw.FontWeight.bold,
+                                  )),
+                              pw.SizedBox(height: 5),
+                              pw.Text(buyerData['full_name'] ?? '-',
+                                  style: pw.TextStyle(font: ttf)),
+                              pw.Text(maskedBuyerPhone,
+                                  style: pw.TextStyle(font: ttf)),
+                              pw.Text(formattedShippingAddress,
+                                  style: pw.TextStyle(font: ttf)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 20),
 
-                // Informasi Merchant
-                pw.Text('INFORMASI PENJUAL:'),
-                pw.Text('Nama: ${merchantData['store_name']}'),
-                pw.Text('Alamat: ${merchantData['store_address']}'),
-                pw.Text('Telepon: ${merchantData['store_phone']}'),
-                pw.SizedBox(height: 20),
+                  // Detail Produk
+                  pw.Container(
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(),
+                      borderRadius:
+                          const pw.BorderRadius.all(pw.Radius.circular(5)),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(10),
+                          color: PdfColors.grey300,
+                          child: pw.Row(
+                            children: [
+                              pw.Expanded(
+                                flex: 4,
+                                child: pw.Text('Produk',
+                                    style: pw.TextStyle(
+                                      font: ttf,
+                                      fontWeight: pw.FontWeight.bold,
+                                    )),
+                              ),
+                              pw.Expanded(
+                                child: pw.Text('Qty',
+                                    style: pw.TextStyle(
+                                      font: ttf,
+                                      fontWeight: pw.FontWeight.bold,
+                                    )),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ...orderItems.map((item) => pw.Container(
+                              padding: const pw.EdgeInsets.all(10),
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border(
+                                  top: pw.BorderSide(color: PdfColors.grey300),
+                                ),
+                              ),
+                              child: pw.Row(
+                                children: [
+                                  pw.Expanded(
+                                    flex: 4,
+                                    child: pw.Text(
+                                      item['products']['name'],
+                                      style: pw.TextStyle(font: ttf),
+                                    ),
+                                  ),
+                                  pw.Expanded(
+                                    child: pw.Text(
+                                      '${item['quantity']}',
+                                      style: pw.TextStyle(font: ttf),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 20),
 
-                // Informasi Pengiriman
-                pw.Text('INFORMASI PENERIMA:'),
-                pw.Text(
-                    'Nama: ${order['customer_name'] ?? 'Nama tidak tersedia'}'),
-                pw.Text(
-                    'Alamat: ${order['shipping_address'] ?? 'Alamat tidak tersedia'}'),
-                pw.Text(
-                    'Telepon: ${order['customer_phone'] ?? 'Telepon tidak tersedia'}'),
-                pw.SizedBox(height: 20),
-
-                // Total
-                pw.Text(
-                    'Total Pembayaran: Rp${NumberFormat('#,###').format(order['total_amount'])}'),
-              ],
+                  // Footer
+                  pw.Text(
+                    'Dicetak pada: ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.now())}',
+                    style: pw.TextStyle(
+                        font: ttf, fontSize: 10, color: PdfColors.grey700),
+                  ),
+                ],
+              ),
             );
           },
         ),
       );
 
-      // Mendapatkan direktori Downloads
-      final Directory? downloadsDirectory = await getExternalStorageDirectory();
-      final String downloadPath = '${downloadsDirectory?.path}/Download';
-
-      // Membuat folder Download jika belum ada
-      final Directory downloadFolder = Directory(downloadPath);
-      if (!await downloadFolder.exists()) {
-        await downloadFolder.create(recursive: true);
-      }
-
-      // Simpan PDF di folder Downloads
+      // Simpan PDF ke Downloads folder
+      final output = await getDownloadsDirectory();
       final file = File(
-          '${downloadFolder.path}/resi_${order['id'].toString().substring(0, 8)}.pdf');
+          '${output!.path}/resi_${order['id'].toString().substring(0, 8)}.pdf');
       await file.writeAsBytes(await pdf.save());
 
+      // Tampilkan snackbar sukses dan buka file
       Get.snackbar(
         'Sukses',
-        'PDF tersimpan di: ${file.path}',
+        'Resi berhasil disimpan di folder Downloads',
         backgroundColor: Colors.green,
         colorText: Colors.white,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 3),
       );
+
+      // Buka file PDF
+      await OpenFile.open(file.path);
     } catch (e) {
       print('Error generating receipt: $e');
       Get.snackbar(
