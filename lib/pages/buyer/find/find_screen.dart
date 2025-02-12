@@ -50,10 +50,16 @@ class _FindScreenState extends State<FindScreen> {
         });
       } else if (arguments is int) {
         // Jika arguments adalah int, itu adalah index navigasi
-        // Tidak perlu melakukan apa-apa karena sudah di handle di bottom navigation
+        // Langsung load semua produk
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          performSearch(''); // Load semua produk dengan query kosong
+        });
       }
     } else {
-      resetSearch();
+      // Jika tidak ada arguments, tetap load semua produk
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        performSearch('');
+      });
     }
   }
 
@@ -566,13 +572,23 @@ class _FindScreenState extends State<FindScreen> {
   }
 
   Future<void> performSearch(String value) async {
-    if (value.isEmpty) return;
-
     try {
       isSearching.value = true;
-      print('Debug: Membersihkan data lama');
       productController.products.clear();
       productController.searchedMerchants.clear();
+
+      if (value.isEmpty) {
+        // Jika query kosong, ambil semua produk
+        final productsResponse = await supabase
+            .from('products')
+            .select()
+            .order('created_at', ascending: false);
+
+        if (productsResponse != null) {
+          productController.products.assignAll(productsResponse);
+        }
+        return;
+      }
 
       // Cari merchant berdasarkan nama toko dan lokasi
       final merchantsResponse = await supabase

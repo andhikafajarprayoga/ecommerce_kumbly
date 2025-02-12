@@ -47,16 +47,37 @@ class _RegisterPageState extends State<RegisterPage> {
         phoneController.text.trim(),
       );
 
-      Get.snackbar(
-        'Sukses',
-        'Registrasi berhasil! Silakan login.',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.TOP,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
+      // Tampilkan dialog sukses dengan instruksi verifikasi email
+      Get.dialog(
+        AlertDialog(
+          title: const Text('Registrasi Berhasil'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Silakan cek email Anda untuk verifikasi akun.'),
+              const SizedBox(height: 8),
+              Text(
+                'Email verifikasi telah dikirim ke: ${emailController.text}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                  'Periksa folder spam jika email tidak ditemukan di inbox.'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Get.back(); // Tutup dialog
+                Get.back(); // Kembali ke halaman login
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
       );
-      Get.back();
     } catch (e) {
       Get.snackbar(
         'Error',
