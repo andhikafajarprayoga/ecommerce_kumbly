@@ -74,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.primary,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -83,11 +83,11 @@ class _SplashScreenState extends State<SplashScreen>
             FadeTransition(
               opacity: _fadeAnimation,
               child: Container(
-                width: 210,
-                height: 210,
+                width: 250,
+                height: 250,
                 padding: const EdgeInsets.all(20),
                 child: Image.asset(
-                  'images/logo.png',
+                  'images/saraja.png',
                   fit: BoxFit.contain,
                 ),
               ),

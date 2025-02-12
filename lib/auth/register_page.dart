@@ -90,7 +90,7 @@ class _RegisterPageState extends State<RegisterPage> {
               children: [
                 // Header Section
                 Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(10),
                   child: Column(
                     children: [
                       Align(
@@ -103,37 +103,22 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              spreadRadius: 2,
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.person_add,
-                          size: 50,
-                          color: AppTheme.primary,
-                        ),
+                      const SizedBox(height: 3),
+                      Image.asset(
+                        'images/saraja.png', // Ganti dengan path logo Anda
+                        height: 100,
+                        width: 180, // Sesuaikan tinggi logo
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 3),
                       const Text(
                         'Buat Akun Baru',
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: 25,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 0),
                       const Text(
                         'Daftar untuk mulai berbelanja',
                         style: TextStyle(

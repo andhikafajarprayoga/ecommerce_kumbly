@@ -222,32 +222,21 @@ class _LoginPageState extends State<LoginPage> {
                 Expanded(
                   flex: 3,
                   child: Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(5),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Logo atau Icon
+                        // Logo
                         Container(
-                          padding: const EdgeInsets.all(15),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                spreadRadius: 2,
-                                blurRadius: 10,
-                                offset: const Offset(0, 5),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.shopping_cart,
-                            size: 50,
-                            color: AppTheme.primary,
+                          width: 210,
+                          height: 210,
+                          padding: const EdgeInsets.all(0),
+                          child: Image.asset(
+                            'images/saraja.png',
+                            fit: BoxFit.contain,
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 0),
                         const Text(
                           'Selamat Datang',
                           style: TextStyle(
@@ -256,7 +245,7 @@ class _LoginPageState extends State<LoginPage> {
                             color: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 0),
                         const Text(
                           'Silakan login untuk melanjutkan',
                           style: TextStyle(
