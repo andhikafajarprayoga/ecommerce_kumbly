@@ -150,10 +150,10 @@ class AdminHomeScreen extends StatelessWidget {
                           onTap: () => Get.to(() => StoresScreen()),
                           badgeStream: supabase
                               .from('merchants')
-                              .stream(primaryKey: ['id']).map((data) => data
-                                  .where(
-                                      (store) => store['status'] == 'pending')
-                                  .length),
+                              .stream(primaryKey: ['id'])
+                              .eq('status', 'pending')
+                              .order('created_at')
+                              .map((data) => data.length),
                         ),
                         _buildMenuCard(
                           icon: Icons.hotel,
@@ -162,11 +162,17 @@ class AdminHomeScreen extends StatelessWidget {
                           color: Colors.green,
                           onTap: () => Get.to(() => HotelManagementScreen()),
                           badgeStream: supabase
-                              .from('hotels')
-                              .stream(primaryKey: ['id']).map((data) => data
-                                  .where(
-                                      (hotel) => hotel['status'] == 'pending')
-                                  .length),
+                              .from('hotel_bookings')
+                              .stream(primaryKey: ['id'])
+                              .map((data) => data
+                                  .where((booking) =>
+                                      booking['status'] == 'pending')
+                                  .length)
+                              .handleError((error) {
+                                print(
+                                    'DEBUG: Error getting hotel bookings count: $error');
+                                return 0;
+                              }),
                         ),
                         _buildMenuCard(
                           icon: Icons.local_shipping_outlined,

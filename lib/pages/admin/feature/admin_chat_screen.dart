@@ -117,6 +117,28 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
               }
             }
 
+            // Update unread count dengan memperhatikan is_read
+            for (var entry in messagesByRoom.entries) {
+              final roomId = entry.key;
+              final roomIndex =
+                  chatRooms.indexWhere((room) => room['id'] == roomId);
+
+              if (roomIndex != -1) {
+                // Hitung ulang unread_count berdasarkan is_read yang aktual
+                final unreadCount = messages
+                    .where((msg) =>
+                        msg['chat_room_id'] == roomId &&
+                        msg['sender_id'] != supabase.auth.currentUser!.id &&
+                        msg['is_read'] == false)
+                    .length;
+
+                chatRooms[roomIndex] = {
+                  ...chatRooms[roomIndex],
+                  'unread_count': unreadCount,
+                };
+              }
+            }
+
             // Sort rooms by latest message
             chatRooms.sort((a, b) {
               final aTime =

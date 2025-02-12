@@ -24,9 +24,20 @@ class ShippingManagementScreen extends StatefulWidget {
 class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
   final supabase = Supabase.instance.client;
   final orders = <Map<String, dynamic>>[].obs;
+  final searchController = TextEditingController();
+  final selectedStatus = 'all'.obs;
   final ImagePicker _picker = ImagePicker();
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+
+  // Tambahkan list status untuk filter
+  final List<Map<String, String>> statusOptions = [
+    {'value': 'all', 'label': 'Semua'},
+    {'value': 'pending', 'label': 'Belum Siap'},
+    {'value': 'processing', 'label': 'Menunggu Kurir'},
+    {'value': 'shipping', 'label': 'Sedang Dikirim'},
+    {'value': 'transit', 'label': 'Transit'},
+  ];
 
   @override
   void initState() {
@@ -161,6 +172,8 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
           ''')
           .eq('merchant_id', currentUserId)
           .neq('status', 'cancelled')
+          .neq('status',
+              'delivered') // Tambahkan ini untuk mengabaikan status delivered
           .inFilter('status', ['pending', 'processing', 'shipping', 'transit'])
           .order('created_at', ascending: false);
 
@@ -318,9 +331,9 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
       );
 
       // Simpan PDF
-      final output = await getTemporaryDirectory();
+      final output = await getExternalStorageDirectory();
       final file = File(
-          '${output.path}/resi_${order['id'].toString().substring(0, 8)}.pdf');
+          '${output?.path}/resi_${order['id'].toString().substring(0, 8)}.pdf');
       await file.writeAsBytes(await pdf.save());
 
       Get.snackbar(
@@ -350,31 +363,101 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
       ),
-      body: Obx(
-        () => orders.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.local_shipping_outlined,
-                        size: 80, color: Colors.grey[400]),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Belum ada pesanan',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
+      body: Column(
+        children: [
+          // Search dan Filter
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.white,
+            child: Column(
+              children: [
+                // Search Bar
+                TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Cari order...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (value) => _filterOrders(),
                 ),
-              )
-            : ListView.builder(
+                const SizedBox(height: 12),
+
+                // Status Filter
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Obx(() => DropdownButton<String>(
+                        value: selectedStatus.value,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        items: statusOptions.map((status) {
+                          return DropdownMenuItem(
+                            value: status['value'],
+                            child: Text(status['label']!),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          selectedStatus.value = value!;
+                          _filterOrders();
+                        },
+                      )),
+                ),
+              ],
+            ),
+          ),
+
+          // Orders List
+          Expanded(
+            child: Obx(() {
+              final filteredOrders = orders.where((order) {
+                // Filter berdasarkan status
+                if (selectedStatus.value != 'all' &&
+                    order['status'] != selectedStatus.value) {
+                  return false;
+                }
+
+                // Filter berdasarkan search
+                final searchQuery = searchController.text.toLowerCase();
+                final orderId = order['id'].toString().toLowerCase();
+                return orderId.contains(searchQuery);
+              }).toList();
+
+              if (filteredOrders.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.local_shipping_outlined,
+                          size: 80, color: Colors.grey[400]),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Tidak ada pesanan',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: orders.length,
+                itemCount: filteredOrders.length,
                 itemBuilder: (context, index) {
-                  final order = orders[index];
+                  final order = filteredOrders[index];
                   final orderItems = List<Map<String, dynamic>>.from(
                       order['order_items'] ?? []);
 
@@ -479,7 +562,10 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                     ),
                   );
                 },
-              ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }
@@ -927,5 +1013,11 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
         size: 30,
       ),
     );
+  }
+
+  void _filterOrders() {
+    setState(() {
+      // Trigger rebuild untuk menerapkan filter
+    });
   }
 }
