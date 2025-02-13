@@ -174,7 +174,9 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ExpansionTile(
         title: Text('Order #${order['order_id'].toString().substring(0, 8)}'),
-        subtitle: Text('Status: ${order['status'] ?? 'Menunggu'}'),
+        subtitle:
+            Text('Status: ${_getStatusLabel(order['status'] ?? 'Menunggu')}'),
+        trailing: _buildStatusChip(order['status']),
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -192,17 +194,7 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
                 if (!snapshot.hasData) return const Text('Loading...');
                 final orderData = snapshot.data!;
                 final userData = orderData['users'];
-                final address = userData['address'] as Map;
-
-                // Format alamat lengkap
-                final fullAddress = [
-                  address['street'],
-                  address['village'],
-                  address['district'],
-                  address['city'],
-                  address['province'],
-                  address['postal_code'],
-                ].where((e) => e != null && e.isNotEmpty).join(', ');
+                final address = userData['address'] as Map?;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,14 +203,22 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
                     const SizedBox(height: 8),
                     Text('No. HP: ${userData['phone']}'),
                     const SizedBox(height: 8),
-                    Text('Alamat: $fullAddress'),
+                    Text(
+                        'Alamat: ${address != null ? _formatAddress(address) : '-'}'),
                     const SizedBox(height: 16),
-                    if (order['status'] == null)
+                    if (order['status'] ==
+                        'waiting') // Tampilkan tombol hanya jika status waiting
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           TextButton(
                             onPressed: () => _showActionDialog(order['id']),
+                            style: TextButton.styleFrom(
+                              backgroundColor: AppTheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                            ),
                             child: const Text('Proses Paket'),
                           ),
                         ],
@@ -229,24 +229,52 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
             ),
           ),
         ],
-        trailing: order['status'] == null
-            ? const Icon(Icons.chevron_right)
-            : Chip(
-                label: Text(
-                  order['status'] == 'received' ? 'Diterima' : 'Ditolak',
-                ),
-                backgroundColor:
-                    order['status'] == 'received' ? Colors.green : Colors.red,
-                labelStyle: const TextStyle(color: Colors.white),
-              ),
       ),
     );
+  }
+
+  Widget _buildStatusChip(String? status) {
+    switch (status) {
+      case 'received':
+        return const Chip(
+          label: Text('Diterima'),
+          backgroundColor: Colors.green,
+          labelStyle: TextStyle(color: Colors.white),
+        );
+      case 'returned':
+        return const Chip(
+          label: Text('Ditolak'),
+          backgroundColor: Colors.red,
+          labelStyle: TextStyle(color: Colors.white),
+        );
+      case 'waiting':
+        return const Chip(
+          label: Text('Menunggu'),
+          backgroundColor: Colors.orange,
+          labelStyle: TextStyle(color: Colors.white),
+        );
+      default:
+        return const SizedBox();
+    }
+  }
+
+  String _getStatusLabel(String status) {
+    switch (status) {
+      case 'received':
+        return 'Diterima';
+      case 'returned':
+        return 'Ditolak';
+      case 'waiting':
+        return 'Menunggu';
+      default:
+        return status;
+    }
   }
 
   void _showActionDialog(String orderId) {
     Get.dialog(
       AlertDialog(
-        title: const Text('Konfirmasi'),
+        title: const Text('Konfirmasi Paket'),
         content: const Text('Pilih tindakan untuk paket ini'),
         actions: [
           TextButton(
@@ -254,17 +282,19 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
               Get.back();
               _processPackageReturn(orderId);
             },
-            child: const Text('Tolak', style: TextStyle(color: Colors.red)),
-          ),
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Batal'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Tolak'),
           ),
           ElevatedButton(
             onPressed: () {
               Get.back();
               _processPackageReceival(orderId);
             },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
             child: const Text('Terima'),
           ),
         ],
@@ -274,16 +304,9 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
 
   Future<void> _processPackageReceival(String orderId) async {
     try {
-      print('Updating order $orderId to received'); // Log sebelum update
-      final response = await supabase
+      await supabase
           .from('branch_products')
-          .update({'status': 'received'})
-          .eq('id', orderId)
-          .select();
-      print('Update response: $response'); // Log response
-
-      receivedOrderIds.add(orderId);
-      await _loadReceivedOrders();
+          .update({'status': 'received'}).eq('id', orderId);
 
       Get.snackbar(
         'Sukses',
@@ -295,7 +318,7 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
       print('Error receiving package: $e');
       Get.snackbar(
         'Error',
-        e.toString(),
+        'Gagal memproses paket: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -304,16 +327,9 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
 
   Future<void> _processPackageReturn(String orderId) async {
     try {
-      print('Updating order $orderId to returned'); // Log sebelum update
-      final response = await supabase
+      await supabase
           .from('branch_products')
-          .update({'status': 'returned'})
-          .eq('id', orderId)
-          .select();
-      print('Update response: $response'); // Log response
-
-      returnedOrderIds.add(orderId);
-      await _loadReceivedOrders();
+          .update({'status': 'returned'}).eq('id', orderId);
 
       Get.snackbar(
         'Info',
@@ -325,10 +341,21 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
       print('Error returning package: $e');
       Get.snackbar(
         'Error',
-        e.toString(),
+        'Gagal memproses paket: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
     }
+  }
+
+  String _formatAddress(Map<dynamic, dynamic> address) {
+    return [
+      address['street']?.toString(),
+      address['village']?.toString(),
+      address['district']?.toString(),
+      address['city']?.toString(),
+      address['province']?.toString(),
+      address['postal_code']?.toString(),
+    ].where((e) => e != null && e.isNotEmpty).join(', ');
   }
 }

@@ -1058,30 +1058,181 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
   Future<void> _showConfirmationDialog(String orderId, String currentStatus) {
     return Get.dialog(
       AlertDialog(
-        title: const Text('Konfirmasi'),
-        content: const Text(
-          'Apakah pesanan sudah siap untuk dijemput kurir? '
-          'Pastikan semua item sudah dikemas dengan baik.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Get.back();
-              _updateOrderStatus(orderId, currentStatus);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
+        title: const Text('Pilih Metode Pengiriman'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Pilih metode pengiriman untuk pesanan ini:'),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Get.back();
+                _updateOrderToProcessing(orderId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                minimumSize: const Size(double.infinity, 45),
+              ),
+              child: const Text(
+                'Tunggu Kurir',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
-            child: const Text('Ya, Siap Dijemput',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                Get.back();
+                _sendToBranch(orderId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                minimumSize: const Size(double.infinity, 45),
+              ),
+              child: const Text(
+                'Kirim ke Cabang',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  // Fungsi untuk update status menjadi processing (menunggu kurir)
+  Future<void> _updateOrderToProcessing(String orderId) async {
+    try {
+      await supabase
+          .from('orders')
+          .update({'status': 'processing'}).eq('id', orderId);
+
+      Get.snackbar(
+        'Sukses',
+        'Pesanan siap untuk dijemput kurir',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      await _fetchOrders();
+    } catch (e) {
+      print('Error updating order: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal memperbarui status pesanan',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  // Fungsi untuk mengirim ke cabang
+  Future<void> _sendToBranch(String orderId) async {
+    try {
+      // Tampilkan dialog untuk memilih cabang
+      final branchResponse =
+          await supabase.from('branches').select('id, name, address');
+
+      final List<Map<String, dynamic>> branches =
+          List<Map<String, dynamic>>.from(branchResponse);
+
+      if (branches.isEmpty) {
+        Get.snackbar(
+          'Error',
+          'Tidak ada cabang yang tersedia',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      final selectedBranch = await Get.dialog<Map<String, dynamic>>(
+        AlertDialog(
+          title: const Text('Pilih Cabang'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: branches.length,
+              itemBuilder: (context, index) {
+                final branch = branches[index];
+                // Format alamat jika berbentuk JSON
+                String formattedAddress = '';
+                if (branch['address'] != null) {
+                  try {
+                    if (branch['address'] is Map) {
+                      final addressMap =
+                          branch['address'] as Map<String, dynamic>;
+                      formattedAddress = [
+                        addressMap['street'],
+                        addressMap['village'],
+                        addressMap['district'],
+                        addressMap['city'],
+                        addressMap['province'],
+                      ].where((e) => e != null && e.isNotEmpty).join(', ');
+                    } else {
+                      formattedAddress = branch['address'].toString();
+                    }
+                  } catch (e) {
+                    formattedAddress = branch['address'].toString();
+                  }
+                }
+
+                return ListTile(
+                  title: Text(branch['name']),
+                  subtitle: Text(formattedAddress),
+                  onTap: () => Get.back(result: branch),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      if (selectedBranch == null) return;
+
+      // Ambil data order
+      final orderData = await supabase
+          .from('orders')
+          .select('*, order_items(*)')
+          .eq('id', orderId)
+          .single();
+
+      // Insert ke branch_products untuk setiap item
+      for (var item in orderData['order_items']) {
+        await supabase.from('branch_products').insert({
+          'product_id': item['product_id'],
+          'quantity': item['quantity'],
+          'order_id': orderId,
+          'branch_id': selectedBranch['id'],
+          'status': 'waiting',
+          'created_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      // Update status order
+      await supabase.from('orders').update({
+        'status': 'to_branch',
+        'branch_id': selectedBranch['id'],
+        'is_to_branch': true,
+      }).eq('id', orderId);
+
+      Get.snackbar(
+        'Sukses',
+        'Pesanan akan dikirim ke cabang ${selectedBranch['name']}',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      await _fetchOrders();
+    } catch (e) {
+      print('Error sending to branch: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mengirim ke cabang: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 
   Future<void> _uploadHandoverPhoto(String orderId) async {
