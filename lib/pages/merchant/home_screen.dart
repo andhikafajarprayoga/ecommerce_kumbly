@@ -168,6 +168,8 @@ class _HomeMenuState extends State<_HomeMenu> {
   final RxInt hotelBookingsCount = 0.obs;
   late StreamSubscription hotelStreamSubscription;
   late StreamSubscription bookingStreamSubscription;
+  final RxInt pendingShipmentCount = 0.obs;
+  final RxInt pendingCancellationCount = 0.obs;
 
   PageController _pageController = PageController();
   int _currentBannerIndex = 0;
@@ -180,6 +182,7 @@ class _HomeMenuState extends State<_HomeMenu> {
     _setupMerchantData();
     _setupOrdersCount();
     _setupHotelBookingsStream();
+    _setupOrdersStream();
   }
 
   @override
@@ -235,6 +238,31 @@ class _HomeMenuState extends State<_HomeMenu> {
     } catch (e) {
       print('Debug: Error: $e');
     }
+  }
+
+  void _setupOrdersStream() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // Listen to orders changes
+    supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('merchant_id', userId)
+        .execute()
+        .listen((orders) {
+          // Count pending shipments
+          final pendingShipments =
+              orders.where((order) => order['status'] == 'pending').length;
+
+          // Count pending cancellations
+          final pendingCancellations = orders
+              .where((order) => order['status'] == 'pending_cancellation')
+              .length;
+
+          pendingShipmentCount.value = pendingShipments;
+          pendingCancellationCount.value = pendingCancellations;
+        });
   }
 
   Future<void> _checkMerchantAddress() async {
@@ -569,20 +597,22 @@ class _HomeMenuState extends State<_HomeMenu> {
                           label: 'Performa',
                           onTap: () => Get.to(() => PerformanceScreen()),
                         ),
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.local_shipping,
-                          label: 'Pengiriman',
-                          onTap: () =>
-                              Get.to(() => const ShippingManagementScreen()),
-                        ),
-                        _buildMenuItem(
-                          context: context,
-                          icon: Icons.cancel,
-                          label: 'Pembatalan',
-                          onTap: () =>
-                              Get.to(() => const CancellationRequestsScreen()),
-                        ),
+                        Obx(() => _buildMenuItem(
+                              context: context,
+                              icon: Icons.local_shipping,
+                              label: 'Pengiriman',
+                              onTap: () => Get.to(
+                                  () => const ShippingManagementScreen()),
+                              badgeCount: pendingShipmentCount.value,
+                            )),
+                        Obx(() => _buildMenuItem(
+                              context: context,
+                              icon: Icons.cancel,
+                              label: 'Pembatalan',
+                              onTap: () => Get.to(
+                                  () => const CancellationRequestsScreen()),
+                              badgeCount: pendingCancellationCount.value,
+                            )),
                         _buildMenuItem(
                           context: context,
                           icon: Icons.store,
