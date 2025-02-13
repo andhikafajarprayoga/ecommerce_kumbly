@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 
 class BranchInventoryScreen extends StatefulWidget {
   const BranchInventoryScreen({super.key});
@@ -199,77 +200,184 @@ class _BranchInventoryScreenState extends State<BranchInventoryScreen> {
     try {
       final pdf = pw.Document();
 
+      // Ambil data branch
+      final branchData = await supabase
+          .from('branches')
+          .select('name, address')
+          .eq('id', product['branch_id'])
+          .single();
+
+      // Format alamat cabang
+      String formattedAddress = '';
+      if (branchData['address'] != null) {
+        try {
+          if (branchData['address'] is Map) {
+            final addressMap = branchData['address'] as Map<String, dynamic>;
+            formattedAddress = [
+              addressMap['street'],
+              addressMap['village'],
+              addressMap['district'],
+              addressMap['city'],
+              addressMap['province'],
+              addressMap['postal_code'],
+            ].where((e) => e != null && e.isNotEmpty).join(', ');
+          } else {
+            formattedAddress = branchData['address'].toString();
+          }
+        } catch (e) {
+          formattedAddress = branchData['address'].toString();
+        }
+      }
+
       pdf.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.a6,
+          pageFormat: PdfPageFormat.a4,
           build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Center(
-                  child: pw.Text(
-                    'BUKTI INVENTORY BARANG',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
+            return pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'BUKTI INVENTORY BARANG',
+                            style: pw.TextStyle(
+                              fontSize: 20,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          pw.SizedBox(height: 5),
+                          pw.Text(
+                            'No. #${product['id'].toString().substring(0, 8)}',
+                            style: const pw.TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: product['id'].toString(),
+                        width: 70,
+                        height: 70,
+                      ),
+                    ],
+                  ),
+                  pw.Divider(thickness: 2),
+                  pw.SizedBox(height: 20),
+
+                  // Informasi Cabang
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(),
+                      borderRadius:
+                          const pw.BorderRadius.all(pw.Radius.circular(5)),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('INFORMASI CABANG:',
+                            style:
+                                pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.SizedBox(height: 5),
+                        pw.Text(branchData['name'] ?? '-'),
+                        pw.Text(formattedAddress),
+                      ],
                     ),
                   ),
-                ),
-                pw.SizedBox(height: 20),
-                pw.Text('Produk: ${product['products']['name']}'),
-                pw.Text('Quantity: ${product['quantity']}'),
-                pw.Text('Tanggal Masuk: ${_formatDate(product['created_at'])}'),
-                pw.Text('Status: ${product['status']}'),
-                if (product['courier_id'] != null)
-                  pw.Text('Kurir: ${product['name_courier'] ?? 'Unknown'}'),
-                pw.SizedBox(height: 20),
-                pw.Text('Branch ID: ${product['branch_id']}'),
-              ],
+                  pw.SizedBox(height: 20),
+
+                  // Informasi Produk
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(),
+                      borderRadius:
+                          const pw.BorderRadius.all(pw.Radius.circular(5)),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('DETAIL PRODUK:',
+                            style:
+                                pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        pw.SizedBox(height: 10),
+                        _buildInfoRow(
+                            'Nama Produk', product['products']['name']),
+                        _buildInfoRow('Jumlah', '${product['quantity']} pcs'),
+                        _buildInfoRow('Status', product['status']),
+                        _buildInfoRow('Tanggal Masuk',
+                            _formatDate(product['created_at'])),
+                      ],
+                    ),
+                  ),
+
+                  // Footer
+                  pw.Positioned(
+                    bottom: 20,
+                    child: pw.Text(
+                      'Dicetak pada: ${_formatDate(DateTime.now().toIso8601String())}',
+                      style: const pw.TextStyle(
+                          fontSize: 8, color: PdfColors.grey700),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),
       );
 
-      // Get directory
-      final output = await getExternalStorageDirectory(); // Android only
-      // For iOS, use: await getApplicationDocumentsDirectory();
-
-      final fileName =
-          'inventory_receipt_${product['id']}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-      final file = File('${output?.path}/$fileName');
-
-      // Save PDF
+      // Simpan ke folder Downloads
+      final output = await getDownloadsDirectory();
+      final file = File(
+          '${output!.path}/inventory_${product['id'].toString().substring(0, 8)}.pdf');
       await file.writeAsBytes(await pdf.save());
 
       Get.snackbar(
         'Sukses',
-        'PDF tersimpan di: ${file.path}',
+        'PDF tersimpan di folder Downloads',
         backgroundColor: Colors.green,
         colorText: Colors.white,
-        duration: const Duration(seconds: 5),
-        mainButton: TextButton(
-          onPressed: () async {
-            // Buka PDF
-            await Printing.sharePdf(
-              bytes: await pdf.save(),
-              filename: fileName,
-            );
-          },
-          child: const Text(
-            'Buka',
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
+        duration: const Duration(seconds: 3),
       );
+
+      // Buka file PDF
+      await OpenFile.open(file.path);
     } catch (e) {
+      print('Error saving PDF: $e');
       Get.snackbar(
         'Error',
         'Gagal menyimpan PDF: $e',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
-      print('Error saving PDF: $e');
     }
+  }
+
+  pw.Widget _buildInfoRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 100,
+            child: pw.Text(
+              label,
+              style: const pw.TextStyle(color: PdfColors.grey700),
+            ),
+          ),
+          pw.Text(': '),
+          pw.Expanded(child: pw.Text(value)),
+        ],
+      ),
+    );
   }
 
   String _formatDate(String dateStr) {
