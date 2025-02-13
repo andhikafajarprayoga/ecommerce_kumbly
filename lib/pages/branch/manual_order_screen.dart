@@ -26,19 +26,14 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
   final recipientNameController = TextEditingController();
   final recipientPhoneController = TextEditingController();
   final recipientAddressController = TextEditingController();
-
-  // Tambahan untuk produk
-  final selectedProducts = <Map<String, dynamic>>[].obs;
-  final quantities = <String, int>{}.obs;
-  final totalWeight = 0.obs; // dalam gram
+  final weightController = TextEditingController();
   final shippingCost = 0.0.obs;
-  final subtotal = 0.0.obs;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buat paket Manual'),
+        title: const Text('Buat Paket Manual'),
       ),
       body: Obx(() => Stepper(
             type: StepperType.vertical,
@@ -53,14 +48,10 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
                   _currentStep.value++;
                 }
               } else if (_currentStep.value == 2) {
-                if (_validateProductSelection()) {
-                  _currentStep.value++;
-                }
-              } else if (_currentStep.value == 3) {
                 if (_validateShippingAddress()) {
                   _currentStep.value++;
                 }
-              } else if (_currentStep.value == 4) {
+              } else if (_currentStep.value == 3) {
                 _submitOrder();
               }
             },
@@ -81,19 +72,14 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
                 isActive: _currentStep.value >= 1,
               ),
               Step(
-                title: const Text('Pilih Produk'),
-                content: _buildProductSelection(),
+                title: const Text('Alamat Pengiriman'),
+                content: _buildShippingAddress(),
                 isActive: _currentStep.value >= 2,
               ),
               Step(
-                title: const Text('Alamat Pengiriman'),
-                content: _buildShippingAddress(),
+                title: const Text('Berat & Biaya'),
+                content: _buildWeightAndCost(),
                 isActive: _currentStep.value >= 3,
-              ),
-              Step(
-                title: const Text('Kalkulasi Biaya'),
-                content: _buildCostCalculation(),
-                isActive: _currentStep.value >= 4,
               ),
             ],
           )),
@@ -157,57 +143,6 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
     );
   }
 
-  Widget _buildProductSelection() {
-    return Column(
-      children: [
-        StreamBuilder<List<Map<String, dynamic>>>(
-          stream: supabase
-              .from('products')
-              .stream(primaryKey: ['id']).order('name'),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                final product = snapshot.data![index];
-                return Card(
-                  child: ListTile(
-                    title: Text(product['name']),
-                    subtitle: Text('Rp ${product['price']}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove),
-                          onPressed: () => _updateQuantity(product, false),
-                        ),
-                        Text('${quantities[product['id']] ?? 0}'),
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: () => _updateQuantity(product, true),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-        Obx(() => Text(
-              'Subtotal: Rp ${subtotal.value}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            )),
-      ],
-    );
-  }
-
   Widget _buildShippingAddress() {
     return Column(
       children: [
@@ -225,63 +160,32 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
     );
   }
 
-  Widget _buildCostCalculation() {
-    return Obx(() => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Total Berat: ${totalWeight.value / 1000} kg'),
-            const SizedBox(height: 8),
-            Text('Biaya Pengiriman: Rp ${shippingCost.value}'),
-            const SizedBox(height: 8),
-            Text('Subtotal Produk: Rp ${subtotal.value}'),
-            const Divider(),
-            Text(
-              'Total: Rp ${subtotal.value + shippingCost.value}',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ));
-  }
-
-  void _updateQuantity(Map<String, dynamic> product, bool increment) {
-    final productId = product['id'];
-    final currentQty = quantities[productId] ?? 0;
-
-    if (increment) {
-      quantities[productId] = currentQty + 1;
-      if (currentQty == 0) {
-        selectedProducts.add(product);
-      }
-    } else if (currentQty > 0) {
-      quantities[productId] = currentQty - 1;
-      if (currentQty == 1) {
-        selectedProducts.removeWhere((p) => p['id'] == productId);
-      }
-    }
-
-    _calculateSubtotal();
-  }
-
-  void _calculateSubtotal() {
-    double total = 0;
-    int weight = 0;
-
-    for (var product in selectedProducts) {
-      final quantity = quantities[product['id']] ?? 0;
-      total += (product['price'] ?? 0) * quantity;
-      weight += ((product['weight'] as num? ?? 1000) * quantity).toInt();
-    }
-
-    subtotal.value = total;
-    totalWeight.value = weight;
+  Widget _buildWeightAndCost() {
+    return Column(
+      children: [
+        TextFormField(
+          controller: weightController,
+          decoration: const InputDecoration(
+            labelText: 'Berat (kg)',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          onChanged: (value) {
+            final weight = double.tryParse(value) ?? 0;
+            shippingCost.value = weight * 10000;
+          },
+        ),
+        const SizedBox(height: 16),
+        Obx(() => Text(
+              'Biaya Pengiriman: Rp ${shippingCost.value.toStringAsFixed(0)}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            )),
+      ],
+    );
   }
 
   Future<void> _submitOrder() async {
     try {
-      if (selectedProducts.isEmpty) {
-        throw 'Pilih minimal 1 produk';
-      }
-
       // 1. Dapatkan branch_id
       final branchData = await supabase
           .from('branches')
@@ -296,41 +200,28 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
             'branch_id': branchData['id'],
             'buyer_id': authController.currentUser.value!.id,
             'status': 'pending',
-            'total_amount': subtotal.value,
+            'total_amount': shippingCost.value,
             'shipping_address': recipientAddressController.text,
+            'weight': double.tryParse(weightController.text) ?? 0,
           })
           .select()
           .single();
 
-      // 3. Buat shipping details dan branch order items
-      await Future.wait<dynamic>([
-        // Insert branch shipping details
-        supabase.from('branch_shipping_details').insert({
-          'branch_order_id': orderData['id'],
-          'sender_name': senderNameController.text,
-          'sender_phone': senderPhoneController.text,
-          'sender_address': {
-            'full_address': senderAddressController.text,
-          },
-          'recipient_name': recipientNameController.text,
-          'recipient_phone': recipientPhoneController.text,
-          'recipient_address': {
-            'full_address': recipientAddressController.text,
-          },
-          'branch_id': branchData['id'],
-        }),
-
-        // Insert branch order items
-        ...selectedProducts.map((product) async {
-          final quantity = quantities[product['id']] ?? 0;
-          await supabase.from('branch_order_items').insert({
-            'branch_order_id': orderData['id'],
-            'product_id': product['id'],
-            'quantity': quantity,
-            'price': product['price'],
-          });
-        }),
-      ]);
+      // 3. Buat shipping details
+      await supabase.from('branch_shipping_details').insert({
+        'branch_order_id': orderData['id'],
+        'sender_name': senderNameController.text,
+        'sender_phone': senderPhoneController.text,
+        'sender_address': {
+          'full_address': senderAddressController.text,
+        },
+        'recipient_name': recipientNameController.text,
+        'recipient_phone': recipientPhoneController.text,
+        'recipient_address': {
+          'full_address': recipientAddressController.text,
+        },
+        'branch_id': branchData['id'],
+      });
 
       Get.snackbar(
         'Sukses',
@@ -338,7 +229,7 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
-      Get.back();
+      Get.offAll(() => BranchHomeScreen());
     } catch (e) {
       print('Error detail: $e');
       Get.snackbar(
@@ -377,15 +268,6 @@ class _ManualOrderScreenState extends State<ManualOrderScreen> {
     }
     if (recipientPhoneController.text.isEmpty) {
       Get.snackbar('Error', 'No. HP penerima wajib diisi',
-          backgroundColor: Colors.red, colorText: Colors.white);
-      return false;
-    }
-    return true;
-  }
-
-  bool _validateProductSelection() {
-    if (selectedProducts.isEmpty) {
-      Get.snackbar('Error', 'Pilih minimal 1 produk',
           backgroundColor: Colors.red, colorText: Colors.white);
       return false;
     }
