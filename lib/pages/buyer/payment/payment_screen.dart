@@ -269,6 +269,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
       appBar: AppBar(
         title: Text('Pembayaran', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         child: Padding(

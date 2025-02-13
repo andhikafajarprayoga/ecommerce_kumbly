@@ -51,6 +51,7 @@ class _CourierNotificationsScreenState
       appBar: AppBar(
         title: Text('Notifikasi', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Obx(() {
         if (isLoading.value) {

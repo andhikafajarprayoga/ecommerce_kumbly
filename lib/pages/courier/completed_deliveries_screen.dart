@@ -32,11 +32,13 @@ class _CompletedDeliveriesScreenState extends State<CompletedDeliveriesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pengiriman Selesai'),
+        title: const Text('Pengiriman Selesai',
+            style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
-            icon: Icon(Icons.calendar_today),
+            icon: Icon(Icons.calendar_today, color: Colors.white),
             onPressed: () => _selectDate(context),
           ),
         ],

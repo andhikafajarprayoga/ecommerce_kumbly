@@ -84,8 +84,9 @@ class _BranchOrdersScreenState extends State<BranchOrdersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pesanan Branch'),
+        title: Text('Pesanan Cabang', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [

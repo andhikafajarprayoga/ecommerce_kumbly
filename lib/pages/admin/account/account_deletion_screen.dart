@@ -200,19 +200,45 @@ class AccountDeletionScreen extends StatelessWidget {
           ),
           if (request.status == 'pending') ...[
             TextButton(
-              onPressed: () => controller.processRequest(
-                request.id,
-                'rejected',
-                notesController.text,
-              ),
+              onPressed: () {
+                Get.defaultDialog(
+                    title: 'Konfirmasi Penolakan',
+                    middleText:
+                        'Apakah Anda yakin ingin menolak permintaan ini?',
+                    textConfirm: 'Ya',
+                    textCancel: 'Tidak',
+                    confirmTextColor: Colors.white,
+                    onConfirm: () {
+                      Get.back();
+                      Get.back();
+                      controller.processRequest(
+                        request.id,
+                        'rejected',
+                        notesController.text,
+                      );
+                    });
+              },
               child: const Text('Tolak', style: TextStyle(color: Colors.red)),
             ),
             TextButton(
-              onPressed: () => controller.processRequest(
-                request.id,
-                'approved',
-                notesController.text,
-              ),
+              onPressed: () {
+                Get.defaultDialog(
+                    title: 'Konfirmasi Persetujuan',
+                    middleText:
+                        'Setelah disetujui, akun akan ditandai untuk penghapusan dan akan dihapus oleh admin secara manual dari database.',
+                    textConfirm: 'Ya',
+                    textCancel: 'Tidak',
+                    confirmTextColor: Colors.white,
+                    onConfirm: () {
+                      Get.back();
+                      Get.back();
+                      controller.processRequest(
+                        request.id,
+                        'approved',
+                        notesController.text,
+                      );
+                    });
+              },
               child:
                   const Text('Setujui', style: TextStyle(color: Colors.green)),
             ),

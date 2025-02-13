@@ -150,7 +150,6 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         backgroundColor: Colors.blue,
         elevation: 2,
         actions: [
-          // Tambahkan icon notifikasi dengan badge
           Stack(
             children: [
               IconButton(
@@ -186,9 +185,37 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () async {
-              await authController.signOut();
-              Get.offAllNamed('/login');
+            onPressed: () {
+              Get.defaultDialog(
+                title: 'Konfirmasi Keluar',
+                titleStyle: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                middleText: 'Apakah Anda yakin ingin keluar dari aplikasi?',
+                contentPadding: const EdgeInsets.all(20),
+                confirm: ElevatedButton(
+                  onPressed: () async {
+                    await authController.signOut();
+                    Get.offAllNamed('/login');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
+                  child: const Text(
+                    'Ya, Keluar',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+                cancel: OutlinedButton(
+                  onPressed: () => Get.back(),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  ),
+                  child: const Text('Batal'),
+                ),
+              );
             },
           ),
         ],

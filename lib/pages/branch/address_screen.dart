@@ -180,7 +180,8 @@ class _AddressScreenState extends State<AddressScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primary,
                       ),
-                      child: const Text('Simpan'),
+                      child: const Text('Simpan',
+                          style: TextStyle(color: Colors.white)),
                     ),
                   ],
                 ),

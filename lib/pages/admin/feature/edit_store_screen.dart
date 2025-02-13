@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
+import 'dart:convert';
 
 class EditStoreScreen extends StatefulWidget {
   final Map<String, dynamic> store;
@@ -28,12 +29,34 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   @override
   void initState() {
     super.initState();
+    // Parse alamat dari JSON string jika dalam format JSON
+    String formattedAddress = '';
+    if (widget.store['store_address'] != null) {
+      try {
+        Map<String, dynamic> addressMap =
+            widget.store['store_address'] is String
+                ? Map<String, dynamic>.from(
+                    jsonDecode(widget.store['store_address']))
+                : widget.store['store_address'];
+
+        formattedAddress = [
+          addressMap['street'],
+          addressMap['village'],
+          addressMap['district'],
+          addressMap['city'],
+          addressMap['province'],
+          addressMap['postal_code'],
+        ].where((element) => element != null && element.isNotEmpty).join(', ');
+      } catch (e) {
+        formattedAddress = widget.store['store_address'].toString();
+      }
+    }
+
     storeNameController =
         TextEditingController(text: widget.store['store_name']);
     storeDescriptionController =
         TextEditingController(text: widget.store['store_description']);
-    storeAddressController =
-        TextEditingController(text: widget.store['store_address']);
+    storeAddressController = TextEditingController(text: formattedAddress);
     storePhoneController =
         TextEditingController(text: widget.store['store_phone']);
     ownerNameController = TextEditingController(text: widget.user['full_name']);
@@ -57,11 +80,23 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
     setState(() => isLoading = true);
 
     try {
+      // Buat objek alamat
+      Map<String, dynamic> addressMap = {
+        "street": storeAddressController.text,
+        "village": "",
+        "district": "",
+        "city": "",
+        "province": "",
+        "postal_code": "",
+        "latitude": "",
+        "longitude": ""
+      };
+
       // Update merchant data
       await supabase.from('merchants').update({
         'store_name': storeNameController.text,
         'store_description': storeDescriptionController.text,
-        'store_address': storeAddressController.text,
+        'store_address': addressMap,
         'store_phone': storePhoneController.text,
       }).eq('id', widget.store['id']);
 
@@ -95,8 +130,9 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Edit Toko'),
+        title: Text('Edit Toko', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Form(
         key: _formKey,
@@ -197,7 +233,8 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
               ),
               child: isLoading
                   ? CircularProgressIndicator(color: Colors.white)
-                  : Text('Simpan Perubahan'),
+                  : Text('Simpan Perubahan',
+                      style: TextStyle(color: Colors.white)),
             ),
           ],
         ),

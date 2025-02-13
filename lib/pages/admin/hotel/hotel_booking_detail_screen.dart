@@ -136,10 +136,11 @@ class HotelBookingDetailScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             AppBar(
-              title: Text('Bukti Pembayaran'),
-              backgroundColor: Colors.green,
+              title: Text('Bukti Pembayaran',
+                  style: TextStyle(color: Colors.white)),
+              backgroundColor: AppTheme.primary,
               leading: IconButton(
-                icon: Icon(Icons.close),
+                icon: Icon(Icons.close, color: Colors.white),
                 onPressed: () => Get.back(),
               ),
             ),

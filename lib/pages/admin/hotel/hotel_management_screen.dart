@@ -159,9 +159,9 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
         fetchBookings();
       },
       backgroundColor: Colors.grey[200],
-      selectedColor: Colors.green.withOpacity(0.2),
+      selectedColor: AppTheme.primary.withOpacity(0.2),
       labelStyle: TextStyle(
-        color: selectedStatus == status ? Colors.green : Colors.black87,
+        color: selectedStatus == status ? AppTheme.primary : Colors.black87,
         fontWeight:
             selectedStatus == status ? FontWeight.bold : FontWeight.normal,
       ),

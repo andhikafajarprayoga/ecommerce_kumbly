@@ -94,7 +94,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Pengiriman'),
-        backgroundColor: Colors.pink,
+        backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
       ),
       body: Column(

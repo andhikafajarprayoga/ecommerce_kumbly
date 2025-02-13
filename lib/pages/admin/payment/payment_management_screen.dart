@@ -184,7 +184,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kelola Pembayaran'),
+        title: Text('Pembayaran'),
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
         actions: [

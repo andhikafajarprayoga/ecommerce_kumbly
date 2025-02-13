@@ -33,9 +33,11 @@ class _BranchProductsScreenState extends State<BranchProductsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daftar Produk'),
+        title:
+            const Text('Daftar Produk', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
         elevation: 2,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: StreamBuilder(
         stream: supabase.from('products').stream(primaryKey: ['id']).execute(),

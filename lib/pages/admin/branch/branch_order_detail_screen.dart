@@ -23,8 +23,10 @@ class BranchOrderDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Detail Pesanan Branch'),
+        title: Text('Detail Pesanan Branch',
+            style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -133,12 +135,12 @@ class BranchOrderDetailScreen extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: () => _updateOrderStatus('processing'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: AppTheme.primary,
                       padding: EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: Text(
                       'Proses Pesanan',
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ),
                 ),
