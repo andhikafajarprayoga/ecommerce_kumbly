@@ -390,6 +390,16 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                       ),
                     ),
                     SizedBox(height: 8),
+                    // Tambahkan keterangan untuk berhati-hati dalam menentukan lokasi
+                    Text(
+                      'Harap berhati-hati dalam menentukan titik lokasi, karena ini dapat mempengaruhi ongkir pengiriman toko Anda.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
                     Container(
                       height: 300,
                       decoration: BoxDecoration(
@@ -511,12 +521,32 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                           ),
                           Positioned(
                             right: 10,
-                            bottom: 10,
-                            child: FloatingActionButton(
-                              mini: true,
+                            bottom: 16,
+                            child: ElevatedButton(
                               onPressed: _getCurrentLocation,
-                              child: Icon(Icons.my_location),
-                              backgroundColor: AppTheme.primary,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color.fromARGB(255, 255, 255, 255),
+                                side: BorderSide(
+                                    color:
+                                        const Color.fromARGB(255, 251, 93, 93)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: EdgeInsets.symmetric(
+                                    vertical: 12, horizontal: 90),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.my_location, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Gunakan Lokasi Saat Ini',
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],

@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/controllers/order_controller.dart';
 import 'package:intl/intl.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../../theme/app_theme.dart';
 import '../../../../pages/buyer/profile/detail_pesanan.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../pages/buyer/profile/detail_pesanan_hotel.dart';
 import '../../../utils/date_formatter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../../../../pages/buyer/profile/hotel_rating_screen.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -363,6 +363,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
   // Update fungsi untuk build action buttons
   Widget _buildOrderActions(Map<String, dynamic> order) {
     final status = order['status'].toString().toLowerCase();
+    final hasRating = order['has_rating'] ?? false;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -399,6 +400,22 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
               'Hapus Pesanan',
               style: AppTheme.textTheme.bodySmall?.copyWith(
                 color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          )
+        else if (status == 'completed' && !hasRating)
+          TextButton.icon(
+            onPressed: () => _showRatingScreen(order),
+            icon: const Icon(
+              Icons.star_outline,
+              color: Colors.amber,
+              size: 18,
+            ),
+            label: Text(
+              'Beri Rating',
+              style: AppTheme.textTheme.bodySmall?.copyWith(
+                color: Colors.amber.shade900,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -796,7 +813,6 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
               ],
             ),
           ),
-          // Tombol Detail - Selalu tampil untuk semua status
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -807,6 +823,24 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                if (booking['status'] == 'completed' &&
+                    !(booking['has_rating'] ?? false))
+                  TextButton.icon(
+                    onPressed: () => _showHotelRatingScreen(booking),
+                    icon: const Icon(
+                      Icons.star_outline,
+                      color: Colors.amber,
+                      size: 18,
+                    ),
+                    label: Text(
+                      'Beri Rating',
+                      style: TextStyle(
+                        color: Colors.amber.shade900,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () {
                     Get.to(() => DetailPesananHotelScreen(booking: booking));
@@ -817,19 +851,13 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                       horizontal: 16,
                       vertical: 8,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Lihat Detail',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: TextStyle(color: Colors.white),
                       ),
                       const SizedBox(width: 4),
                       Icon(
@@ -1111,6 +1139,22 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
+    }
+  }
+
+  // Tambahkan fungsi untuk menampilkan screen rating
+  void _showRatingScreen(Map<String, dynamic> order) async {
+    final result = await Get.to(() => HotelRatingScreen(booking: order));
+    if (result == true) {
+      orderController.fetchOrders();
+    }
+  }
+
+  // Tambahkan fungsi untuk menampilkan screen rating hotel
+  void _showHotelRatingScreen(Map<String, dynamic> booking) async {
+    final result = await Get.to(() => HotelRatingScreen(booking: booking));
+    if (result == true) {
+      orderController.fetchHotelBookings();
     }
   }
 }

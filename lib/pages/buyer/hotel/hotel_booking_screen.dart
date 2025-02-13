@@ -60,12 +60,20 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
       _totalNights = _selectedCheckOut!.difference(_selectedCheckIn!).inDays;
       _totalPrice =
           (_totalNights * widget.roomType['price_per_night']).toDouble();
-      _calculateTotalWithAdmin();
-    }
-  }
 
-  void _calculateTotalWithAdmin() {
-    _totalWithAdmin = _totalPrice + _adminFee + _appFee - _voucherDiscount;
+      double roomPriceAfterDiscount = _totalPrice - _voucherDiscount;
+
+      _totalWithAdmin = roomPriceAfterDiscount + _adminFee + _appFee;
+
+      print('=== DETAIL PERHITUNGAN ===');
+      print('Harga Kamar Original: $_totalPrice');
+      print('Diskon Voucher: $_voucherDiscount');
+      print('Harga Kamar Setelah Diskon: $roomPriceAfterDiscount');
+      print('Biaya Admin: $_adminFee');
+      print('Biaya Aplikasi: $_appFee');
+      print('Total Pembayaran: $_totalWithAdmin');
+      print('========================');
+    }
   }
 
   Future<void> fetchPaymentMethods() async {
@@ -97,13 +105,13 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
 
       setState(() {
         _appFee = response != null ? (response['fee'] as num).toDouble() : 0;
-        _calculateTotalWithAdmin();
+        _calculateTotal();
       });
     } catch (e) {
       print('Error fetching app fee: $e');
       setState(() {
         _appFee = 0;
-        _calculateTotalWithAdmin();
+        _calculateTotal();
       });
     }
   }
@@ -116,13 +124,14 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
       final selectedMethod =
           paymentMethods.firstWhere((method) => method['id'] == value);
 
-      if (selectedMethod['admin_fees'] != null) {
-        _adminFee = (selectedMethod['admin_fees']['fee'] as num).toDouble();
-      } else {
-        _adminFee = 0;
-      }
+      _adminFee = selectedMethod['admin'] != null
+          ? (selectedMethod['admin'] as num).toDouble()
+          : 0;
 
-      _calculateTotalWithAdmin();
+      _calculateTotal();
+      print('Selected payment method: ${selectedMethod.toString()}');
+      print('Admin fee from payment method: $_adminFee');
+      print('App fee from admin_fees: $_appFee');
     });
   }
 
@@ -147,14 +156,14 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
           _voucherDiscount = (response['rate'] as num).toDouble();
           _isVoucherValid = true;
           _voucherMessage = 'Voucher berhasil digunakan!';
-          _calculateTotalWithAdmin();
+          _calculateTotal();
         });
       } else {
         setState(() {
           _voucherDiscount = 0;
           _isVoucherValid = false;
           _voucherMessage = 'Voucher tidak valid';
-          _calculateTotalWithAdmin();
+          _calculateTotal();
         });
       }
     } catch (e) {
@@ -162,7 +171,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
         _voucherMessage = 'Terjadi kesalahan saat mengecek voucher';
         _isVoucherValid = false;
         _voucherDiscount = 0;
-        _calculateTotalWithAdmin();
+        _calculateTotal();
       });
     } finally {
       setState(() => _isCheckingVoucher = false);
@@ -342,34 +351,165 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
     );
   }
 
+  Widget _buildPriceDetails() {
+    return Column(
+      children: [
+        // Total Malam
+        _buildDetailRow('Total Malam', '$_totalNights malam'),
+
+        // Harga Kamar dengan coret jika ada diskon
+        _buildDetailRow(
+          'Harga Kamar',
+          _voucherDiscount > 0
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(_totalPrice),
+                      style: TextStyle(
+                        decoration: TextDecoration.lineThrough,
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      NumberFormat.currency(
+                        locale: 'id',
+                        symbol: 'Rp ',
+                        decimalDigits: 0,
+                      ).format(_totalPrice - _voucherDiscount),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                )
+              : NumberFormat.currency(
+                  locale: 'id',
+                  symbol: 'Rp ',
+                  decimalDigits: 0,
+                ).format(_totalPrice),
+        ),
+
+        // Biaya Admin
+        _buildDetailRow(
+          'Biaya Admin',
+          NumberFormat.currency(
+            locale: 'id',
+            symbol: 'Rp ',
+            decimalDigits: 0,
+          ).format(_adminFee),
+        ),
+
+        // Biaya Aplikasi
+        _buildDetailRow(
+          'Biaya Aplikasi',
+          NumberFormat.currency(
+            locale: 'id',
+            symbol: 'Rp ',
+            decimalDigits: 0,
+          ).format(_appFee),
+        ),
+
+        // Diskon Voucher jika ada
+        if (_voucherDiscount > 0)
+          _buildDetailRow(
+            'Diskon Voucher',
+            '- ${NumberFormat.currency(
+              locale: 'id',
+              symbol: 'Rp ',
+              decimalDigits: 0,
+            ).format(_voucherDiscount)}',
+            valueColor: Colors.green,
+          ),
+
+        Divider(),
+
+        // Total Pembayaran
+        _buildDetailRow(
+          'Total Pembayaran',
+          NumberFormat.currency(
+            locale: 'id',
+            symbol: 'Rp ',
+            decimalDigits: 0,
+          ).format(_totalWithAdmin),
+          isTotal: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailRow(String label, dynamic value,
+      {bool isTotal = false, Color? valueColor}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 16 : 14,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          value is Widget
+              ? value
+              : Text(
+                  value.toString(),
+                  style: TextStyle(
+                    fontSize: isTotal ? 16 : 14,
+                    fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+                    color: valueColor ?? (isTotal ? AppTheme.primary : null),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _submitBooking() async {
     if (!_formKey.currentState!.validate()) return;
 
     try {
       setState(() => _isLoading = true);
 
+      // Hitung harga kamar setelah diskon
+      double roomPriceAfterDiscount = _totalPrice - _voucherDiscount;
+
+      final bookingData = {
+        'hotel_id': widget.hotel['id'],
+        'room_type': widget.roomType['type'],
+        'user_id': supabase.auth.currentUser!.id,
+        'check_in': _selectedCheckIn!.toIso8601String(),
+        'check_out': _selectedCheckOut!.toIso8601String(),
+        'total_nights': _totalNights,
+        'total_price': roomPriceAfterDiscount,
+        'admin_fee': _adminFee,
+        'app_fee': _appFee,
+        'payment_method_id': selectedPaymentMethodId,
+        'guest_name': _guestNameController.text,
+        'guest_phone': _guestPhoneController.text,
+        'special_requests': _specialRequestController.text,
+        'status': 'pending',
+      };
+
+      print('Final Booking Data to be sent:');
+      print(bookingData);
+
       final response = await supabase
           .from('hotel_bookings')
-          .insert({
-            'hotel_id': widget.hotel['id'],
-            'user_id': supabase.auth.currentUser!.id,
-            'room_type': widget.roomType['type'],
-            'check_in': _selectedCheckIn!.toIso8601String(),
-            'check_out': _selectedCheckOut!.toIso8601String(),
-            'total_nights': _totalNights,
-            'total_price': _totalPrice,
-            'admin_fee': _adminFee,
-            'app_fee': _appFee,
-            'guest_name': _guestNameController.text,
-            'guest_phone': _guestPhoneController.text,
-            'special_requests': _specialRequestController.text,
-            'payment_method_id': selectedPaymentMethodId,
-            'status': 'pending'
-          })
+          .insert(bookingData)
           .select()
           .single();
 
-      print('Booking data: ${response.toString()}');
+      print('Booking Response: ${response.toString()}');
 
       Get.to(() => HotelBookingDetailScreen(booking: response));
     } catch (e) {
@@ -659,7 +799,8 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                         SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: _isCheckingVoucher ? null : _checkVoucher,
-                          child: Text('Cek'),
+                          child: Text('Cek',
+                              style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primary,
                             padding: EdgeInsets.symmetric(vertical: 16),
@@ -678,51 +819,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                         ),
                       ),
                     SizedBox(height: 16),
-                    _buildPaymentRow('Total Malam', '$_totalNights malam'),
-                    _buildPaymentRow(
-                      'Harga Kamar',
-                      NumberFormat.currency(
-                        locale: 'id',
-                        symbol: 'Rp ',
-                        decimalDigits: 0,
-                      ).format(_totalPrice),
-                    ),
-                    _buildPaymentRow(
-                      'Biaya Admin',
-                      NumberFormat.currency(
-                        locale: 'id',
-                        symbol: 'Rp ',
-                        decimalDigits: 0,
-                      ).format(_adminFee),
-                    ),
-                    _buildPaymentRow(
-                      'Biaya Aplikasi',
-                      NumberFormat.currency(
-                        locale: 'id',
-                        symbol: 'Rp ',
-                        decimalDigits: 0,
-                      ).format(_appFee),
-                    ),
-                    if (_voucherDiscount > 0)
-                      _buildPaymentRow(
-                        'Diskon Voucher',
-                        '- ${NumberFormat.currency(
-                          locale: 'id',
-                          symbol: 'Rp ',
-                          decimalDigits: 0,
-                        ).format(_voucherDiscount)}',
-                        isDiscount: true,
-                      ),
-                    Divider(thickness: 1),
-                    _buildPaymentRow(
-                      'Total Pembayaran',
-                      NumberFormat.currency(
-                        locale: 'id',
-                        symbol: 'Rp ',
-                        decimalDigits: 0,
-                      ).format(_totalWithAdmin),
-                      isTotal: true,
-                    ),
+                    _buildPriceDetails(),
                   ],
                 ),
               ),
@@ -753,37 +850,6 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentRow(String label, String value,
-      {bool isTotal = false, bool isDiscount = false}) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isTotal ? 16 : 14,
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: isTotal ? 16 : 14,
-              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              color: isTotal
-                  ? AppTheme.primary
-                  : isDiscount
-                      ? Colors.green
-                      : null,
-            ),
-          ),
-        ],
       ),
     );
   }

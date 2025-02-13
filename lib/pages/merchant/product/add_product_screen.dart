@@ -5,6 +5,7 @@ import '../../../controllers/product_controller.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../../../theme/app_theme.dart';
+import 'package:intl/intl.dart';
 
 class AddProductScreen extends StatelessWidget {
   AddProductScreen({super.key});
@@ -116,6 +117,13 @@ class AddProductScreen extends StatelessWidget {
     }
   }
 
+  String formatNumber(String value) {
+    if (value.isEmpty) return '';
+    final number = int.tryParse(value.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+    final format = NumberFormat('#,###', 'id_ID');
+    return format.format(number);
+  }
+
   Future<void> saveProduct() async {
     if (_formKey.currentState!.validate()) {
       try {
@@ -129,11 +137,15 @@ class AddProductScreen extends StatelessWidget {
           imageUrls = await uploadImages(imagePaths);
         }
 
+        // Konversi string harga yang berformat menjadi numeric untuk database
+        final price =
+            double.parse(priceController.text.replaceAll(RegExp(r'[^\d]'), ''));
+
         await supabase.from('products').insert({
           'seller_id': supabase.auth.currentUser!.id,
           'name': nameController.text,
           'description': descriptionController.text,
-          'price': double.parse(priceController.text),
+          'price': price, // nilai numerik murni untuk database
           'stock': int.parse(stockController.text),
           'category': categoryController.text,
           'image_url': imageUrls,
@@ -335,9 +347,24 @@ class AddProductScreen extends StatelessWidget {
                       icon: Icons.money,
                       keyboardType: TextInputType.number,
                       prefixText: 'Rp ',
+                      onChanged: (value) {
+                        final cursorPos = priceController.selection;
+                        final text = formatNumber(value);
+                        priceController.text = text;
+                        if (text.length > 0) {
+                          priceController.selection =
+                              TextSelection.fromPosition(
+                            TextPosition(offset: text.length),
+                          );
+                        }
+                      },
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Harga tidak boleh kosong';
+                        }
+                        final number = value.replaceAll(RegExp(r'[^\d]'), '');
+                        if (number.isEmpty || int.tryParse(number) == null) {
+                          return 'Masukkan angka yang valid';
                         }
                         return null;
                       },
@@ -372,23 +399,19 @@ class AddProductScreen extends StatelessWidget {
                         Expanded(
                           child: _buildTextField(
                             controller: weightController,
-                            label: 'Berat (kg)',
-                            hint: 'Contoh: 1.5',
+                            label: 'Berat (gram)',
+                            hint: 'Contoh: 100',
                             icon: Icons.scale,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
+                            keyboardType: TextInputType.number,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Berat tidak boleh kosong';
                               }
                               try {
-                                final weight = double.parse(value);
+                                final weight = int.parse(value);
                                 if (weight <= 0) {
                                   return 'Berat harus lebih dari 0';
                                 }
-                                // Konversi kg ke gram sebelum menyimpan
-                                final gramWeight = (weight * 1000).round();
-                                weightController.text = gramWeight.toString();
                               } catch (e) {
                                 return 'Masukkan angka yang valid';
                               }
@@ -469,10 +492,8 @@ class AddProductScreen extends StatelessWidget {
                               'Harap unggah minimal 2 foto produk',
                               backgroundColor: Colors.orange,
                               colorText: Colors.white,
-                              icon: const Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.white,
-                              ),
+                              icon: const Icon(Icons.warning_amber_rounded,
+                                  color: Colors.white),
                             );
                             return;
                           }
@@ -488,12 +509,16 @@ class AddProductScreen extends StatelessWidget {
                               imageUrls = await uploadImages(imagePaths);
                             }
 
+                            // Konversi string harga yang berformat menjadi numeric untuk database
+                            final price = double.parse(priceController.text
+                                .replaceAll(RegExp(r'[^\d]'), ''));
+
                             await supabase.from('products').insert({
                               'seller_id': supabase.auth.currentUser!.id,
                               'name': nameController.text,
                               'description': descriptionController.text,
-                              'price': int.parse(priceController.text
-                                  .replaceAll(RegExp(r'[^\d]'), '')),
+                              'price':
+                                  price, // nilai numerik murni untuk database
                               'stock': int.parse(stockController.text),
                               'category': categoryController.text,
                               'image_url': imageUrls,
@@ -584,6 +609,7 @@ class AddProductScreen extends StatelessWidget {
     TextInputType? keyboardType,
     String? prefixText,
     String? Function(String?)? validator,
+    Function(String)? onChanged,
   }) {
     return Container(
       margin: EdgeInsets.only(bottom: 20),
@@ -621,6 +647,7 @@ class AddProductScreen extends StatelessWidget {
           fillColor: Colors.white,
         ),
         validator: validator,
+        onChanged: onChanged,
       ),
     );
   }

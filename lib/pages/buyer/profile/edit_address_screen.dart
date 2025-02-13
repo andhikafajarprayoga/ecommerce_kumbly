@@ -63,6 +63,52 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     } else {
       fetchAddressFromCoordinates(selectedLocation);
     }
+
+    // Tampilkan alert untuk mengingatkan pengguna tentang posisi peta
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.dialog(
+        AlertDialog(
+          title: Text('Perhatian Posisi Peta'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Pastikan posisi peta menunjukkan lokasi yang benar.'),
+              SizedBox(height: 12),
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.primary),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: AppTheme.primary, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Titik lokasi di peta akan digunakan untuk perhitungan ongkos kirim.',
+                        style: TextStyle(
+                          color: AppTheme.primaryDark,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: Text('Tutup', style: TextStyle(color: AppTheme.primary)),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   @override

@@ -13,6 +13,26 @@ import 'hotel_management_screen.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'manage_room_types_screen.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
+
+class CurrencyInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+
+    final int value = int.parse(newValue.text.replaceAll(',', ''));
+    final String newText = NumberFormat('#,###', 'id').format(value);
+
+    return TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
+    );
+  }
+}
 
 class AddEditHotelScreen extends StatefulWidget {
   final Map<String, dynamic>? hotel;
@@ -40,6 +60,9 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
   double? _latitude;
   double? _longitude;
   String _selectedAddress = '';
+
+  // Tambahkan variabel untuk room types
+  List<dynamic> _roomTypes = [];
 
   String _formatAddress(Map<String, dynamic> address) {
     try {
@@ -70,6 +93,9 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
       _imageUrls = List<String>.from(widget.hotel!['image_url'] ?? []);
       _latitude = widget.hotel!['latitude']?.toDouble();
       _longitude = widget.hotel!['longitude']?.toDouble();
+
+      // Tambahkan inisialisasi room types
+      _roomTypes = List.from(widget.hotel!['room_types'] ?? []);
     }
     _getCurrentLocation();
   }
@@ -209,6 +235,122 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
     return uploadedUrls;
   }
 
+  // Tambahkan method untuk mengelola room types
+  void _showAddEditRoomDialog([Map<String, dynamic>? roomType, int? index]) {
+    final _typeController = TextEditingController(text: roomType?['type']);
+    final _priceController = TextEditingController(
+        text: roomType?['price_per_night']?.toString() ?? '');
+    final _capacityController =
+        TextEditingController(text: roomType?['capacity']?.toString() ?? '');
+    final _availableRoomsController = TextEditingController(
+        text: roomType?['available_rooms']?.toString() ?? '');
+    final _amenitiesController = TextEditingController(
+        text: (roomType?['amenities'] as List?)?.join(', ') ?? '');
+
+    Get.dialog(
+      AlertDialog(
+        title: Text(roomType == null ? 'Tambah Tipe Kamar' : 'Edit Tipe Kamar'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _typeController,
+                decoration: InputDecoration(labelText: 'Tipe Kamar'),
+              ),
+              TextField(
+                controller: _priceController,
+                decoration: InputDecoration(
+                  labelText: 'Harga per Malam',
+                  prefixText: 'Rp ',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  CurrencyInputFormatter(),
+                ],
+              ),
+              TextField(
+                controller: _capacityController,
+                decoration: InputDecoration(labelText: 'Kapasitas (orang)'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: _availableRoomsController,
+                decoration: InputDecoration(labelText: 'Jumlah Kamar Tersedia'),
+                keyboardType: TextInputType.number,
+              ),
+              TextField(
+                controller: _amenitiesController,
+                decoration: InputDecoration(
+                  labelText: 'Fasilitas Kamar (pisahkan dengan koma)',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Hapus semua titik dan koma dari string harga sebelum parsing
+              final priceString =
+                  _priceController.text.replaceAll(RegExp(r'[,.]'), '');
+
+              final newRoomType = {
+                'type': _typeController.text,
+                'price_per_night': int.parse(priceString),
+                'capacity': int.tryParse(_capacityController.text) ?? 0,
+                'available_rooms':
+                    int.tryParse(_availableRoomsController.text) ?? 0,
+                'amenities': _amenitiesController.text
+                    .split(',')
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList(),
+              };
+
+              setState(() {
+                if (index != null) {
+                  _roomTypes[index] = newRoomType;
+                } else {
+                  _roomTypes.add(newRoomType);
+                }
+              });
+
+              Get.back();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+            ),
+            child: Text(roomType == null ? 'Tambah' : 'Update',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Colors.grey[600]),
+        SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(color: Colors.grey[600]),
+        ),
+        Text(
+          value,
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+
   Future<void> _saveHotel() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -216,7 +358,30 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
       Get.snackbar(
         'Error',
         'Silakan pilih lokasi hotel pada peta terlebih dahulu',
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Validasi minimal 2 foto
+    final totalImages = _imageUrls.length + _newImages.length;
+    if (totalImages < 2) {
+      Get.snackbar(
+        'Error',
+        'Silakan tambahkan minimal 2 foto hotel',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Validasi untuk tipe kamar
+    if (_roomTypes.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Silakan tambahkan minimal satu tipe kamar terlebih dahulu',
+        backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
       return;
@@ -239,6 +404,7 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
             .toList(),
         'image_url': allImageUrls,
         'merchant_id': supabase.auth.currentUser!.id,
+        'room_types': _roomTypes, // Tambahkan room types ke data hotel
       };
 
       String hotelId;
@@ -268,6 +434,17 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  // Tambahkan method untuk menghapus gambar
+  void _removeImage(int index, bool isExistingImage) {
+    setState(() {
+      if (isExistingImage) {
+        _imageUrls.removeAt(index);
+      } else {
+        _newImages.removeAt(index - _imageUrls.length);
+      }
+    });
   }
 
   @override
@@ -315,10 +492,6 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
               decoration: InputDecoration(
                 labelText: 'Alamat',
                 border: OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.map),
-                  onPressed: _showMapPicker,
-                ),
               ),
               maxLines: 2,
               readOnly: true,
@@ -330,13 +503,31 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
               },
             ),
 
+            SizedBox(height: 8),
+
             if (_latitude != null && _longitude != null) ...[
               SizedBox(height: 8),
               Text(
                 'Koordinat: ${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}',
                 style: TextStyle(color: Colors.grey),
               ),
+              SizedBox(height: 16),
             ],
+            ElevatedButton.icon(
+              onPressed: _showMapPicker,
+              icon: Icon(Icons.my_location, color: Colors.white),
+              label: Text(
+                'Gunakan peta untuk Lokasi hotel',
+                style: TextStyle(color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
 
             SizedBox(height: 16),
 
@@ -349,30 +540,105 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
             ),
             SizedBox(height: 16),
 
+            // Sebelum bagian preview gambar, tambahkan:
+            Text(
+              'Foto Hotel *',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'Minimal 2 foto harus ditambahkan',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            SizedBox(height: 8),
+
             // Image Preview
             if (_imageUrls.isNotEmpty || _newImages.isNotEmpty) ...[
-              Text('Preview Gambar:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                'Preview Gambar (${_imageUrls.length + _newImages.length}/2 minimum):',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               SizedBox(height: 8),
               Container(
-                height: 100,
+                height: 120, // Tinggi container ditambah untuk tombol hapus
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   children: [
-                    ..._imageUrls.map((url) => Padding(
+                    ..._imageUrls.asMap().entries.map((entry) => Padding(
                           padding: EdgeInsets.only(right: 8),
-                          child:
-                              Image.network(url, width: 100, fit: BoxFit.cover),
+                          child: Stack(
+                            children: [
+                              Image.network(
+                                entry.value,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: () => _removeImage(entry.key, true),
+                                  child: Container(
+                                    padding: EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         )),
-                    ..._newImages.map((file) => Padding(
+                    ..._newImages.asMap().entries.map((entry) => Padding(
                           padding: EdgeInsets.only(right: 8),
-                          child:
-                              Image.file(file, width: 100, fit: BoxFit.cover),
+                          child: Stack(
+                            children: [
+                              Image.file(
+                                entry.value,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: GestureDetector(
+                                  onTap: () => _removeImage(
+                                      entry.key + _imageUrls.length, false),
+                                  child: Container(
+                                    padding: EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.close,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         )),
                   ],
                 ),
               ),
-              SizedBox(height: 16),
+              SizedBox(height: 14),
             ],
 
             ElevatedButton.icon(
@@ -384,6 +650,131 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
                 backgroundColor: AppTheme.primary,
               ),
             ),
+            SizedBox(height: 20),
+
+            Text(
+              'Tipe Kamar *', // Tambahkan tanda bintang untuk menunjukkan field wajib
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'Minimal satu tipe kamar harus ditambahkan',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            SizedBox(height: 16),
+
+            // Tombol Tambah Tipe Kamar
+            ElevatedButton.icon(
+              onPressed: () => _showAddEditRoomDialog(),
+              icon: Icon(Icons.add, color: Colors.white),
+              label: Text('Tambah Tipe Kamar',
+                  style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                padding: EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+
+            SizedBox(height: 16),
+
+            // List Tipe Kamar
+            if (_roomTypes.isNotEmpty) ...[
+              ListView.builder(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                itemCount: _roomTypes.length,
+                itemBuilder: (context, index) {
+                  final roomType = _roomTypes[index];
+                  return Card(
+                    margin: EdgeInsets.only(bottom: 16),
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  roomType['type'],
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: Icon(Icons.edit, color: Colors.blue),
+                                    onPressed: () =>
+                                        _showAddEditRoomDialog(roomType, index),
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () {
+                                      setState(() {
+                                        _roomTypes.removeAt(index);
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            NumberFormat.currency(
+                              locale: 'id',
+                              symbol: 'Rp ',
+                              decimalDigits: 0,
+                            ).format(roomType['price_per_night']),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppTheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 12),
+                          _buildInfoRow(Icons.person, 'Kapasitas',
+                              '${roomType['capacity']} orang'),
+                          SizedBox(height: 8),
+                          _buildInfoRow(Icons.meeting_room, 'Kamar tersedia',
+                              '${roomType['available_rooms']}'),
+                          if (roomType['amenities']?.isNotEmpty == true) ...[
+                            SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: (roomType['amenities'] as List)
+                                  .map((amenity) => Chip(
+                                        label: Text(amenity),
+                                        backgroundColor:
+                                            AppTheme.primary.withOpacity(0.1),
+                                        labelStyle:
+                                            TextStyle(color: AppTheme.primary),
+                                      ))
+                                  .toList(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+
             SizedBox(height: 24),
 
             SizedBox(

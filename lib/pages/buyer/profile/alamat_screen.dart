@@ -197,17 +197,13 @@ class _AlamatScreenState extends State<AlamatScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildAddressCard(
-            'Alamat 1', 'address', addresses.isNotEmpty ? addresses[0] : null),
+        _buildAddressCard('Alamat 1', 'address', userResponse?['address']),
         SizedBox(height: 12),
-        _buildAddressCard(
-            'Alamat 2', 'address2', addresses.length > 1 ? addresses[1] : null),
+        _buildAddressCard('Alamat 2', 'address2', userResponse?['address2']),
         SizedBox(height: 12),
-        _buildAddressCard(
-            'Alamat 3', 'address3', addresses.length > 2 ? addresses[2] : null),
+        _buildAddressCard('Alamat 3', 'address3', userResponse?['address3']),
         SizedBox(height: 12),
-        _buildAddressCard(
-            'Alamat 4', 'address4', addresses.length > 3 ? addresses[3] : null),
+        _buildAddressCard('Alamat 4', 'address4', userResponse?['address4']),
       ],
     );
   }

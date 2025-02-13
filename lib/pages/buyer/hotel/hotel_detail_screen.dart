@@ -118,6 +118,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                 onPressed: () async {
                   final currentUser = supabase.auth.currentUser;
                   final merchantId = widget.hotel['merchant_id'];
+                  
 
                   if (currentUser == null || merchantId == null) {
                     Get.snackbar(
@@ -128,6 +129,7 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                     );
                     return;
                   }
+                  
 
                   try {
                     // Debug print untuk memeriksa nilai

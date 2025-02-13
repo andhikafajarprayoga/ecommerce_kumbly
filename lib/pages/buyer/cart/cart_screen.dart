@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import 'dart:convert';
 import 'package:kumbly_ecommerce/utils/auth_helper.dart';
+import 'package:kumbly_ecommerce/pages/buyer/profile/alamat_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -213,24 +214,73 @@ class _CartScreenState extends State<CartScreen> {
                         // Ambil alamat user
                         final userResponse = await cartController.supabase
                             .from('users')
-                            .select('address')
+                            .select('address, address2, address3, address4')
                             .eq('id', userId)
                             .single();
 
-                        // Cek apakah alamat ada
-                        if (userResponse['address'] == null) {
-                          Get.snackbar(
-                            'Peringatan',
-                            'Silakan isi alamat Utama di profil Anda.',
-                            backgroundColor: Colors.orange,
-                            colorText: Colors.white,
+                        // Cek apakah user memiliki alamat
+                        bool hasAddress = userResponse['address'] != null ||
+                            userResponse['address2'] != null ||
+                            userResponse['address3'] != null ||
+                            userResponse['address4'] != null;
+
+                        if (!hasAddress) {
+                          // Tampilkan dialog untuk menambahkan alamat
+                          Get.dialog(
+                            AlertDialog(
+                              title: Text('Alamat Pengiriman'),
+                              content: Text(
+                                  'Anda belum memiliki alamat pengiriman. Tambahkan alamat terlebih dahulu untuk melanjutkan pembelian.'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Get.back(),
+                                  child: Text('Batal'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Get.back(); // Tutup dialog
+                                    Get.to(() => AlamatScreen())?.then((value) {
+                                      // Coba checkout lagi setelah kembali dari AlamatScreen
+                                      if (value == true) {
+                                        cartController.fetchCartItems();
+                                      }
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primary,
+                                  ),
+                                  child: Text('Tambah Alamat',
+                                      style: TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
                           );
-                          return; // Hentikan proses checkout
+                          return;
                         }
 
+                        // Gunakan alamat pertama yang tersedia
+                        Map<String, dynamic>? selectedAddress;
+                        if (userResponse['address4'] != null) {
+                          selectedAddress = userResponse['address4'];
+                        } else if (userResponse['address'] != null) {
+                          selectedAddress = userResponse['address'];
+                        } else if (userResponse['address2'] != null) {
+                          selectedAddress = userResponse['address2'];
+                        } else if (userResponse['address3'] != null) {
+                          selectedAddress = userResponse['address3'];
+                        }
+
+                        // Format alamat
+                        final formattedAddress =
+                            '${selectedAddress!['street']}, '
+                            '${selectedAddress['village']}, '
+                            '${selectedAddress['district']}, '
+                            '${selectedAddress['city']}, '
+                            '${selectedAddress['province']}, '
+                            '${selectedAddress['postal_code']}';
+
                         List<Map<String, dynamic>> selectedProducts = [];
-                        List<String> selectedIds =
-                            []; // Untuk menyimpan ID item yang dipilih
+                        List<String> selectedIds = [];
 
                         for (var item in cartController.cartItems) {
                           if (selectedItems[item['id'].toString()] == true) {
@@ -240,20 +290,9 @@ class _CartScreenState extends State<CartScreen> {
                               'quantity': item['quantity'],
                               'products': item['products'],
                             });
-                            selectedIds.add(item['id']
-                                .toString()); // Simpan ID yang dipilih
+                            selectedIds.add(item['id'].toString());
                           }
                         }
-
-                        // Convert address map to string format
-                        final address =
-                            userResponse['address'] as Map<String, dynamic>;
-                        final formattedAddress = '${address['street']}, '
-                            '${address['village']}, '
-                            '${address['district']}, '
-                            '${address['city']}, '
-                            '${address['province']}, '
-                            '${address['postal_code']}';
 
                         final checkoutData = {
                           'buyer_id': userId,

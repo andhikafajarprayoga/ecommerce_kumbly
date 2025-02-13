@@ -11,6 +11,7 @@ import 'dart:convert';
 import '../../../controllers/product_controller.dart';
 import '../find/find_screen.dart';
 import '../store/store_detail_screen.dart';
+import '../profile/alamat_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final dynamic product;
@@ -852,7 +853,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void handleCheckout() async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) {
-      // Langsung arahkan ke halaman login
       Get.toNamed('/login');
       return;
     }
@@ -861,9 +861,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       // Ambil alamat user
       final userResponse = await supabase
           .from('users')
-          .select('address')
+          .select('address, address2, address3, address4')
           .eq('id', userId)
           .single();
+
+      // Cek apakah user memiliki alamat
+      bool hasAddress = userResponse['address'] != null ||
+          userResponse['address2'] != null ||
+          userResponse['address3'] != null ||
+          userResponse['address4'] != null;
+
+      if (!hasAddress) {
+        // Tampilkan dialog untuk menambahkan alamat
+        Get.dialog(
+          AlertDialog(
+            title: Text('Alamat Pengiriman'),
+            content: Text(
+                'Anda belum memiliki alamat pengiriman. Tambahkan alamat terlebih dahulu untuk melanjutkan pembelian.'),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(),
+                child: Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Get.back(); // Tutup dialog
+                  Get.to(() => AlamatScreen())
+                      ?.then((value) => handleCheckout());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                ),
+                child: Text('Tambah Alamat',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
 
       // Ambil data merchant
       final merchantResponse = await supabase
@@ -872,14 +908,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .eq('id', widget.product['seller_id'])
           .single();
 
-      // Convert address map to string format
-      final address = userResponse['address'] as Map<String, dynamic>;
-      final formattedAddress = '${address['street']}, '
-          '${address['village']}, '
-          '${address['district']}, '
-          '${address['city']}, '
-          '${address['province']}, '
-          '${address['postal_code']}';
+      // Gunakan alamat pertama yang tersedia
+      Map<String, dynamic>? selectedAddress;
+      if (userResponse['address4'] != null) {
+        selectedAddress = userResponse['address4'];
+      } else if (userResponse['address'] != null) {
+        selectedAddress = userResponse['address'];
+      } else if (userResponse['address2'] != null) {
+        selectedAddress = userResponse['address2'];
+      } else if (userResponse['address3'] != null) {
+        selectedAddress = userResponse['address3'];
+      }
+
+      // Format alamat
+      final formattedAddress = '${selectedAddress!['street']}, '
+          '${selectedAddress['village']}, '
+          '${selectedAddress['district']}, '
+          '${selectedAddress['city']}, '
+          '${selectedAddress['province']}, '
+          '${selectedAddress['postal_code']}';
 
       // Konversi product ke Map<String, dynamic>
       final productData = Map<String, dynamic>.from(widget.product);

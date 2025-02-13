@@ -737,9 +737,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   children: [
                                     Row(
                                       children: [
-                                        Icon(Icons.location_on_outlined,
-                                            size: 16, color: Colors.grey),
-                                        SizedBox(width: 4),
                                         Text(
                                           'Jarak: ${distance?.toStringAsFixed(2)} km',
                                           style: TextStyle(
@@ -750,9 +747,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       ],
                                     ),
                                     SizedBox(width: 12),
-                                    Icon(Icons.scale_outlined,
-                                        size: 16, color: Colors.grey),
-                                    SizedBox(width: 4),
                                     Text(
                                       'Berat: ${items.fold(0.0, (sum, item) {
                                         final weight = (item['products']

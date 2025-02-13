@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import '../../../theme/app_theme.dart';
+import 'package:intl/intl.dart';
 
 class EditProductScreen extends StatefulWidget {
   final dynamic product;
@@ -35,13 +36,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
   void initState() {
     super.initState();
     nameController.text = widget.product['name'];
-    priceController.text = widget.product['price'].toString();
+    final initialPrice = widget.product['price'].toString();
+    priceController.text = formatNumber(initialPrice);
     descriptionController.text = widget.product['description'] ?? '';
     stockController.text = widget.product['stock'].toString();
     categoryController.text = widget.product['category'] ?? '';
-    // Konversi gram ke kg untuk ditampilkan
-    final weightInGrams = widget.product['weight'] ?? 0;
-    weightController.text = (weightInGrams / 1000).toString();
+    weightController.text = (widget.product['weight'] ?? 0).toString();
     lengthController.text = (widget.product['length'] ?? 0).toString();
     widthController.text = (widget.product['width'] ?? 0).toString();
     heightController.text = (widget.product['height'] ?? 0).toString();
@@ -52,7 +52,6 @@ class _EditProductScreenState extends State<EditProductScreen> {
         if (widget.product['image_url'] is List) {
           imagePaths.addAll(List<String>.from(widget.product['image_url']));
         } else if (widget.product['image_url'] is String) {
-          // Parse string JSON ke List
           final List<dynamic> urls = json.decode(widget.product['image_url']);
           imagePaths.addAll(List<String>.from(urls));
         }
@@ -96,6 +95,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
       print('Error uploading images: $e');
       return [];
     }
+  }
+
+  String formatNumber(String value) {
+    if (value.isEmpty) return '';
+    final number = int.tryParse(value.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+    final format = NumberFormat('#,###', 'id_ID');
+    return format.format(number);
   }
 
   @override
@@ -264,9 +270,24 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       icon: Icons.attach_money_outlined,
                       keyboardType: TextInputType.number,
                       prefixText: 'Rp ',
+                      onChanged: (value) {
+                        final cursorPos = priceController.selection;
+                        final text = formatNumber(value);
+                        priceController.text = text;
+                        if (text.length > 0) {
+                          priceController.selection =
+                              TextSelection.fromPosition(
+                            TextPosition(offset: text.length),
+                          );
+                        }
+                      },
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Harga tidak boleh kosong';
+                        }
+                        final number = value.replaceAll(RegExp(r'[^\d]'), '');
+                        if (number.isEmpty || int.tryParse(number) == null) {
+                          return 'Masukkan angka yang valid';
                         }
                         return null;
                       },
@@ -307,23 +328,19 @@ class _EditProductScreenState extends State<EditProductScreen> {
                         Expanded(
                           child: _buildTextField(
                             controller: weightController,
-                            label: 'Berat (kg)',
-                            hint: 'Contoh: 1.5',
+                            label: 'Berat (gram)',
+                            hint: 'Contoh: 1000',
                             icon: Icons.scale,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
+                            keyboardType: TextInputType.number,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
                                 return 'Berat tidak boleh kosong';
                               }
                               try {
-                                final weight = double.parse(value);
+                                final weight = int.parse(value);
                                 if (weight <= 0) {
                                   return 'Berat harus lebih dari 0';
                                 }
-                                // Convert kg to grams and update controller
-                                final gramWeight = (weight * 1000).round();
-                                weightController.text = gramWeight.toString();
                               } catch (e) {
                                 return 'Masukkan angka yang valid';
                               }
@@ -405,6 +422,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
     TextInputType? keyboardType,
     String? prefixText,
     String? Function(String?)? validator,
+    Function(String)? onChanged,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -441,6 +459,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
           fillColor: Colors.white,
         ),
         validator: validator,
+        onChanged: onChanged,
       ),
     );
   }
@@ -450,10 +469,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
       try {
         List<String> imageUrls = await uploadImages(imagePaths);
 
+        // Konversi string harga yang berformat (contoh: "1,000,000") menjadi numeric
+        final price =
+            double.parse(priceController.text.replaceAll(RegExp(r'[^\d]'), ''));
+
         await productController.updateProduct(
           widget.product['id'],
           nameController.text,
-          double.parse(priceController.text),
+          price, // nilai numerik murni untuk database
           int.parse(stockController.text),
           descriptionController.text,
           categoryController.text,
