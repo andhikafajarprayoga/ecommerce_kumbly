@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../../../theme/app_theme.dart';
+import 'dart:async';
 
 class ProductListScreen extends StatefulWidget {
   const ProductListScreen({super.key});
@@ -18,11 +19,45 @@ class ProductListScreen extends StatefulWidget {
 class _ProductListScreenState extends State<ProductListScreen> {
   final ProductController productController = Get.put(ProductController());
   final supabase = Supabase.instance.client;
+  StreamSubscription? _productsSubscription;
 
   @override
   void initState() {
     super.initState();
+    _setupProductsStream();
+  }
+
+  @override
+  void dispose() {
+    _productsSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _setupProductsStream() {
+    // Initial fetch
     productController.fetchProducts();
+
+    final userId = supabase.auth.currentUser!.id;
+
+    // Listen to changes
+    _productsSubscription = supabase
+        .from('products')
+        .stream(primaryKey: ['id'])
+        .eq('seller_id', userId)
+        .order('created_at', ascending: false)
+        .listen(
+          (data) {
+            print('DEBUG: Products stream update received');
+            print('DEBUG: Number of products: ${data.length}');
+
+            // Update products di controller
+            productController
+                .updateProducts(List<Map<String, dynamic>>.from(data));
+          },
+          onError: (error) {
+            print('ERROR: Products stream error: $error');
+          },
+        );
   }
 
   @override
@@ -222,18 +257,27 @@ class _ProductListScreenState extends State<ProductListScreen> {
           TextButton(
             onPressed: () async {
               Get.back();
-              await productController.deleteProduct(product['id']);
-              Get.snackbar(
-                'Sukses',
-                'Produk berhasil dihapus',
-                backgroundColor: Colors.green,
-                colorText: Colors.white,
-              );
+              try {
+                final productId =
+                    product['id'].toString(); // Ambil ID sebagai String
+                await productController.deleteProduct(productId);
+                Get.snackbar(
+                  'Sukses',
+                  'Produk berhasil dihapus',
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                );
+              } catch (e) {
+                print('Error deleting product: $e');
+                Get.snackbar(
+                  'Error',
+                  'Gagal menghapus produk',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                );
+              }
             },
-            child: const Text(
-              'Hapus',
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

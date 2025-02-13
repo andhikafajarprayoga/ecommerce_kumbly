@@ -143,10 +143,13 @@ class ProductController extends GetxController {
     }).eq('id', id);
   }
 
-  Future<void> deleteProduct(int productId) async {
+  Future<void> deleteProduct(String productId) async {
     try {
       isLoading.value = true;
-      await supabase.from('products').delete().eq('id', productId);
+      await supabase
+          .from('products')
+          .delete()
+          .eq('id', productId); // Gunakan String
       fetchProducts();
     } catch (e) {
       Get.snackbar('Error', 'Gagal menghapus produk: $e');
@@ -235,5 +238,10 @@ class ProductController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void updateProducts(List<Map<String, dynamic>> newProducts) {
+    products.value = newProducts;
+    isLoading.value = false;
   }
 }
