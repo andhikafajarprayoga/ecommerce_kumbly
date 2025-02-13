@@ -176,6 +176,7 @@ class _HomeMenuState extends State<_HomeMenu> {
   void initState() {
     super.initState();
     print('Debug: Starting _setupHotelBookingsStream');
+    _checkMerchantAddress();
     _setupMerchantData();
     _setupOrdersCount();
     _setupHotelBookingsStream();
@@ -233,6 +234,46 @@ class _HomeMenuState extends State<_HomeMenu> {
           });
     } catch (e) {
       print('Debug: Error: $e');
+    }
+  }
+
+  Future<void> _checkMerchantAddress() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final merchantData = await supabase
+          .from('merchants')
+          .select('store_address')
+          .eq('id', userId)
+          .single();
+
+      if (merchantData['store_address'] == null ||
+          merchantData['store_address'].toString().isEmpty) {
+        Get.dialog(
+          AlertDialog(
+            title: const Text('Perhatian'),
+            content: const Text(
+                'Anda belum mengatur alamat toko. Silakan lengkapi data alamat toko Anda terlebih dahulu.'),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Get.back();
+                  Get.to(() => EditStoreScreen());
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Atur Alamat Sekarang'),
+              ),
+            ],
+          ),
+          barrierDismissible: false,
+        );
+      }
+    } catch (e) {
+      print('Error checking merchant address: $e');
     }
   }
 

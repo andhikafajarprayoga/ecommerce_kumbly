@@ -223,8 +223,12 @@ class _AdminChatDetailScreenState extends State<AdminChatDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.buyer),
+        title: Text(
+          widget.buyer,
+          style: TextStyle(color: Colors.white),
+        ),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [

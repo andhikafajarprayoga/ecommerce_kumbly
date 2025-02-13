@@ -457,6 +457,12 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
                         ),
                       ],
                     ),
+                    // Tambahkan alert untuk mengingatkan seller
+                    SizedBox(height: 8),
+                    Text(
+                      'Harap perhatikan titik lokasi Anda, karena ini akan menjadi acuan untuk ongkir.',
+                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    ),
                     if (_referenceAddress.isNotEmpty) ...[
                       SizedBox(height: 8),
                       Row(

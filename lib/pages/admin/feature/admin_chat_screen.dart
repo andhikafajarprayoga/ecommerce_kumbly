@@ -211,8 +211,12 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat dengan Buyer'),
+        title: Text(
+          'Chat',
+          style: TextStyle(color: Colors.white),
+        ),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Obx(() {
         if (isLoading.value) {

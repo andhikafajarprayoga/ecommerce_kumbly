@@ -148,7 +148,8 @@ class _ManageRoomTypesScreenState extends State<ManageRoomTypesScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
             ),
-            child: Text(roomType == null ? 'Tambah' : 'Update'),
+            child: Text(roomType == null ? 'Tambah' : 'Update',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

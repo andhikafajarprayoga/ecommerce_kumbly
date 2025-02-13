@@ -35,6 +35,11 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
   final _guestNameController = TextEditingController();
   final _guestPhoneController = TextEditingController();
   final _specialRequestController = TextEditingController();
+  final _voucherController = TextEditingController();
+  double _voucherDiscount = 0;
+  bool _isCheckingVoucher = false;
+  String? _voucherMessage;
+  bool _isVoucherValid = false;
 
   bool _isLoading = false;
   int? selectedPaymentMethodId;
@@ -60,7 +65,7 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
   }
 
   void _calculateTotalWithAdmin() {
-    _totalWithAdmin = _totalPrice + _adminFee + _appFee;
+    _totalWithAdmin = _totalPrice + _adminFee + _appFee - _voucherDiscount;
   }
 
   Future<void> fetchPaymentMethods() async {
@@ -119,6 +124,49 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
 
       _calculateTotalWithAdmin();
     });
+  }
+
+  Future<void> _checkVoucher() async {
+    final voucherCode = _voucherController.text.trim();
+    if (voucherCode.isEmpty) return;
+
+    setState(() {
+      _isCheckingVoucher = true;
+      _voucherMessage = null;
+    });
+
+    try {
+      final response = await supabase
+          .from('shipping_vouchers')
+          .select()
+          .eq('code', voucherCode)
+          .maybeSingle();
+
+      if (response != null) {
+        setState(() {
+          _voucherDiscount = (response['rate'] as num).toDouble();
+          _isVoucherValid = true;
+          _voucherMessage = 'Voucher berhasil digunakan!';
+          _calculateTotalWithAdmin();
+        });
+      } else {
+        setState(() {
+          _voucherDiscount = 0;
+          _isVoucherValid = false;
+          _voucherMessage = 'Voucher tidak valid';
+          _calculateTotalWithAdmin();
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _voucherMessage = 'Terjadi kesalahan saat mengecek voucher';
+        _isVoucherValid = false;
+        _voucherDiscount = 0;
+        _calculateTotalWithAdmin();
+      });
+    } finally {
+      setState(() => _isCheckingVoucher = false);
+    }
   }
 
   void _showConfirmationDialog() {
@@ -590,6 +638,46 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                       ),
                     ),
                     SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _voucherController,
+                            decoration: InputDecoration(
+                              labelText: 'Kode Voucher',
+                              border: OutlineInputBorder(),
+                              suffixIcon: _isCheckingVoucher
+                                  ? Padding(
+                                      padding: EdgeInsets.all(8),
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _isCheckingVoucher ? null : _checkVoucher,
+                          child: Text('Cek'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_voucherMessage != null)
+                      Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: Text(
+                          _voucherMessage!,
+                          style: TextStyle(
+                            color: _isVoucherValid ? Colors.green : Colors.red,
+                          ),
+                        ),
+                      ),
+                    SizedBox(height: 16),
                     _buildPaymentRow('Total Malam', '$_totalNights malam'),
                     _buildPaymentRow(
                       'Harga Kamar',
@@ -615,6 +703,16 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
                         decimalDigits: 0,
                       ).format(_appFee),
                     ),
+                    if (_voucherDiscount > 0)
+                      _buildPaymentRow(
+                        'Diskon Voucher',
+                        '- ${NumberFormat.currency(
+                          locale: 'id',
+                          symbol: 'Rp ',
+                          decimalDigits: 0,
+                        ).format(_voucherDiscount)}',
+                        isDiscount: true,
+                      ),
                     Divider(thickness: 1),
                     _buildPaymentRow(
                       'Total Pembayaran',
@@ -659,7 +757,8 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
     );
   }
 
-  Widget _buildPaymentRow(String label, String value, {bool isTotal = false}) {
+  Widget _buildPaymentRow(String label, String value,
+      {bool isTotal = false, bool isDiscount = false}) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -677,7 +776,11 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
             style: TextStyle(
               fontSize: isTotal ? 16 : 14,
               fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
-              color: isTotal ? AppTheme.primary : null,
+              color: isTotal
+                  ? AppTheme.primary
+                  : isDiscount
+                      ? Colors.green
+                      : null,
             ),
           ),
         ],

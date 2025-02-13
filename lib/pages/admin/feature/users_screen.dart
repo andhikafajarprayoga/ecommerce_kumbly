@@ -398,7 +398,6 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
   late TextEditingController emailController;
   late TextEditingController fullNameController;
   late TextEditingController phoneController;
-  late TextEditingController addressController;
 
   @override
   void initState() {
@@ -407,8 +406,6 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
     fullNameController =
         TextEditingController(text: widget.user?['full_name'] ?? '');
     phoneController = TextEditingController(text: widget.user?['phone'] ?? '');
-    addressController =
-        TextEditingController(text: widget.user?['address'] ?? '');
     if (widget.user != null) {
       selectedRole = widget.user!['role'];
     }
@@ -419,7 +416,6 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
     emailController.dispose();
     fullNameController.dispose();
     phoneController.dispose();
-    addressController.dispose();
     super.dispose();
   }
 
@@ -450,12 +446,16 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
           throw Exception('Anda tidak memiliki akses admin');
         }
 
-        // Update hanya role saja
+        // Update hanya role, full_name, dan phone
         final response = await supabase
             .from('users')
-            .update({'role': selectedRole})
+            .update({
+              'role': selectedRole,
+              'full_name': fullNameController.text,
+              'phone': phoneController.text,
+            })
             .eq('id', widget.user!['id'])
-            .select('id, role')
+            .select()
             .single();
 
         print('DEBUG: Update response: $response');
@@ -491,6 +491,7 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
         ),
         backgroundColor: AppTheme.primary,
         elevation: 0,
+        foregroundColor: Colors.white,
       ),
       body: Form(
         key: _formKey,
@@ -538,15 +539,6 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
               keyboardType: TextInputType.phone,
             ),
             SizedBox(height: 16),
-            TextFormField(
-              controller: addressController,
-              decoration: InputDecoration(
-                labelText: 'Alamat',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-            SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: selectedRole,
               decoration: InputDecoration(
@@ -575,7 +567,10 @@ class _AddEditUserScreenState extends State<AddEditUserScreen> {
               onPressed: isLoading ? null : _saveUser,
               child: isLoading
                   ? CircularProgressIndicator(color: Colors.white)
-                  : Text('Simpan'),
+                  : Text(
+                      'Simpan',
+                      style: TextStyle(color: Colors.white),
+                    ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
                 padding: EdgeInsets.symmetric(vertical: 16),

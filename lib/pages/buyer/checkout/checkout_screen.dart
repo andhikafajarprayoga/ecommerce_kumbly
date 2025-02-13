@@ -1220,6 +1220,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       appBar: AppBar(
         title: const Text('Checkout', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Obx(() {
         if (orderController.isLoading.value) {

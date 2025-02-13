@@ -41,7 +41,7 @@ class PaymentSummaryScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Ringkasan Pembayaran'),
-        backgroundColor: Colors.pink,
+        backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(

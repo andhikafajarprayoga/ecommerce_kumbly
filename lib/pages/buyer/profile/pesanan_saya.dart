@@ -222,7 +222,10 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            child: const Text('Ya, Batalkan'),
+            child: const Text(
+              'Ya, Batalkan',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -963,7 +966,10 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                 );
               }
             },
-            child: const Text('Ya, Batalkan'),
+            child: const Text(
+              'Ya, Batalkan',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),

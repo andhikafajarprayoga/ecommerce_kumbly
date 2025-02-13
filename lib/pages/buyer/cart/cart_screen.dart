@@ -42,6 +42,7 @@ class _CartScreenState extends State<CartScreen> {
       appBar: AppBar(
         title:
             const Text('Keranjang Saya', style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Colors.white),
         backgroundColor: AppTheme.primary,
       ),
       body: Obx(() {
@@ -206,6 +207,27 @@ class _CartScreenState extends State<CartScreen> {
                         return;
                       }
                       try {
+                        final userId =
+                            cartController.supabase.auth.currentUser!.id;
+
+                        // Ambil alamat user
+                        final userResponse = await cartController.supabase
+                            .from('users')
+                            .select('address')
+                            .eq('id', userId)
+                            .single();
+
+                        // Cek apakah alamat ada
+                        if (userResponse['address'] == null) {
+                          Get.snackbar(
+                            'Peringatan',
+                            'Silakan isi alamat Utama di profil Anda.',
+                            backgroundColor: Colors.orange,
+                            colorText: Colors.white,
+                          );
+                          return; // Hentikan proses checkout
+                        }
+
                         List<Map<String, dynamic>> selectedProducts = [];
                         List<String> selectedIds =
                             []; // Untuk menyimpan ID item yang dipilih
@@ -222,16 +244,6 @@ class _CartScreenState extends State<CartScreen> {
                                 .toString()); // Simpan ID yang dipilih
                           }
                         }
-
-                        final userId =
-                            cartController.supabase.auth.currentUser!.id;
-
-                        // Ambil alamat user
-                        final userResponse = await cartController.supabase
-                            .from('users')
-                            .select('address')
-                            .eq('id', userId)
-                            .single();
 
                         // Convert address map to string format
                         final address =

@@ -507,7 +507,8 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
           const SizedBox(height: 16),
           _buildPaymentRow('Subtotal Produk', totalAmount),
           const SizedBox(height: 8),
-          _buildPaymentRow('Biaya Pengiriman', shippingCost),
+          _buildPaymentRow(
+              'Biaya Pengiriman\nAkumulasi per chekout', shippingCost),
           FutureBuilder<Map<String, dynamic>?>(
             future: _fetchPaymentGroupDetails(paymentGroupId),
             builder: (context, snapshot) {

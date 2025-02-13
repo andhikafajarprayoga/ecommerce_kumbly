@@ -377,8 +377,9 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
 
             ElevatedButton.icon(
               onPressed: _pickImages,
-              icon: Icon(Icons.add_photo_alternate),
-              label: Text('Tambah Gambar'),
+              icon: Icon(Icons.add_photo_alternate, color: Colors.white),
+              label:
+                  Text('Tambah Gambar', style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
               ),
@@ -395,7 +396,8 @@ class _AddEditHotelScreenState extends State<AddEditHotelScreen> {
                 child: _isLoading
                     ? CircularProgressIndicator(color: Colors.white)
                     : Text(
-                        widget.hotel == null ? 'Tambah Hotel' : 'Update Hotel'),
+                        widget.hotel == null ? 'Tambah Hotel' : 'Update Hotel',
+                        style: TextStyle(color: Colors.white)),
               ),
             ),
           ],
@@ -522,8 +524,9 @@ class _MapPickerState extends State<MapPicker> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pilih Lokasi'),
+        title: Text('Pilih Lokasi', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
         actions: [
           if (_selectedLocation != null)
             TextButton(

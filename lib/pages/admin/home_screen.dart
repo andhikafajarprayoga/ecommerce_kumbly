@@ -238,13 +238,6 @@ class AdminHomeScreen extends StatelessWidget {
                           onTap: () => Get.to(() => VoucherScreen()),
                         ),
                         _buildMenuCard(
-                          icon: Icons.local_shipping_rounded,
-                          title: 'Ongkir',
-                          subtitle: 'Atur ongkir',
-                          color: Colors.cyan,
-                          onTap: () => Get.to(() => ShippingRatesScreen()),
-                        ),
-                        _buildMenuCard(
                           icon: Icons.delete,
                           title: 'Hapus Akun',
                           subtitle: 'Seller & User',

@@ -84,6 +84,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         backgroundColor: AppTheme.primary,
         title:
             const Text('Detail Produk', style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Colors.white),
         actions: [
           Stack(
             children: [

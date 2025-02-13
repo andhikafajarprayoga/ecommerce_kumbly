@@ -278,11 +278,12 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
         title: const Text(
           'Pesan',
           style: TextStyle(
             color: Colors.white,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.normal,
             fontSize: 20,
           ),
         ),

@@ -57,22 +57,11 @@ class _AlamatScreenState extends State<AlamatScreen> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      Map<String, dynamic> updateData = {};
+      // Menentukan field name berdasarkan index
+      String fieldName = index == 0 ? 'address' : 'address${index + 1}';
 
-      // Menggeser alamat setelah yang dihapus
-      for (int i = index; i < 3; i++) {
-        if (i + 1 < addresses.length) {
-          updateData['address${i == 0 ? "" : i}'] = addresses[i + 1];
-        } else {
-          updateData['address${i == 0 ? "" : i}'] = null;
-        }
-      }
-      // Mengatur alamat terakhir menjadi null
-      updateData[
-              'address${addresses.length - 1 == 0 ? "" : addresses.length - 1}'] =
-          null;
-
-      await supabase.from('users').update(updateData).eq('id', userId);
+      // Langsung update field yang ingin dihapus menjadi null
+      await supabase.from('users').update({fieldName: null}).eq('id', userId);
 
       await fetchAddresses();
       Get.snackbar('Sukses', 'Alamat berhasil dihapus');
@@ -188,8 +177,9 @@ class _AlamatScreenState extends State<AlamatScreen> {
                     }
                   },
                 )),
-            icon: const Icon(Icons.add),
-            label: const Text('Tambah Alamat'),
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text('Tambah Alamat',
+                style: TextStyle(color: Colors.white)),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

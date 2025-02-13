@@ -185,7 +185,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Kelola Pembayaran'),
-        backgroundColor: Colors.pink,
+        backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
