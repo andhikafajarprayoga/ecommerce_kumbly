@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import 'package:rxdart/rxdart.dart' as rx;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:kumbly_ecommerce/services/notification_service.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -99,13 +100,20 @@ class _ChatListScreenState extends State<ChatListScreen> {
               ..sort((a, b) => b['created_at'].compareTo(a['created_at']));
 
             if (lastMessage.isNotEmpty) {
-              room['last_message'] = lastMessage.first['message'];
-              room['last_message_time'] = lastMessage.first['created_at'];
+              final latestMessage = lastMessage.first;
+              room['last_message'] = latestMessage['message'];
+              room['last_message_time'] = latestMessage['created_at'];
 
-              // Tampilkan notifikasi lokal untuk buyer jika ada pesan baru
-              if (lastMessage.first['sender_id'] != widget.sellerId) {
-                _showNotification(
-                    'Pesan Baru', 'Anda menerima pesan baru dari buyer');
+              // Tampilkan notifikasi hanya untuk pesan baru yang belum dibaca
+              if (latestMessage['sender_id'] != widget.sellerId &&
+                  !latestMessage['is_read']) {
+                await NotificationService.showChatNotification(
+                  title: room['buyer_name'] ?? 'Unknown User',
+                  body: latestMessage['message'],
+                  roomId: room['id'],
+                  senderId: latestMessage['sender_id'],
+                  messageId: latestMessage['id'], // Tambahkan message ID
+                );
               }
             }
 

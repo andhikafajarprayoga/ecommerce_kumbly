@@ -166,8 +166,8 @@ class _HomeMenuState extends State<_HomeMenu> {
   final cancelled = '0'.obs;
   final completed = '0'.obs;
   final RxInt hotelBookingsCount = 0.obs;
-  late StreamSubscription hotelStreamSubscription;
-  late StreamSubscription bookingStreamSubscription;
+  StreamSubscription? hotelStreamSubscription;
+  StreamSubscription? bookingStreamSubscription;
   final RxInt pendingShipmentCount = 0.obs;
   final RxInt pendingCancellationCount = 0.obs;
 
@@ -187,8 +187,8 @@ class _HomeMenuState extends State<_HomeMenu> {
 
   @override
   void dispose() {
-    hotelStreamSubscription.cancel();
-    bookingStreamSubscription.cancel();
+    hotelStreamSubscription?.cancel();
+    bookingStreamSubscription?.cancel();
     super.dispose();
   }
 
@@ -207,6 +207,7 @@ class _HomeMenuState extends State<_HomeMenu> {
     if (userId == null) return;
 
     try {
+      hotelStreamSubscription?.cancel();
       hotelStreamSubscription = supabase
           .from('hotels')
           .stream(primaryKey: ['id'])
@@ -217,6 +218,7 @@ class _HomeMenuState extends State<_HomeMenu> {
             final hotelIds = hotels.map((h) => h['id']).toList();
             print('Debug: Hotel IDs: $hotelIds');
 
+            bookingStreamSubscription?.cancel();
             bookingStreamSubscription = supabase
                 .from('hotel_bookings')
                 .stream(primaryKey: ['id'])
