@@ -106,10 +106,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         });
       }
 
-      // Tampilkan notifikasi lokal untuk buyer
-      _showNotification('Pesan Terkirim',
-          'Pesan Anda telah dikirim ke ${widget.seller['store_name']}');
-
       FocusScope.of(context).unfocus();
       setState(() {
         _messageController.clear();
@@ -123,26 +119,31 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   Future<void> _showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'your_channel_id', // Ganti dengan ID saluran Anda
-      'your_channel_name', // Ganti dengan nama saluran Anda
-      channelDescription:
-          'your_channel_description', // Ganti dengan deskripsi saluran Anda
+      'chat_channel', // channel id
+      'Chat Notifications', // channel name
+      channelDescription: 'Notifications for new chat messages',
       importance: Importance.max,
       priority: Priority.high,
-      showWhen: false,
+      showWhen: true,
+      enableVibration: true,
+      enableLights: true,
+      fullScreenIntent: true,
+      styleInformation: BigTextStyleInformation(''),
+      playSound: true,
     );
 
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+    );
 
     await flutterLocalNotificationsPlugin.show(
-      0, // ID notifikasi
+      DateTime.now().millisecond,
       title,
       body,
-      platformChannelSpecifics,
-      payload: 'item x', // Payload opsional
+      platformDetails,
+      payload: 'chat_detail',
     );
   }
 

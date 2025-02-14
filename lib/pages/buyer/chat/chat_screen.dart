@@ -85,9 +85,23 @@ class _ChatScreenState extends State<ChatScreen> {
             if (lastMessage.isNotEmpty) {
               room['last_message'] = lastMessage.first['message'];
               room['last_message_time'] = lastMessage.first['created_at'];
-            } else {
-              room['last_message'] = 'Belum ada pesan';
-              room['last_message_time'] = room['created_at'];
+
+              // Tampilkan notifikasi jika ada pesan baru dan bukan dari user saat ini
+              if (!lastMessage.first['is_read'] &&
+                  lastMessage.first['sender_id'] != userId &&
+                  ModalRoute.of(context)?.settings.name !=
+                      ChatDetailScreen(
+                          chatRoom: room,
+                          seller: {
+                            'store_name': room['store_name'],
+                            'image': 'https://via.placeholder.com/50'
+                          },
+                          isAdminRoom: true)) {
+                _showNotification(
+                  'Pesan baru dari ${room['store_name']}',
+                  lastMessage.first['message'],
+                );
+              }
             }
 
             room['unread_count'] = messages
@@ -111,7 +125,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
             final lastMessageResponse = await supabase
                 .from('admin_messages')
-                .select('content, created_at')
+                .select('content, created_at, sender_id, is_read')
                 .eq('chat_room_id', room['id'])
                 .order('created_at', ascending: false)
                 .limit(1)
@@ -120,9 +134,23 @@ class _ChatScreenState extends State<ChatScreen> {
             if (lastMessageResponse != null) {
               room['last_message'] = lastMessageResponse['content'];
               room['last_message_time'] = lastMessageResponse['created_at'];
-            } else {
-              room['last_message'] = 'Belum ada pesan';
-              room['last_message_time'] = room['created_at'];
+
+              // Tampilkan notifikasi untuk pesan admin yang belum dibaca
+              if (!lastMessageResponse['is_read'] &&
+                  lastMessageResponse['sender_id'] != userId &&
+                  ModalRoute.of(context)?.settings.name !=
+                      ChatDetailScreen(
+                          chatRoom: room,
+                          seller: {
+                            'store_name': room['store_name'],
+                            'image': 'https://via.placeholder.com/50'
+                          },
+                          isAdminRoom: true)) {
+                _showNotification(
+                  'Pesan baru dari Admin',
+                  lastMessageResponse['content'],
+                );
+              }
             }
 
             room['unread_count'] = await _getUnreadCount(room['id'], true);
@@ -134,14 +162,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
         validRooms.sort((a, b) => (b['last_message_time'] ?? b['created_at'])
             .compareTo(a['last_message_time'] ?? a['created_at']));
-
-        // Tampilkan notifikasi jika ada pesan baru
-        for (var room in validRooms) {
-          if (room['unread_count'] > 0) {
-            _showNotification('Pesan Baru',
-                'Anda menerima pesan baru dari ${room['store_name']}');
-          }
-        }
 
         return validRooms;
       },
@@ -672,26 +692,31 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'your_channel_id', // Ganti dengan ID saluran Anda
-      'your_channel_name', // Ganti dengan nama saluran Anda
-      channelDescription:
-          'your_channel_description', // Ganti dengan deskripsi saluran Anda
+      'chat_channel', // channel id
+      'Chat Notifications', // channel name
+      channelDescription: 'Notifications for new chat messages',
       importance: Importance.max,
       priority: Priority.high,
-      showWhen: false,
+      showWhen: true,
+      enableVibration: true,
+      enableLights: true,
+      fullScreenIntent: true,
+      styleInformation: BigTextStyleInformation(''),
+      playSound: true,
     );
 
-    const NotificationDetails platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+    );
 
     await flutterLocalNotificationsPlugin.show(
-      0, // ID notifikasi
+      DateTime.now().millisecond,
       title,
       body,
-      platformChannelSpecifics,
-      payload: 'item x', // Payload opsional
+      platformDetails,
+      payload: 'chat',
     );
   }
 }
