@@ -35,6 +35,10 @@ class AdminHomeScreen extends StatelessWidget {
 
   AdminHomeScreen({super.key});
 
+  Future<void> _refreshData() async {
+    await statsController.fetchStats();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,246 +57,252 @@ class AdminHomeScreen extends StatelessWidget {
           _buildProfileButton(),
         ],
       ),
-      body: Column(
-        children: [
-          _buildHeaderStats(),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Menu Utama',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: Column(
+          children: [
+            _buildHeaderStats(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: AlwaysScrollableScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Menu Utama',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 20),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 1.5,
-                      children: [
-                        _buildMenuCard(
-                          icon: Icons.people,
-                          title: 'Kelola Users',
-                          subtitle: 'Atur pengguna & hak akses',
-                          color: Colors.blue,
-                          onTap: () => Get.to(() => UsersScreen()),
-                          badgeStream: supabase
-                              .from('users')
-                              .stream(primaryKey: ['id']).map((data) => data
-                                  .where((user) => user['status'] == 'pending')
-                                  .length),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.money,
-                          title: 'Pembayaran',
-                          subtitle: 'Rekap Pembayaran',
-                          color: Colors.blue,
-                          onTap: () => Get.to(() => PaymentManagementScreen()),
-                          badgeStream: supabase
-                              .from('payment_groups')
-                              .stream(primaryKey: ['id']).map((data) => data
-                                  .where((payment) =>
-                                      payment['payment_status'] == 'pending')
-                                  .length),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.payments,
-                          title: 'Pencairan',
-                          subtitle: 'Pencairan dana seller',
-                          color: const Color.fromARGB(255, 14, 14, 15),
-                          onTap: () => Get.to(() => WithdrawalScreen()),
-                          badgeStream: supabase
-                              .from('withdrawal_requests')
-                              .stream(primaryKey: ['id']).map((event) {
-                            final data = event as List;
-                            final pendingCount = data
-                                .where((withdrawal) =>
-                                    withdrawal['status']
-                                        ?.toString()
-                                        .toLowerCase() ==
-                                    'pending')
-                                .length;
+                      SizedBox(height: 20),
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 1.5,
+                        children: [
+                          _buildMenuCard(
+                            icon: Icons.people,
+                            title: 'Kelola Users',
+                            subtitle: 'Atur pengguna & hak akses',
+                            color: Colors.blue,
+                            onTap: () => Get.to(() => UsersScreen()),
+                            badgeStream: supabase
+                                .from('users')
+                                .stream(primaryKey: ['id']).map((data) => data
+                                    .where(
+                                        (user) => user['status'] == 'pending')
+                                    .length),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.money,
+                            title: 'Pembayaran',
+                            subtitle: 'Rekap Pembayaran',
+                            color: Colors.blue,
+                            onTap: () =>
+                                Get.to(() => PaymentManagementScreen()),
+                            badgeStream: supabase
+                                .from('payment_groups')
+                                .stream(primaryKey: ['id']).map((data) => data
+                                    .where((payment) =>
+                                        payment['payment_status'] == 'pending')
+                                    .length),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.payments,
+                            title: 'Pencairan',
+                            subtitle: 'Pencairan dana seller',
+                            color: const Color.fromARGB(255, 14, 14, 15),
+                            onTap: () => Get.to(() => WithdrawalScreen()),
+                            badgeStream: supabase
+                                .from('withdrawal_requests')
+                                .stream(primaryKey: ['id']).map((event) {
+                              final data = event as List;
+                              final pendingCount = data
+                                  .where((withdrawal) =>
+                                      withdrawal['status']
+                                          ?.toString()
+                                          .toLowerCase() ==
+                                      'pending')
+                                  .length;
 
-                            return pendingCount;
-                          }).handleError((error) {
-                            return 0;
-                          }),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.chat,
-                          title: 'Chat',
-                          subtitle: 'Buyer',
-                          color: Colors.blue,
-                          onTap: () => Get.to(() => AdminChatScreen()),
-                          badgeStream: supabase
-                              .from('chats')
-                              .stream(primaryKey: ['id']).map((data) => data
-                                  .where((chat) =>
-                                      chat['is_read'] == false &&
-                                      chat['receiver_id'] ==
-                                          supabase.auth.currentUser?.id)
-                                  .length),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.store,
-                          title: 'Kelola Toko',
-                          subtitle: 'Kelola toko & produk',
-                          color: Colors.green,
-                          onTap: () => Get.to(() => StoresScreen()),
-                          badgeStream: supabase
-                              .from('merchants')
-                              .stream(primaryKey: ['id'])
-                              .eq('status', 'pending')
-                              .order('created_at')
-                              .map((data) => data.length),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.hotel,
-                          title: 'Hotel',
-                          subtitle: 'Kelola Hotel',
-                          color: Colors.green,
-                          onTap: () => Get.to(() => HotelManagementScreen()),
-                          badgeStream: supabase
-                              .from('hotel_bookings')
-                              .stream(primaryKey: ['id'])
-                              .map((data) => data
-                                  .where((booking) =>
-                                      booking['status'] == 'pending')
-                                  .length)
-                              .handleError((error) {
-                                print(
-                                    'DEBUG: Error getting hotel bookings count: $error');
-                                return 0;
-                              }),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.local_shipping_outlined,
-                          title: 'Tipe Pengiriman',
-                          subtitle: 'Lihat Daftar Tipe Pengiriman',
-                          color: Colors.teal,
-                          onTap: () => Get.to(() => PengirimanTypesScreen()),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.local_shipping,
-                          title: 'Pengiriman',
-                          subtitle: 'ACC Pengiriman',
-                          color: Colors.orange,
-                          onTap: () => Get.to(() => ShipmentsScreen()),
-                          badgeStream: supabase
-                              .from('orders')
-                              .stream(primaryKey: ['id']).map((event) {
-                            final data = event as List;
-                            final pendingCount = data
-                                .where((order) =>
-                                        order['status']
-                                                ?.toString()
-                                                .toLowerCase() ==
-                                            'pending' || // Menambahkan status pending
-                                        order['status']
-                                                ?.toString()
-                                                .toLowerCase() ==
-                                            'pending_cancellation' // Menambahkan status pending_cancellation
-                                    )
-                                .length;
+                              return pendingCount;
+                            }).handleError((error) {
+                              return 0;
+                            }),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.chat,
+                            title: 'Chat',
+                            subtitle: 'Buyer',
+                            color: Colors.blue,
+                            onTap: () => Get.to(() => AdminChatScreen()),
+                            badgeStream: supabase
+                                .from('chats')
+                                .stream(primaryKey: ['id']).map((data) => data
+                                    .where((chat) =>
+                                        chat['is_read'] == false &&
+                                        chat['receiver_id'] ==
+                                            supabase.auth.currentUser?.id)
+                                    .length),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.store,
+                            title: 'Kelola Toko',
+                            subtitle: 'Kelola toko & produk',
+                            color: Colors.green,
+                            onTap: () => Get.to(() => StoresScreen()),
+                            badgeStream: supabase
+                                .from('merchants')
+                                .stream(primaryKey: ['id'])
+                                .eq('status', 'pending')
+                                .order('created_at')
+                                .map((data) => data.length),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.hotel,
+                            title: 'Hotel',
+                            subtitle: 'Kelola Hotel',
+                            color: Colors.green,
+                            onTap: () => Get.to(() => HotelManagementScreen()),
+                            badgeStream: supabase
+                                .from('hotel_bookings')
+                                .stream(primaryKey: ['id'])
+                                .map((data) => data
+                                    .where((booking) =>
+                                        booking['status'] == 'pending')
+                                    .length)
+                                .handleError((error) {
+                                  print(
+                                      'DEBUG: Error getting hotel bookings count: $error');
+                                  return 0;
+                                }),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.local_shipping_outlined,
+                            title: 'Tipe Pengiriman',
+                            subtitle: 'Lihat Daftar Tipe Pengiriman',
+                            color: Colors.teal,
+                            onTap: () => Get.to(() => PengirimanTypesScreen()),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.local_shipping,
+                            title: 'Pengiriman',
+                            subtitle: 'ACC Pengiriman',
+                            color: Colors.orange,
+                            onTap: () => Get.to(() => ShipmentsScreen()),
+                            badgeStream: supabase
+                                .from('orders')
+                                .stream(primaryKey: ['id']).map((event) {
+                              final data = event as List;
+                              final pendingCount = data
+                                  .where((order) =>
+                                          order['status']
+                                                  ?.toString()
+                                                  .toLowerCase() ==
+                                              'pending' || // Menambahkan status pending
+                                          order['status']
+                                                  ?.toString()
+                                                  .toLowerCase() ==
+                                              'pending_cancellation' // Menambahkan status pending_cancellation
+                                      )
+                                  .length;
 
-                            return pendingCount;
-                          }).handleError((error) {
-                            return 0;
-                          }),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.local_shipping,
-                          title: 'Pengiriman',
-                          subtitle: 'Kelola Jasa Pengiriman',
-                          color: Colors.indigo,
-                          onTap: () => Get.to(() => PengirimanScreen()),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.campaign,
-                          title: 'Promosi',
-                          subtitle: 'Banner',
-                          color: Colors.red,
-                          onTap: () => Get.to(() => BannersScreen()),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.payments,
-                          title: 'Metode Pembayaran',
-                          subtitle: 'Atur metode pembayaran',
-                          color: const Color.fromARGB(255, 247, 0, 255),
-                          onTap: () => Get.to(() => PaymentMethodsScreen()),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.discount,
-                          title: 'Voucher',
-                          subtitle: 'Atur Voucher dan Diskon',
-                          color: Colors.teal,
-                          onTap: () => Get.to(() => VoucherScreen()),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.delete,
-                          title: 'Hapus Akun',
-                          subtitle: 'Seller & User',
-                          color: Colors.cyan,
-                          onTap: () => Get.to(() => AccountDeletionScreen()),
-                          badgeStream: supabase
-                              .from('account_deletion_requests')
-                              .stream(primaryKey: ['id']).map((data) => data
-                                  .where((request) =>
-                                      request['status'] == 'pending')
-                                  .length),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.store,
-                          title: 'Kelola Cabang',
-                          subtitle: 'Kelola Barang yang dikirim',
-                          color: Colors.cyan,
-                          onTap: () => Get.to(() => BranchProductsScreen()),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.receipt_long,
-                          title: 'Pesanan Branch',
-                          subtitle: 'Kelola pesanan manual cabang',
-                          color: Colors.deepPurple,
-                          onTap: () => Get.to(() => BranchOrdersScreen()),
-                          badgeStream: supabase
-                              .from('branch_orders')
-                              .stream(primaryKey: ['id']).map((data) => data
-                                  .where(
-                                      (order) => order['status'] == 'pending')
-                                  .length),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.admin_panel_settings,
-                          title: 'Akun Admin',
-                          subtitle: 'Kelola Akun Admin',
-                          color: Colors.red,
-                          onTap: () => Get.to(() => AdminAccountScreen()),
-                        ),
-                        _buildMenuCard(
-                          icon: Icons.hotel,
-                          title: 'Fee Admin Hotel',
-                          subtitle: 'Kelola Fee Admin Hotel',
-                          color: Colors.red,
-                          onTap: () => Get.to(() => AdminFeesScreen()),
-                        ),
-                      ],
-                    ),
-                  ],
+                              return pendingCount;
+                            }).handleError((error) {
+                              return 0;
+                            }),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.local_shipping,
+                            title: 'Pengiriman',
+                            subtitle: 'Kelola Jasa Pengiriman',
+                            color: Colors.indigo,
+                            onTap: () => Get.to(() => PengirimanScreen()),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.campaign,
+                            title: 'Promosi',
+                            subtitle: 'Banner',
+                            color: Colors.red,
+                            onTap: () => Get.to(() => BannersScreen()),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.payments,
+                            title: 'Metode Pembayaran',
+                            subtitle: 'Atur metode pembayaran',
+                            color: const Color.fromARGB(255, 247, 0, 255),
+                            onTap: () => Get.to(() => PaymentMethodsScreen()),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.discount,
+                            title: 'Voucher',
+                            subtitle: 'Atur Voucher dan Diskon',
+                            color: Colors.teal,
+                            onTap: () => Get.to(() => VoucherScreen()),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.delete,
+                            title: 'Hapus Akun',
+                            subtitle: 'Seller & User',
+                            color: Colors.cyan,
+                            onTap: () => Get.to(() => AccountDeletionScreen()),
+                            badgeStream: supabase
+                                .from('account_deletion_requests')
+                                .stream(primaryKey: ['id']).map((data) => data
+                                    .where((request) =>
+                                        request['status'] == 'pending')
+                                    .length),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.store,
+                            title: 'Kelola Cabang',
+                            subtitle: 'Kelola Barang yang dikirim',
+                            color: Colors.cyan,
+                            onTap: () => Get.to(() => BranchProductsScreen()),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.receipt_long,
+                            title: 'Pesanan Branch',
+                            subtitle: 'Kelola pesanan manual cabang',
+                            color: Colors.deepPurple,
+                            onTap: () => Get.to(() => BranchOrdersScreen()),
+                            badgeStream: supabase
+                                .from('branch_orders')
+                                .stream(primaryKey: ['id']).map((data) => data
+                                    .where(
+                                        (order) => order['status'] == 'pending')
+                                    .length),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.admin_panel_settings,
+                            title: 'Akun Admin',
+                            subtitle: 'Kelola Akun Admin',
+                            color: Colors.red,
+                            onTap: () => Get.to(() => AdminAccountScreen()),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.hotel,
+                            title: 'Fee Admin Hotel',
+                            subtitle: 'Kelola Fee Admin Hotel',
+                            color: Colors.red,
+                            onTap: () => Get.to(() => AdminFeesScreen()),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
