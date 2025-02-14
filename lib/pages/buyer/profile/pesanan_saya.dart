@@ -834,6 +834,23 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                // Tambahkan tombol untuk memberi rating jika belum diberi rating
+                if (!booking['has_rating'])
+                  ElevatedButton(
+                    onPressed: () => _showHotelRatingScreen(booking),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                    ),
+                    child: const Text(
+                      'Beri Rating',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
               ],
             ),
           ),
