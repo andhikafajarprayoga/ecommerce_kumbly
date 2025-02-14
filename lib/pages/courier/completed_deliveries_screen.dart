@@ -116,9 +116,13 @@ class _CompletedDeliveriesScreenState extends State<CompletedDeliveriesScreen> {
   }
 
   Widget _buildDeliveryCard(Map<String, dynamic> delivery) {
-    final completedDate = DateTime.parse(delivery['updated_at']);
-    final formattedDate =
-        DateFormat('dd MMM yyyy, HH:mm').format(completedDate);
+    final completedDateString = delivery['created_at'];
+    if (completedDateString == null) {
+      return const Center(child: Text('Tanggal tidak tersedia'));
+    }
+
+    final completedDate = DateTime.parse(completedDateString);
+    final formattedDate = DateFormat('dd MMM yyyy').format(completedDate);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -128,7 +132,7 @@ class _CompletedDeliveriesScreenState extends State<CompletedDeliveriesScreen> {
           child: Icon(Icons.check, color: Colors.white),
         ),
         title: Text(
-          'Order #${delivery['id'].toString().substring(0, 8)}',
+          'Order #${delivery['id']?.toString().substring(0, 8) ?? 'Tidak ada ID'}',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Text('Selesai pada: $formattedDate'),
@@ -152,7 +156,7 @@ class _CompletedDeliveriesScreenState extends State<CompletedDeliveriesScreen> {
                   ),
                   const SizedBox(height: 8),
                   Image.network(
-                    delivery['proof_of_delivery'],
+                    delivery['proof_of_delivery'] ?? '',
                     height: 200,
                     width: double.infinity,
                     fit: BoxFit.cover,

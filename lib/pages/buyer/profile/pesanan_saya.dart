@@ -404,22 +404,6 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
               ),
             ),
           )
-        else if (status == 'completed' && !hasRating)
-          TextButton.icon(
-            onPressed: () => _showRatingScreen(order),
-            icon: const Icon(
-              Icons.star_outline,
-              color: Colors.amber,
-              size: 18,
-            ),
-            label: Text(
-              'Beri Rating',
-              style: AppTheme.textTheme.bodySmall?.copyWith(
-                color: Colors.amber.shade900,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          )
         else if (status == 'delivered')
           TextButton.icon(
             onPressed: () => _showCompleteOrderDialog(order),
@@ -823,24 +807,6 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (booking['status'] == 'completed' &&
-                    !(booking['has_rating'] ?? false))
-                  TextButton.icon(
-                    onPressed: () => _showHotelRatingScreen(booking),
-                    icon: const Icon(
-                      Icons.star_outline,
-                      color: Colors.amber,
-                      size: 18,
-                    ),
-                    label: Text(
-                      'Beri Rating',
-                      style: TextStyle(
-                        color: Colors.amber.shade900,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () {
                     Get.to(() => DetailPesananHotelScreen(booking: booking));

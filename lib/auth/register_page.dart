@@ -134,7 +134,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       const Text(
                         'Buat Akun Baru',
                         style: TextStyle(
-                          fontSize: 25,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),

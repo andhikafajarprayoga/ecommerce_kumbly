@@ -46,16 +46,19 @@ class HelpScreen extends StatelessWidget {
               'Bagaimana cara membatalkan pesanan?',
               'Bagaimana cara melacak pesanan?',
               'Berapa lama waktu pengiriman?',
-            ]),
-            _buildFAQSection('Pembayaran', [
-              'Metode pembayaran apa saja yang tersedia?',
-              'Bagaimana cara memproses refund?',
-              'Berapa lama proses refund?',
+            ], [
+              'Untuk membatalkan pesanan:\n1. Buka halaman detail pesanan\n2. Tekan tombol "Batalkan Pesanan"\n3. Pilih alasan pembatalan\n4. Konfirmasi pembatalan',
+              'Untuk melacak pesanan:\n1. Buka menu "Pesanan Saya"\n2. Pilih pesanan yang ingin dilacak\n3. Lihat status pengiriman dan lokasi terkini',
+              'Waktu pengiriman tergantung pada:\n- Lokasi tujuan (1-3 hari dalam kota)\n- Metode pengiriman yang dipilih\n- Jam operasional (Senin-Sabtu)',
             ]),
             _buildFAQSection('Akun', [
               'Bagaimana cara mengubah password?',
               'Cara menambahkan alamat pengiriman',
               'Cara mengubah email',
+            ], [
+              'Untuk mengubah password:\n1. Buka menu "Profil"\n2. Pilih "Pengaturan Akun"\n3. Pilih "Ubah Password"\n4. Masukkan password lama\n5. Masukkan password baru\n6. Konfirmasi password baru\n7. Tekan tombol "Simpan"',
+              'Untuk menambah alamat pengiriman:\n1. Buka menu "Profil"\n2. Pilih "Alamat Saya"\n3. Tekan tombol "+" atau "Tambah Alamat"\n4. Isi detail alamat (nama, nomor telepon, alamat lengkap)\n5. Pilih lokasi di peta\n6. Tekan tombol "Simpan Alamat"',
+              'Untuk mengubah email:\n1. Buka menu "Profil"\n2. Pilih "Pengaturan Akun"\n3. Pilih "Ubah Email"\n4. Masukkan email baru\n5. Verifikasi email baru melalui link yang dikirim\n6. Masukkan password untuk konfirmasi\n7. Tekan tombol "Simpan"',
             ]),
           ],
         ),
@@ -63,7 +66,8 @@ class HelpScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFAQSection(String title, List<String> questions) {
+  Widget _buildFAQSection(String title, List<String> questions,
+      [List<String>? answers]) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       decoration: BoxDecoration(
@@ -86,13 +90,21 @@ class HelpScreen extends StatelessWidget {
             fontSize: 16,
           ),
         ),
-        children: questions.map((question) {
-          return ListTile(
+        children: questions.asMap().entries.map((entry) {
+          final int idx = entry.key;
+          final String question = entry.value;
+          return ExpansionTile(
             title: Text(question),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              // Implementasi navigasi ke detail bantuan
-            },
+            children: [
+              if (answers != null && idx < answers.length)
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    answers[idx],
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+            ],
           );
         }).toList(),
       ),
