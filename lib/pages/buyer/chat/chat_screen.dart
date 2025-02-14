@@ -9,6 +9,7 @@ import 'package:kumbly_ecommerce/auth/register_page.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/date_formatter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:convert';
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -27,6 +28,16 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     if (supabase.auth.currentUser != null) {
       _initializeChatRooms();
+
+      // Initialize notification tap handler
+      flutterLocalNotificationsPlugin.initialize(
+        const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+        ),
+        onDidReceiveNotificationResponse: (details) {
+          _handleNotificationTap(details.payload);
+        },
+      );
     }
   }
 
@@ -711,12 +722,36 @@ class _ChatScreenState extends State<ChatScreen> {
       android: androidDetails,
     );
 
+    // Buat payload JSON yang valid
+    final payload = jsonEncode({
+      'type': 'chat',
+      'route': '/chat',
+      'data': {
+        'title': title,
+        'message': body,
+      }
+    });
+
     await flutterLocalNotificationsPlugin.show(
       DateTime.now().millisecond,
       title,
       body,
       platformDetails,
-      payload: 'chat',
+      payload: payload,
     );
+  }
+
+  // Tambahkan fungsi ini untuk handle notification tap
+  void _handleNotificationTap(String? payload) {
+    if (payload == null) return;
+
+    try {
+      final data = jsonDecode(payload);
+      if (data['type'] == 'chat') {
+        Get.toNamed(data['route']);
+      }
+    } catch (e) {
+      print('Error handling notification tap: $e');
+    }
   }
 }
