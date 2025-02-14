@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:rxdart/rxdart.dart' as rx;
 import 'package:get/get.dart';
 import 'dart:async';
+import '../../../services/notification_service.dart';
 
 class AdminChatScreen extends StatefulWidget {
   @override
@@ -18,6 +19,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   final supabase = Supabase.instance.client;
   final RxList<Map<String, dynamic>> chatRooms = <Map<String, dynamic>>[].obs;
   final isLoading = true.obs;
+  final messages = <Map<String, dynamic>>[].obs;
   StreamSubscription? _roomsSubscription;
   StreamSubscription? _messagesSubscription;
 
@@ -25,7 +27,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   void initState() {
     super.initState();
     _initializeChatRooms();
-    _listenToMessages();
+    _setupMessageStream();
   }
 
   @override
@@ -36,15 +38,11 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   }
 
   void _initializeChatRooms() async {
-    print('DEBUG: Initializing chat rooms...');
-
     // Initial fetch
     final data = await supabase
         .from('admin_chat_rooms')
         .select()
         .order('updated_at', ascending: false);
-
-    print('DEBUG: Found ${data.length} chat rooms');
 
     await _enrichRooms(data);
 
@@ -65,105 +63,86 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         );
   }
 
-  void _listenToMessages() {
-    print('DEBUG: Setting up message listener...');
+  void _setupMessageStream() {
+    print('DEBUG: Setting up message stream...');
 
     _messagesSubscription = supabase
         .from('admin_messages')
         .stream(primaryKey: ['id'])
+        .eq('is_read', false)
         .order('created_at', ascending: false)
-        .listen(
-          (messages) {
-            if (messages.isEmpty) {
-              print('DEBUG: No new messages received in stream');
-              return;
-            }
+        .map((event) => event as List<Map<String, dynamic>>)
+        .listen((newMessages) {
+          messages.assignAll(newMessages);
+          _processNewMessages(newMessages);
+        });
+  }
 
-            print('\nDEBUG: Message stream update:');
-            print('  - Number of messages: ${messages.length}');
+  void _processNewMessages(List<Map<String, dynamic>> newMessages) {
+    for (var message in newMessages) {
+      final messageTime = DateTime.parse(message['created_at']);
+      final currentTime = DateTime.now();
 
-            // Group messages by chat room
-            final messagesByRoom = <String, Map<String, dynamic>>{};
-            for (var message in messages) {
-              final roomId = message['chat_room_id'];
-              if (!messagesByRoom.containsKey(roomId) ||
-                  DateTime.parse(message['created_at']).isAfter(
-                      DateTime.parse(messagesByRoom[roomId]!['created_at']))) {
-                messagesByRoom[roomId] = message;
-              }
-            }
+      if (currentTime.difference(messageTime).inSeconds <= 30) {
+        print('DEBUG: Processing message: ${message['content']}');
 
-            // Update rooms with latest messages
-            for (var entry in messagesByRoom.entries) {
-              final roomId = entry.key;
-              final message = entry.value;
-              final roomIndex =
-                  chatRooms.indexWhere((room) => room['id'] == roomId);
+        if (message['sender_id'] != supabase.auth.currentUser!.id) {
+          _showNotificationAndUpdateUI(message);
+        }
+      }
+    }
+  }
 
-              if (roomIndex != -1) {
-                print('DEBUG: Updating room $roomId:');
-                print('  - New message: ${message['content']}');
-                print('  - Time: ${message['created_at']}');
+  Future<void> _showNotificationAndUpdateUI(
+      Map<String, dynamic> message) async {
+    try {
+      final sender = await supabase
+          .from('merchants')
+          .select('store_name')
+          .eq('id', message['sender_id'])
+          .single();
 
-                chatRooms[roomIndex] = {
-                  ...chatRooms[roomIndex],
-                  'last_message': message['content'],
-                  'last_message_time': message['created_at'],
-                  'unread_count':
-                      message['sender_id'] != supabase.auth.currentUser!.id
-                          ? (chatRooms[roomIndex]['unread_count'] ?? 0) + 1
-                          : chatRooms[roomIndex]['unread_count'] ?? 0,
-                };
-              }
-            }
+      // Show notification
+      await NotificationService.showChatNotification(
+        title: sender['store_name'] ?? 'Unknown Merchant',
+        body: message['content'],
+        roomId: message['chat_room_id'],
+        senderId: message['sender_id'],
+        messageId: message['id'],
+      );
 
-            // Update unread count dengan memperhatikan is_read
-            for (var entry in messagesByRoom.entries) {
-              final roomId = entry.key;
-              final roomIndex =
-                  chatRooms.indexWhere((room) => room['id'] == roomId);
+      // Update room in UI
+      final roomIndex =
+          chatRooms.indexWhere((room) => room['id'] == message['chat_room_id']);
+      if (roomIndex != -1) {
+        chatRooms[roomIndex] = {
+          ...chatRooms[roomIndex],
+          'last_message': message['content'],
+          'last_message_time': message['created_at'],
+          'unread_count': await _getUnreadCount(message['chat_room_id']),
+        };
 
-              if (roomIndex != -1) {
-                // Hitung ulang unread_count berdasarkan is_read yang aktual
-                final unreadCount = messages
-                    .where((msg) =>
-                        msg['chat_room_id'] == roomId &&
-                        msg['sender_id'] != supabase.auth.currentUser!.id &&
-                        msg['is_read'] == false)
-                    .length;
+        // Sort rooms
+        chatRooms.sort((a, b) {
+          final aTime =
+              DateTime.parse(a['last_message_time'] ?? a['created_at']);
+          final bTime =
+              DateTime.parse(b['last_message_time'] ?? b['created_at']);
+          return bTime.compareTo(aTime);
+        });
 
-                chatRooms[roomIndex] = {
-                  ...chatRooms[roomIndex],
-                  'unread_count': unreadCount,
-                };
-              }
-            }
-
-            // Sort rooms by latest message
-            chatRooms.sort((a, b) {
-              final aTime =
-                  DateTime.parse(a['last_message_time'] ?? a['created_at']);
-              final bTime =
-                  DateTime.parse(b['last_message_time'] ?? b['created_at']);
-              return bTime.compareTo(aTime);
-            });
-
-            chatRooms.refresh();
-          },
-          onError: (error) {
-            print('ERROR: Message stream error: $error');
-          },
-        );
+        chatRooms.refresh();
+      }
+    } catch (e) {
+      print('ERROR: Failed to process message: $e');
+    }
   }
 
   Future<void> _enrichRooms(List<Map<String, dynamic>> rooms) async {
-    print('\nDEBUG: Enriching ${rooms.length} rooms...');
     List<Map<String, dynamic>> enrichedRooms = [];
 
     for (var room in rooms) {
       try {
-        print('\nDEBUG: Processing room ${room['id']}');
-
         // Get buyer data
         final buyerData = await supabase
             .from('users')
@@ -179,17 +158,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             .order('created_at',
                 ascending: true); // Ubah ke true untuk konsistensi
 
-        print('\nDEBUG: Messages for room ${room['id']}:');
-        print('  - Total messages: ${lastMessages.length}');
-
         final lastMessage = lastMessages.isNotEmpty
             ? lastMessages.last
             : null; // Gunakan last karena ascending
         final unreadCount = await _getUnreadCount(room['id']);
-
-        print('DEBUG: Room ${room['id']} processed data:');
-        print('  - Last message content: ${lastMessage?['content']}');
-        print('  - Last message time: ${lastMessage?['created_at']}');
 
         enrichedRooms.add({
           ...room,
@@ -450,8 +422,6 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   String _formatTime(String timestamp) {
     try {
       final date = DateTime.parse(timestamp);
-      print('DEBUG: Formatting time:');
-      print('  - Original: $timestamp');
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
