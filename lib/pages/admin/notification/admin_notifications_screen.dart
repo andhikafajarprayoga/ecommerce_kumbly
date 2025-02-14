@@ -4,6 +4,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../../controllers/admin_notification_controller.dart';
 import '../../../theme/app_theme.dart';
 import '../../../services/local_notification_service.dart';
+import '../../../services/admin_background_notification_service.dart';
 
 class AdminNotificationsScreen extends StatefulWidget {
   @override
@@ -15,6 +16,8 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   final controller = Get.find<AdminNotificationController>();
   final LocalNotificationService _notificationService =
       LocalNotificationService();
+  final AdminBackgroundNotificationService _backgroundService =
+      AdminBackgroundNotificationService();
   int lastNotificationCount = 0;
 
   @override
@@ -22,6 +25,13 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     super.initState();
     _initializeNotifications();
     _setupNotificationListener();
+    _backgroundService.initialize();
+  }
+
+  @override
+  void dispose() {
+    _backgroundService.dispose();
+    super.dispose();
   }
 
   Future<void> _initializeNotifications() async {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import '../../theme/app_theme.dart';
+import '../../services/courier_notification_service.dart';
 
 class CourierNotificationsScreen extends StatefulWidget {
   @override
@@ -12,81 +12,103 @@ class CourierNotificationsScreen extends StatefulWidget {
 
 class _CourierNotificationsScreenState
     extends State<CourierNotificationsScreen> {
-  final supabase = Supabase.instance.client;
-  final RxList<Map<String, dynamic>> notifications =
-      <Map<String, dynamic>>[].obs;
-  final isLoading = true.obs;
+  final CourierNotificationService _notificationService =
+      CourierNotificationService();
 
   @override
   void initState() {
     super.initState();
-    fetchNotifications();
-  }
-
-  Future<void> fetchNotifications() async {
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      final response = await supabase
-          .from('notification_courier')
-          .select()
-          .order('created_at', ascending: false);
-
-      notifications.assignAll(response);
-
-      await supabase
-          .from('notification_courier')
-          .update({'status': 'read'}).eq('status', 'unread');
-    } catch (e) {
-      print('Error fetching notifications: $e');
-    } finally {
-      isLoading.value = false;
-    }
+    _notificationService.initializeNotifications();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Notifikasi', style: TextStyle(color: Colors.white)),
+        title: Text('Notifikasi Kurir', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.blue,
-        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Obx(() => _notificationService.notifications.isNotEmpty
+              ? TextButton.icon(
+                  onPressed: _markAllAsRead,
+                  icon: Icon(Icons.done_all, color: Colors.white),
+                  label: Text(
+                    'Baca Semua',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                )
+              : SizedBox()),
+        ],
       ),
       body: Obx(() {
-        if (isLoading.value) {
+        if (_notificationService.isLoading) {
           return Center(child: CircularProgressIndicator());
         }
 
-        if (notifications.isEmpty) {
+        if (_notificationService.notifications.isEmpty) {
           return Center(child: Text('Tidak ada notifikasi'));
         }
 
         return ListView.builder(
-          itemCount: notifications.length,
+          itemCount: _notificationService.notifications.length,
           itemBuilder: (context, index) {
-            final notification = notifications[index];
-            return Card(
-              margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ListTile(
-                leading: Icon(
-                  Icons.notifications,
-                  color: notification['status'] == 'read'
-                      ? Colors.grey
-                      : Colors.blue,
-                ),
-                title: Text(notification['message'] ?? ''),
-                subtitle: Text(
-                  DateFormat('dd MMM yyyy HH:mm').format(
-                    DateTime.parse(notification['created_at']),
-                  ),
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ),
-            );
+            final notification = _notificationService.notifications[index];
+            return _buildNotificationItem(notification);
           },
         );
       }),
     );
+  }
+
+  Widget _buildNotificationItem(Map<String, dynamic> notification) {
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.blue.withOpacity(0.1),
+          child: Icon(Icons.local_shipping, color: Colors.blue),
+        ),
+        title: Text(notification['message'] ?? ''),
+        subtitle: Text(
+          timeago.format(DateTime.parse(notification['created_at'])),
+          style: TextStyle(fontSize: 12),
+        ),
+        tileColor: notification['status'] == 'unread'
+            ? Colors.blue.withOpacity(0.1)
+            : null,
+        onTap: () {
+          _notificationService.markAsRead(notification['id']);
+          if (notification['order_id'] != null) {
+            // Navigate to order details
+            // Get.toNamed('/courier/orders/${notification['order_id']}');
+          }
+        },
+      ),
+    );
+  }
+
+  Future<void> _markAllAsRead() async {
+    try {
+      await _notificationService.client
+          .from('notification_courier')
+          .update({'status': 'read'}).eq('status', 'unread');
+
+      await _notificationService.initializeNotifications();
+
+      Get.snackbar(
+        'Sukses',
+        'Semua notifikasi telah ditandai sebagai dibaca',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      print('Error marking all as read: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal menandai semua notifikasi',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 }

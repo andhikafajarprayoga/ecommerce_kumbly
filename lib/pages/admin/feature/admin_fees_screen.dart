@@ -136,6 +136,7 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
                   }
                   Navigator.of(context)
                       .pop(); // Close dialog after successful operation
+                  setState(() {}); // Tambahkan ini untuk refresh tampilan
                   Get.snackbar(
                     'Sukses',
                     fee == null

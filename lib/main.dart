@@ -5,7 +5,7 @@ import 'auth/login_page.dart';
 import 'auth/register_page.dart';
 import 'pages/buyer/home_screen.dart';
 import 'controllers/auth_controller.dart';
-import 'screens/home_screen.dart';
+
 import 'pages/admin/home_screen.dart';
 import 'pages/courier/home_screen.dart';
 import 'pages/branch/home_screen.dart';
@@ -14,8 +14,9 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 import 'services/local_notification_service.dart';
 import 'services/notification_service.dart';
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/services.dart';
+import 'services/courier_background_notification_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -85,6 +86,9 @@ void main() async {
   Get.put(AuthController());
   Get.put(RouteObserver<Route>());
   // Get.put(CartController());
+
+  // Hanya inisialisasi background service
+  await CourierBackgroundNotificationService().initialize();
 
   runApp(GetMaterialApp(
     title: 'E-Commerce App',
