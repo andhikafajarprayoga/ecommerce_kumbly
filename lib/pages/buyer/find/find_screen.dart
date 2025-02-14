@@ -344,12 +344,21 @@ class _FindScreenState extends State<FindScreen> {
                   onPressed: () {
                     try {
                       // Konversi string ke integer dengan menghapus format ribuan
-                      int minPrice = int.parse(minPriceController.text
-                          .replaceAll(RegExp(r'[^0-9]'), ''));
-                      int maxPrice = int.parse(maxPriceController.text
-                          .replaceAll(RegExp(r'[^0-9]'), ''));
+                      int? minPrice = minPriceController.text.isEmpty
+                          ? null
+                          : int.parse(minPriceController.text
+                              .replaceAll(RegExp(r'[^0-9]'), ''));
 
-                      if (minPrice > maxPrice && maxPrice != 0) {
+                      int? maxPrice = maxPriceController.text.isEmpty
+                          ? null
+                          : int.parse(maxPriceController.text
+                              .replaceAll(RegExp(r'[^0-9]'), ''));
+
+                      // Validasi hanya jika kedua nilai diisi
+                      if (minPrice != null &&
+                          maxPrice != null &&
+                          minPrice > maxPrice &&
+                          maxPrice != 0) {
                         Get.snackbar(
                           'Error',
                           'Harga minimum tidak boleh lebih besar dari harga maksimum',
@@ -359,7 +368,10 @@ class _FindScreenState extends State<FindScreen> {
                         return;
                       }
 
-                      productController.filterByPriceRange(minPrice, maxPrice);
+                      // Gunakan nilai null jika field kosong
+                      // Jika hanya minPrice yang diisi, gunakan minPrice dan biarkan maxPrice null
+                      productController.filterByPriceRange(
+                          minPrice ?? 0, maxPrice ?? 999999999);
                       Get.back();
                     } catch (e) {
                       print('Error applying price filter: $e');
