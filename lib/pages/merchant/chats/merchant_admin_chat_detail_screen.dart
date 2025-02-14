@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
+import '../../../services/notification_service.dart';
 
 class MessageGroup {
   final DateTime date;
@@ -84,10 +85,24 @@ class _MerchantAdminChatDetailScreenState
         .eq('chat_room_id', widget.chatRoom['id'])
         .order('created_at', ascending: true)
         .listen(
-          (data) {
-            print('\nDEBUG: New message received');
-            print('  - Number of messages: ${data.length}');
+          (data) async {
             messages.assignAll(data);
+
+            // Cek pesan baru
+            final newMessages = data.where((msg) =>
+                msg['sender_id'] != supabase.auth.currentUser?.id &&
+                msg['is_read'] == false);
+
+            // Tampilkan notifikasi untuk setiap pesan baru
+            for (var msg in newMessages) {
+              await NotificationService.showChatNotification(
+                title: 'Pesan Baru dari Admin',
+                body: msg['content'],
+                roomId: widget.chatRoom['id'],
+                senderId: msg['sender_id'],
+                messageId: msg['id'],
+              );
+            }
 
             if (data.length > messages.length) {
               WidgetsBinding.instance.addPostFrameCallback((_) {

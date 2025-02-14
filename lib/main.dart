@@ -14,6 +14,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 import 'services/local_notification_service.dart';
 import 'services/notification_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -67,6 +69,16 @@ void main() async {
     ),
     debug: true,
   );
+
+  // Setup lifecycle observer untuk mendeteksi status aplikasi
+  SystemChannels.lifecycle.setMessageHandler((msg) {
+    if (msg == AppLifecycleState.paused.toString()) {
+      NotificationService.isAppInForeground = false;
+    } else if (msg == AppLifecycleState.resumed.toString()) {
+      NotificationService.isAppInForeground = true;
+    }
+    return Future.value(msg);
+  });
 
   await NotificationService.initialize();
 

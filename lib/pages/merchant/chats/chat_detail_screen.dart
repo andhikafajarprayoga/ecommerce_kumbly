@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
+import 'package:kumbly_ecommerce/services/notification_service.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final String roomId;
@@ -25,12 +26,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final RxList<Map<String, dynamic>> _messages = <Map<String, dynamic>>[].obs;
   final ScrollController _scrollController = ScrollController();
   bool _isFirstLoad = true;
+  bool _isActive = false;
 
   @override
   void initState() {
     super.initState();
+    _isActive = true;
     _fetchMessages();
     _listenForNewMessages();
+  }
+
+  @override
+  void dispose() {
+    _isActive = false;
+    super.dispose();
   }
 
   void _scrollToBottom() {
@@ -83,9 +92,33 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         .stream(primaryKey: ['id'])
         .eq('room_id', widget.roomId)
         .order('created_at', ascending: true)
-        .listen((data) {
+        .listen((data) async {
           _messages.assignAll(data);
-          // Scroll ke bawah setiap kali ada pesan baru
+
+          // Cek pesan baru yang belum dibaca
+          final newMessages = data.where((msg) =>
+              msg['sender_id'] != widget.currentUserId &&
+              msg['is_read'] == false);
+
+          // Tampilkan notifikasi hanya jika screen tidak aktif
+          if (!_isActive) {
+            for (var msg in newMessages) {
+              final sender = await _supabase
+                  .from('users')
+                  .select('full_name')
+                  .eq('id', msg['sender_id'])
+                  .single();
+
+              await NotificationService.showChatNotification(
+                title: sender['full_name'] ?? 'Unknown User',
+                body: msg['message'],
+                roomId: widget.roomId,
+                senderId: msg['sender_id'],
+                messageId: msg['id'],
+              );
+            }
+          }
+
           WidgetsBinding.instance
               .addPostFrameCallback((_) => _scrollToBottom());
         });
