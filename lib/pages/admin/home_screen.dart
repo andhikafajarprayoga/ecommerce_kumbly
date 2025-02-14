@@ -24,6 +24,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'pengiriman/pengiriman_screen.dart';
 import './account/admin_account_screen.dart';
 import 'pengiriman/pengiriman_types_screen.dart';
+import 'feature/admin_fees_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -276,6 +277,13 @@ class AdminHomeScreen extends StatelessWidget {
                           subtitle: 'Kelola Akun Admin',
                           color: Colors.red,
                           onTap: () => Get.to(() => AdminAccountScreen()),
+                        ),
+                        _buildMenuCard(
+                          icon: Icons.hotel,
+                          title: 'Fee Admin Hotel',
+                          subtitle: 'Kelola Fee Admin Hotel',
+                          color: Colors.red,
+                          onTap: () => Get.to(() => AdminFeesScreen()),
                         ),
                       ],
                     ),
