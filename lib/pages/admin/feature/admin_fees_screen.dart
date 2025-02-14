@@ -91,6 +91,7 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
 
     await showDialog(
       context: context,
+      barrierDismissible: false, // Prevent dismissing by tapping outside
       builder: (context) => AlertDialog(
         title: Text(fee == null ? 'Tambah Fee' : 'Edit Fee'),
         content: Form(
@@ -121,18 +122,38 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Get.back(),
+            onPressed: () => Navigator.of(context).pop(),
             child: Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () async {
               if (_formKey.currentState!.validate()) {
-                if (fee == null) {
-                  await _addFee();
-                } else {
-                  await _updateFee(fee['id']);
+                try {
+                  if (fee == null) {
+                    await _addFee();
+                  } else {
+                    await _updateFee(fee['id']);
+                  }
+                  Navigator.of(context)
+                      .pop(); // Close dialog after successful operation
+                  Get.snackbar(
+                    'Sukses',
+                    fee == null
+                        ? 'Fee berhasil ditambahkan'
+                        : 'Fee berhasil diperbarui',
+                    backgroundColor: const Color.fromARGB(255, 103, 181, 92),
+                    duration: Duration(seconds: 2),
+                  );
+                } catch (e) {
+                  Get.snackbar(
+                    'Error',
+                    fee == null
+                        ? 'Gagal menambahkan fee: $e'
+                        : 'Gagal memperbarui fee: $e',
+                    backgroundColor: Colors.red[100],
+                    duration: Duration(seconds: 2),
+                  );
                 }
-                Get.back();
               }
             },
             child: Text(fee == null ? 'Tambah' : 'Simpan'),
@@ -143,27 +164,17 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
   }
 
   Future<void> _addFee() async {
-    try {
-      await supabase.from('admin_fees').insert({
-        'name': _nameController.text,
-        'fee': double.parse(_feeController.text),
-      });
-      Get.snackbar('Sukses', 'Fee berhasil ditambahkan');
-    } catch (e) {
-      Get.snackbar('Error', 'Gagal menambahkan fee: $e');
-    }
+    await supabase.from('admin_fees').insert({
+      'name': _nameController.text,
+      'fee': double.parse(_feeController.text),
+    });
   }
 
   Future<void> _updateFee(int id) async {
-    try {
-      await supabase.from('admin_fees').update({
-        'name': _nameController.text,
-        'fee': double.parse(_feeController.text),
-      }).eq('id', id);
-      Get.snackbar('Sukses', 'Fee berhasil diperbarui');
-    } catch (e) {
-      Get.snackbar('Error', 'Gagal memperbarui fee: $e');
-    }
+    await supabase.from('admin_fees').update({
+      'name': _nameController.text,
+      'fee': double.parse(_feeController.text),
+    }).eq('id', id);
   }
 
   Future<void> _updateStatus(int id, bool status) async {
