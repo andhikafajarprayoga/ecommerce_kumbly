@@ -46,16 +46,18 @@ class BackgroundNotificationService {
         .stream(primaryKey: ['id'])
         .eq('user_id', supabase.auth.currentUser?.id ?? '')
         .listen((List<Map<String, dynamic>> notifications) {
-          for (var notification in notifications) {
-            if (!_notifiedIds.contains(notification['id']) &&
-                notification['is_read'] == false) {
+          // Hanya proses notifikasi terbaru
+          if (notifications.isNotEmpty) {
+            final latestNotif = notifications.first;
+            if (!_notifiedIds.contains(latestNotif['id']) &&
+                latestNotif['is_read'] == false) {
               _showNotification(
-                id: notification['id'],
-                title: notification['title'],
-                body: notification['message'],
-                type: notification['type'],
+                id: latestNotif['id'],
+                title: latestNotif['title'],
+                body: latestNotif['message'],
+                type: latestNotif['type'],
               );
-              _notifiedIds.add(notification['id']);
+              _notifiedIds.add(latestNotif['id']);
             }
           }
         });

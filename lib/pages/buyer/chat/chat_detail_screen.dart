@@ -66,20 +66,35 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
 
-    if (widget.isAdminRoom) {
-      await supabase
-          .from('admin_messages')
-          .update({'is_read': true})
-          .eq('chat_room_id', widget.chatRoom['id'])
-          .neq('sender_id', userId)
-          .eq('is_read', false);
-    } else {
-      await supabase
-          .from('chat_messages')
-          .update({'is_read': true})
-          .eq('room_id', widget.chatRoom['id'])
-          .neq('sender_id', userId)
-          .eq('is_read', false);
+    try {
+      if (widget.isAdminRoom) {
+        final response = await supabase
+            .from('admin_messages')
+            .update({'is_read': true})
+            .eq('chat_room_id', widget.chatRoom['id'])
+            .neq('sender_id', userId)
+            .eq('is_read', false);
+
+        print('Update admin messages response: $response');
+
+        // Verifikasi update berhasil
+        final updatedMessages = await supabase
+            .from('admin_messages')
+            .select()
+            .eq('chat_room_id', widget.chatRoom['id'])
+            .eq('is_read', false);
+
+        print('Messages still unread: ${updatedMessages.length}');
+      } else {
+        await supabase
+            .from('chat_messages')
+            .update({'is_read': true})
+            .eq('room_id', widget.chatRoom['id'])
+            .neq('sender_id', userId)
+            .eq('is_read', false);
+      }
+    } catch (e) {
+      print('Error marking messages as read: $e');
     }
   }
 
@@ -89,29 +104,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
 
+    final messageContent = _messageController.text;
+    _messageController.clear();
+    FocusScope.of(context).unfocus();
+
     try {
       if (widget.isAdminRoom) {
         await supabase.from('admin_messages').insert({
           'chat_room_id': widget.chatRoom['id'],
           'sender_id': userId,
-          'content': _messageController.text,
+          'content': messageContent,
           'is_read': false,
-        });
+        }).select();
+
+        // Update last_message di admin_chat_rooms
+        await supabase.from('admin_chat_rooms').update({
+          'last_message': messageContent,
+          'last_message_time': DateTime.now().toIso8601String(),
+          'last_message_sender_id': userId
+        }).eq('id', widget.chatRoom['id']);
       } else {
         await supabase.from('chat_messages').insert({
           'room_id': widget.chatRoom['id'],
           'sender_id': userId,
-          'message': _messageController.text,
+          'message': messageContent,
           'is_read': false,
         });
       }
 
-      FocusScope.of(context).unfocus();
-      setState(() {
-        _messageController.clear();
-      });
-
-      // Scroll ke bawah setelah mengirim pesan
       _scrollToBottom();
     } catch (e) {
       print('Error sending message: $e');
@@ -336,6 +356,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           Expanded(
             child: TextField(
               controller: _messageController,
+              textInputAction: TextInputAction.send,
+              onEditingComplete: () {
+                _sendMessage();
+              },
+              keyboardType: TextInputType.multiline,
+              maxLines: 1,
               decoration: InputDecoration(
                 hintText: 'Tulis pesan...',
                 border: OutlineInputBorder(
