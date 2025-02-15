@@ -115,19 +115,31 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                     order['status'] == 'processing')
                 .length;
 
-            // Hitung jemput paket cabang (branch_pickup)
-            _branchPickupCount.value = data
-                .where((order) =>
-                    order['courier_id'] == userId &&
-                    order['status'] == 'branch_pickup')
-                .length;
+            // Ambil data branch_products untuk badge count jemput paket
+            final branchPickupResponse = await supabase
+                .from('branch_products')
+                .select()
+                .eq('status', 'received')
+                .filter('courier_id', 'is', null);
 
-            // Hitung paket dari cabang (branch_delivery)
-            _branchPackagesCount.value = data
-                .where((order) =>
-                    order['courier_id'] == userId &&
-                    order['status'] == 'branch_delivery')
-                .length;
+            // Update badge count untuk jemput paket cabang
+            _branchPickupCount.value = branchPickupResponse.length;
+
+            print('DEBUG: Branch pickup count: ${_branchPickupCount.value}');
+
+            // Ambil data branch_products untuk badge count paket dari cabang
+            final branchDeliveryResponse = await supabase
+                .from('branch_products')
+                .select()
+                .eq('courier_id', userId)
+                .eq('status', 'received')
+                .isFilter('shipping_status', null); // Belum dikirim
+
+            // Update badge count untuk paket dari cabang
+            _branchPackagesCount.value = branchDeliveryResponse.length;
+
+            print(
+                'DEBUG: Branch delivery count: ${_branchPackagesCount.value}');
 
             // Tambahkan perhitungan untuk pengiriman selesai
             _completedDeliveriesCount.value = data
