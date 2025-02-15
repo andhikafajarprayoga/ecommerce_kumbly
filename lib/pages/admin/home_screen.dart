@@ -25,6 +25,7 @@ import 'pengiriman/pengiriman_screen.dart';
 import './account/admin_account_screen.dart';
 import 'pengiriman/pengiriman_types_screen.dart';
 import 'feature/admin_fees_screen.dart';
+import 'feature/complete_orders_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -293,6 +294,18 @@ class AdminHomeScreen extends StatelessWidget {
                             subtitle: 'Kelola Fee Admin Hotel',
                             color: Colors.red,
                             onTap: () => Get.to(() => AdminFeesScreen()),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.check_circle_outline,
+                            title: 'Selesaikan Pesanan',
+                            subtitle: 'Selesaikan pesanan yang sudah terkirim',
+                            color: Colors.green,
+                            onTap: () => Get.to(() => CompleteOrdersScreen()),
+                            badgeStream: supabase
+                                .from('orders')
+                                .stream(primaryKey: ['id'])
+                                .eq('status', 'delivered')
+                                .map((data) => data.length),
                           ),
                         ],
                       ),
