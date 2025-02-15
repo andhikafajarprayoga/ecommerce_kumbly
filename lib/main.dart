@@ -18,6 +18,7 @@ import 'services/notification_service.dart';
 import 'package:flutter/services.dart';
 import 'services/courier_background_notification_service.dart';
 import 'services/admin_background_notification_service.dart';
+import 'services/background_notification_service.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -93,6 +94,9 @@ void main() async {
 
   // Inisialisasi admin background service
   await AdminBackgroundNotificationService().initialize();
+
+  // Initialize background notifications
+  await BackgroundNotificationService.initialize();
 
   runApp(GetMaterialApp(
     title: 'E-Commerce App',
