@@ -39,7 +39,8 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       const LatLng(-6.200000, 106.816666); // Default Jakarta
   double zoomLevel = 15.0;
   bool isLoading = false;
-  bool showMap = false;
+  bool showMap = true;
+  bool hasSelectedFromMap = false;
 
   @override
   void initState() {
@@ -125,6 +126,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
 
   Future<void> fetchAddressFromCoordinates(LatLng latLng) async {
     setState(() {
+      hasSelectedFromMap = true;
       isLoading = true;
     });
 
@@ -257,6 +259,15 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   }
 
   Future<void> saveAddress() async {
+    if (!hasSelectedFromMap) {
+      Get.snackbar(
+        'Perhatian',
+        'Silakan pilih lokasi dari peta terlebih dahulu',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
@@ -415,12 +426,11 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding:
-                EdgeInsets.only(bottom: 100), // Padding untuk tombol simpan
+            padding: EdgeInsets.only(bottom: 100),
             child: Column(
               children: [
+                _buildMapSection(),
                 _buildAddressForm(),
-                if (showMap) _buildMapSection(),
               ],
             ),
           ),
@@ -436,86 +446,6 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Pindahkan tombol peta dan lokasi ke atas
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() => showMap = !showMap);
-                  },
-                  icon: Icon(Icons.map, color: Colors.white),
-                  label: Text(
-                    showMap ? 'Sembunyikan Peta' : 'Pilih Lokasi dari Peta',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: getCurrentLocation,
-                  icon: Icon(Icons.my_location, color: AppTheme.primary),
-                  label: Text(
-                    'Gunakan Lokasi Saat Ini',
-                    style: TextStyle(color: AppTheme.primary),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: AppTheme.primary),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16),
-
-          // Menampilkan full address jika ada
-          if (addressController.text.isNotEmpty)
-            Card(
-              margin: EdgeInsets.only(bottom: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Colors.grey[300]!),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Posisi anda saat ini (Referensi):',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      addressController.text,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[800],
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
           // Form fields yang sudah ada
           TextField(
             controller: detailAddressController,
@@ -602,79 +532,135 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   }
 
   Widget _buildMapSection() {
-    return Container(
-      height: 400,
-      margin: EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextField(
-                controller: searchController,
-                decoration: InputDecoration(
-                  hintText: 'Cari lokasi...',
-                  prefixIcon: Icon(Icons.search, color: AppTheme.primary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16),
-                ),
-                onSubmitted: (value) => searchAddress(value),
-              ),
-            ),
-            Expanded(
-              child: Stack(
-                children: [
-                  FlutterMap(
-                    mapController: mapController,
-                    options: MapOptions(
-                      initialCenter: selectedLocation,
-                      initialZoom: zoomLevel,
-                      onTap: (tapPosition, point) {
-                        setState(() {
-                          selectedLocation = point;
-                        });
-                        fetchAddressFromCoordinates(point);
-                      },
-                    ),
+    return Column(
+      children: [
+        Container(
+          height: 400,
+          margin: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Column(
+              children: [
+                // Search bar dan tombol lokasi saat ini
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
                     children: [
-                      TileLayer(
-                        urlTemplate:
-                            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        subdomains: ['a', 'b', 'c'],
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: selectedLocation,
-                            width: 40,
-                            height: 40,
-                            child: Icon(Icons.location_pin,
-                                color: Colors.red, size: 40),
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Cari lokasi...',
+                            prefixIcon:
+                                Icon(Icons.search, color: AppTheme.primary),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            contentPadding:
+                                EdgeInsets.symmetric(horizontal: 16),
                           ),
-                        ],
+                          onSubmitted: (value) => searchAddress(value),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        flex: 1,
+                        child: ElevatedButton.icon(
+                          onPressed: getCurrentLocation,
+                          icon: Icon(Icons.my_location,
+                              color: Colors.white, size: 20),
+                          label: Text('Lokasi',
+                              style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primary,
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  if (isLoading)
-                    Container(
-                      color: Colors.black.withOpacity(0.5),
-                      child: Center(
-                        child: CircularProgressIndicator(color: Colors.white),
+                ),
+                Expanded(
+                  child: Stack(
+                    children: [
+                      FlutterMap(
+                        mapController: mapController,
+                        options: MapOptions(
+                          initialCenter: selectedLocation,
+                          initialZoom: zoomLevel,
+                          onTap: (tapPosition, point) {
+                            setState(() {
+                              selectedLocation = point;
+                            });
+                            fetchAddressFromCoordinates(point);
+                          },
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            subdomains: ['a', 'b', 'c'],
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: selectedLocation,
+                                width: 40,
+                                height: 40,
+                                child: Icon(Icons.location_pin,
+                                    color: Colors.red, size: 40),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
-                ],
-              ),
+                      if (isLoading)
+                        Container(
+                          color: Colors.black.withOpacity(0.5),
+                          child: Center(
+                            child:
+                                CircularProgressIndicator(color: Colors.white),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        // Tambahkan referensi alamat di bawah peta
+        Container(
+          margin: EdgeInsets.symmetric(horizontal: 16),
+          padding: EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.primary),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: AppTheme.primary, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Alamat yang dipilih: ${addressController.text}',
+                  style: TextStyle(
+                    color: AppTheme.primaryDark,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 8),
+      ],
     );
   }
 

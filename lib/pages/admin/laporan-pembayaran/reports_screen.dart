@@ -56,19 +56,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Laporan Pembayaran',
-          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+          'Edit Pesanan',
+          style: TextStyle(
+              color: const Color.fromARGB(221, 255, 255, 255),
+              fontWeight: FontWeight.normal),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.primary,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.black87),
+        iconTheme:
+            IconThemeData(color: const Color.fromARGB(221, 255, 255, 255)),
       ),
       body: Container(
         color: Colors.grey[100],
         child: Column(
           children: [
             _buildFilterSection(),
-            _buildSummaryCards(),
             SizedBox(height: 16),
             _buildWithdrawalButton(),
             Expanded(
@@ -173,145 +175,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             controller.updateStatus(value ?? 'Semua');
           },
         ));
-  }
-
-  Widget _buildSummaryCards() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            SizedBox(
-              width: MediaQuery.of(Get.context!).size.width * 0.44,
-              child: Obx(() => Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.receipt_long,
-                                  color: Colors.blue,
-                                  size: 20,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Total Transaksi',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 13,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 12),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              '${controller.totalTransactions}',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            'Transaksi',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )),
-            ),
-            SizedBox(width: 12),
-            SizedBox(
-              width: MediaQuery.of(Get.context!).size.width * 0.44,
-              child: Obx(() => Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(
-                                  Icons.payments_outlined,
-                                  color: Colors.green,
-                                  size: 20,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Total Pendapatan',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 13,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 12),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              currencyFormatter
-                                  .format(controller.totalIncome.value),
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            'Pendapatan',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _buildPaymentList() {

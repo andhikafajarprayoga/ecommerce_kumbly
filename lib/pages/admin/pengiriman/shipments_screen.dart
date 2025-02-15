@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/controllers/shipments_controller.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class ShipmentsScreen extends StatefulWidget {
   @override
@@ -51,15 +53,10 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
       filteredOrders = allOrders.where((order) {
         // Jika ada query pencarian
         if (searchQuery.isNotEmpty) {
-          final id = order['id'].toString().toLowerCase();
           final buyerId = order['buyer_id'].toString().toLowerCase();
-          final buyerName =
-              order['users']?['full_name']?.toString().toLowerCase() ?? '';
           final searchLower = searchQuery.toLowerCase();
 
-          return (id.contains(searchLower) ||
-              buyerId.contains(searchLower) ||
-              buyerName.contains(searchLower));
+          return buyerId.contains(searchLower);
         }
         return true;
       }).toList();
@@ -105,7 +102,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
             child: TextField(
               controller: searchController,
               decoration: InputDecoration(
-                hintText: 'Cari ID Pengiriman atau Nama Pembeli...',
+                hintText: 'Cari berdasarkan ID Pembeli...',
                 prefixIcon: Icon(Icons.search, color: Colors.grey),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -256,13 +253,66 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
                   ),
                   SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      'ID: ${order['id']}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'ID: ${order['id']}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.person_outline,
+                                size: 16, color: Colors.grey[600]),
+                            SizedBox(width: 4),
+                            Text(
+                              'ID Pembeli: ',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 13,
+                              ),
+                            ),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(
+                                    text: order['buyer_id'].toString(),
+                                  ));
+                                  Get.snackbar(
+                                    'Sukses',
+                                    'ID Pembeli berhasil disalin',
+                                    backgroundColor: Colors.green,
+                                    colorText: Colors.white,
+                                    duration: Duration(seconds: 2),
+                                  );
+                                },
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      '${order['buyer_id'].toString().substring(0, 8)}...',
+                                      style: TextStyle(
+                                        color: Colors.blue[700],
+                                        fontFamily: 'monospace',
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.copy,
+                                      size: 14,
+                                      color: Colors.blue[700],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                   _buildStatusChip(order['status']),

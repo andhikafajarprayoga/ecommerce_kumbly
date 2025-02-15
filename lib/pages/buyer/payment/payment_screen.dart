@@ -6,6 +6,8 @@ import '../../../pages/buyer/home_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class PaymentScreen extends StatefulWidget {
   final Map<String, dynamic> orderData;
@@ -568,9 +570,29 @@ class _PaymentScreenState extends State<PaymentScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(fontSize: 13)),
-        Text(
-          value,
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        Row(
+          children: [
+            Text(
+              value,
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            if (label ==
+                'No. Rekening') // Hanya tampilkan ikon salin untuk nomor rekening
+              IconButton(
+                icon: Icon(Icons.copy, color: AppTheme.primary),
+                onPressed: () {
+                  // Fitur salin nomor rekening
+                  Clipboard.setData(ClipboardData(text: value)).then((_) {
+                    Get.snackbar(
+                      'Sukses',
+                      'Nomor rekening disalin ke clipboard',
+                      backgroundColor: Colors.green,
+                      colorText: Colors.white,
+                    );
+                  });
+                },
+              ),
+          ],
         ),
       ],
     );

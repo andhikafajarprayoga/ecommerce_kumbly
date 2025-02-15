@@ -43,13 +43,14 @@ class _UsersScreenState extends State<UsersScreen> {
 
   void searchUsers(String query) async {
     try {
-      final response = await supabase
-          .from('users')
-          .select()
-          .eq(selectedRole != 'all' ? 'role' : 'id',
-              selectedRole != 'all' ? selectedRole : users[0]['id'])
-          .or('email.ilike.%$query%,full_name.ilike.%$query%')
-          .order('created_at', ascending: false);
+      var searchQuery =
+          supabase.from('users').select().ilike('full_name', '%$query%');
+
+      if (selectedRole != 'all') {
+        searchQuery = searchQuery.eq('role', selectedRole);
+      }
+
+      final response = await searchQuery.order('created_at', ascending: false);
 
       setState(() {
         users = (response as List<dynamic>).cast<Map<String, dynamic>>();

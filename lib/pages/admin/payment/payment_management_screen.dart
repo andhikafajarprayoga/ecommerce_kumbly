@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../theme/app_theme.dart';
 import 'payment_summary_screen.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class PaymentManagementScreen extends StatefulWidget {
   @override
@@ -217,7 +219,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
             ),
           ),
 
-          // Filter Chips
+          // Filter Chips - Hanya tampilkan pending dan confirmed
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: 16),
@@ -225,11 +227,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
               children: [
                 _buildFilterChip('pending', 'Menunggu'),
                 SizedBox(width: 8),
-                _buildFilterChip('confirmed', 'Dikonfirmasi'),
-                SizedBox(width: 8),
-                _buildFilterChip('rejected', 'Ditolak'),
-                SizedBox(width: 8),
-                _buildFilterChip('completed', 'Selesai'),
+                _buildFilterChip('success', 'Diterima'),
               ],
             ),
           ),
@@ -369,9 +367,15 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
     final paymentMethod = payment['payment_method'];
     final buyer = payment['buyer'];
     final paymentProof = payment['payment_proof'];
+    final paymentStatus = payment['payment_status'] ?? 'pending';
 
     return Card(
       margin: EdgeInsets.only(bottom: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       child: ExpansionTile(
         title: Text(
           'ID: ${payment['id'].toString().substring(0, 8)}...',
@@ -380,15 +384,156 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Pembeli: ${payment['buyer']?['full_name'] ?? 'Unknown'}'),
-            Text('Email: ${payment['buyer']?['email'] ?? 'Unknown'}'),
-            Text('Telp: ${payment['buyer']?['phone'] ?? '-'}'),
-            Text(
-                'Total Produk: Rp ${NumberFormat('#,###').format(payment['total_amount'] ?? 0)}'),
+            // ID Pembeli dengan tombol salin
+            Container(
+              margin: EdgeInsets.only(bottom: 8),
+              padding: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.person_outline, size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    'ID Pembeli: ',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${payment['buyer_id']?.toString().substring(0, 8) ?? 'Unknown'}...',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(minWidth: 32),
+                    icon: Icon(Icons.copy, size: 16, color: Colors.blue[700]),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(
+                        text: payment['buyer_id']?.toString() ?? '',
+                      ));
+                      Get.snackbar(
+                        'Sukses',
+                        'ID Pembeli berhasil disalin',
+                        backgroundColor: Colors.green,
+                        colorText: Colors.white,
+                        duration: Duration(seconds: 2),
+                        margin: EdgeInsets.all(8),
+                        snackPosition: SnackPosition.BOTTOM,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // Informasi pembeli lainnya dengan style yang lebih rapi
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.account_circle_outlined,
+                      size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    'Pembeli: ',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  Text(
+                    payment['buyer']?['full_name'] ?? 'Unknown',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.email_outlined, size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    'Email: ',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  Text(
+                    payment['buyer']?['email'] ?? 'Unknown',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.phone_outlined, size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    'Telp: ',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  Text(
+                    payment['buyer']?['phone'] ?? '-',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Icon(Icons.shopping_cart_outlined,
+                      size: 16, color: Colors.grey[600]),
+                  SizedBox(width: 4),
+                  Text(
+                    'Total Produk: ',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  Text(
+                    'Rp ${NumberFormat('#,###').format(payment['total_amount'] ?? 0)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w500,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (payment['payment_proof'] == 'COD')
-              Text('COD',
-                  style: TextStyle(
-                      color: Colors.orange, fontWeight: FontWeight.bold)),
+              Container(
+                margin: EdgeInsets.only(top: 4),
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.local_shipping, size: 16, color: Colors.orange),
+                    SizedBox(width: 4),
+                    Text(
+                      'COD',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
         children: [
@@ -439,14 +584,6 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                   Text('Metode Pembayaran:',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   Text(paymentMethod['name'] ?? 'Unknown'),
-                ],
-                if (buyer != null) ...[
-                  SizedBox(height: 16),
-                  Text('Informasi Pembeli:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('Nama: ${buyer['full_name'] ?? 'Unknown'}'),
-                  Text('Email: ${buyer['email'] ?? 'Unknown'}'),
-                  Text('Telepon: ${buyer['phone'] ?? '-'}'),
                 ],
                 SizedBox(height: 16),
                 Text('Bukti Pembayaran:',
@@ -591,6 +728,71 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                       ],
                     ),
                   ),
+
+                // Tambahkan tombol konfirmasi pembayaran
+                SizedBox(height: 16),
+                if (paymentStatus ==
+                    'pending') // Hanya tampilkan jika status masih pending
+                  Container(
+                    padding: EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade100),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Konfirmasi Pembayaran',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                        SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _showConfirmationDialog(
+                                  payment['id'],
+                                  'success',
+                                  'Terima Pembayaran',
+                                ),
+                                icon: Icon(Icons.check_circle_outline,
+                                    color: Colors.white),
+                                label: Text('Terima'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _showConfirmationDialog(
+                                  payment['id'],
+                                  'rejected',
+                                  'Tolak Pembayaran',
+                                ),
+                                icon: Icon(Icons.cancel_outlined,
+                                    color: Colors.white),
+                                label: Text('Tolak'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -637,6 +839,36 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
               fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
               color: isTotal ? Colors.pink : null,
               fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Tambahkan method untuk menampilkan dialog konfirmasi
+  void _showConfirmationDialog(
+      String paymentId, String newStatus, String action) {
+    Get.dialog(
+      AlertDialog(
+        title: Text(action),
+        content: Text('Apakah Anda yakin ingin ${action.toLowerCase()}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('Batal'),
+            style: TextButton.styleFrom(foregroundColor: Colors.grey),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              updatePaymentStatus(paymentId, newStatus);
+            },
+            child: Text('Ya, Lanjutkan'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  newStatus == 'success' ? Colors.green : Colors.red,
+              foregroundColor: Colors.white,
             ),
           ),
         ],
