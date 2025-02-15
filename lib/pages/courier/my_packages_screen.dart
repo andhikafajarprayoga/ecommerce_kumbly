@@ -39,12 +39,14 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
             buyer:users!buyer_id (
               full_name,
               phone
+              
             ),
             payment_method:payment_methods (
               id,
               name,
               account_number,
-              account_name
+              account_name,
+              admin
             )
           ''')
           .eq('courier_id', courierId)
@@ -82,15 +84,27 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
       print('Status: ${package['status']}');
       print('Payment Method: ${package['payment_method']?['name']}');
       print('Total Amount: ${package['total_amount']}');
+      print('Shipping Cost: ${package['shipping_cost']}');
+      print('Admin Fee: ${package['payment_method']?['admin']}');
 
       if (package['status'] == 'delivered' &&
           package['payment_method']?['name']?.toString().toUpperCase() ==
               'COD') {
-        // Pastikan total_amount dikonversi ke double
-        final amount = package['total_amount'] is String
+        // Hitung total dari total_amount, shipping_cost, dan admin fee
+        final totalAmount = package['total_amount'] is String
             ? double.tryParse(package['total_amount']) ?? 0.0
             : (package['total_amount'] ?? 0.0).toDouble();
-        total += amount;
+
+        final shippingCost = package['shipping_cost'] is String
+            ? double.tryParse(package['shipping_cost']) ?? 0.0
+            : (package['shipping_cost'] ?? 0.0).toDouble();
+
+        final adminFee = package['payment_method']?['admin'] is String
+            ? double.tryParse(package['payment_method']?['admin']) ?? 0.0
+            : (package['payment_method']?['admin'] ?? 0.0).toDouble();
+
+        // Jumlahkan semua biaya
+        total += totalAmount + shippingCost + adminFee;
       }
     }
     totalCODAmount.value = total;
@@ -291,7 +305,7 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
                   ),
                   _buildInfoRowWithIcon(
                     Icons.payments,
-                    'Total',
+                    'Produk',
                     NumberFormat.currency(
                       locale: 'id_ID',
                       symbol: 'Rp ',
@@ -299,9 +313,36 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
                     ).format(package['total_amount']),
                   ),
                   _buildInfoRowWithIcon(
+                    Icons.local_shipping,
+                    'Ongkir',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(package['shipping_cost'] ?? 0),
+                  ),
+                  _buildInfoRowWithIcon(
+                    Icons.admin_panel_settings,
+                    'Admin Fee',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(package['payment_method']?['admin'] ?? 0),
+                  ),
+                  _buildInfoRowWithIcon(
                     Icons.payment,
                     'Payment',
                     paymentMethod?['name'] ?? 'N/A',
+                  ),
+                  _buildInfoRowWithIcon(
+                    Icons.attach_money,
+                    'Total',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(calculateTotal(package)),
                   ),
                   const SizedBox(height: 16),
                   if (package['status'] == 'processing' ||
@@ -688,5 +729,13 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
         colorText: Colors.white,
       );
     }
+  }
+
+  double calculateTotal(Map<String, dynamic> package) {
+    final totalAmount = package['total_amount'] ?? 0.0;
+    final shippingCost = package['shipping_cost'] ?? 0.0;
+    final adminFee = package['payment_method']?['admin'] ?? 0.0;
+
+    return totalAmount + shippingCost + adminFee;
   }
 }

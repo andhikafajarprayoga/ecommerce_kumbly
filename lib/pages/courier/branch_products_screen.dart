@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
 
 class BranchProductsScreen extends StatefulWidget {
   const BranchProductsScreen({Key? key}) : super(key: key);
@@ -59,15 +60,19 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
               address,
               phone
             ),
+            
             order:orders (
               shipping_address,
               total_amount,
+              shipping_cost,
               payment_method:payment_methods (
-                name
+                name,
+                admin
               ),
               buyer:users!buyer_id (
                 full_name,
                 phone
+            
               )
             )
           ''')
@@ -234,6 +239,11 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
           final buyer = order['buyer'] as Map<String, dynamic>;
           final paymentMethod = order['payment_method'];
 
+          // Hitung total
+          double totalAmount = (order['total_amount'] ?? 0) +
+              (order['shipping_cost'] ?? 0) +
+              (order['payment_method']?['admin'] ?? 0);
+
           return Card(
             margin: const EdgeInsets.only(bottom: 16),
             elevation: 2,
@@ -292,7 +302,34 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
                   _buildInfoRow('Jumlah', '${item['quantity']} unit',
                       Icons.shopping_basket),
                   _buildInfoRow('Pembeli', buyer['full_name'], Icons.person),
-                  _buildInfoRow('Telepon Pembeli', buyer['phone'], Icons.phone),
+                  _buildInfoRowWithIcon(
+                    Icons.phone,
+                    'Telepon Pembeli',
+                    InkWell(
+                      onTap: () async {
+                        String phone = buyer['phone']
+                            .toString()
+                            .replaceAll(RegExp(r'[^\d+]'), '');
+                        if (!phone.startsWith('+')) {
+                          phone =
+                              '+62${phone.startsWith('0') ? phone.substring(1) : phone}';
+                        }
+                        final url = 'whatsapp://send?phone=$phone';
+                        if (await canLaunchUrl(Uri.parse(url))) {
+                          await launchUrl(Uri.parse(url));
+                        } else {
+                          Get.snackbar('Error', 'Tidak dapat membuka WhatsApp');
+                        }
+                      },
+                      child: Text(
+                        buyer['phone'],
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
                   _buildInfoRow('Alamat Pengiriman', order['shipping_address'],
                       Icons.location_on),
                   _buildInfoRow(
@@ -304,17 +341,45 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
                     Icons.payment,
                   ),
                   _buildInfoRow(
-                    'Total Pesanan',
+                    'Ongkir',
                     NumberFormat.currency(
                       locale: 'id_ID',
                       symbol: 'Rp ',
                       decimalDigits: 0,
-                    ).format(order['total_amount']),
-                    Icons.payment,
+                    ).format(order['shipping_cost'] ?? 0),
+                    Icons.local_shipping,
+                  ),
+                  _buildInfoRow(
+                    'Admin Fee',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(order['payment_method']?['admin'] ?? 0),
+                    Icons.attach_money,
+                  ),
+                  _buildInfoRow(
+                    'Produk',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(order['total_amount'] ?? 0),
+                    Icons.inventory_2_outlined,
+                  ),
+                  _buildInfoRow(
+                    'Total',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(totalAmount), // Tampilkan total
+                    Icons.attach_money,
+                    // Ganti icon sesuai kebutuhan
                   ),
                   _buildInfoRow(
                     'Tanggal',
-                    DateFormat('dd MMMM yyyy HH:mm', 'id_ID').format(
+                    DateFormat('dd MMMM yyyy', 'id_ID').format(
                       DateTime.parse(item['created_at']),
                     ),
                     Icons.calendar_today,
@@ -437,6 +502,33 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
                 fontWeight: FontWeight.w500,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRowWithIcon(IconData icon, String label, Widget value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const Text(': '),
+          Expanded(
+            child: value,
           ),
         ],
       ),

@@ -51,7 +51,20 @@ class _CompletedDeliveriesScreenState extends State<CompletedDeliveriesScreen> {
 
           final response = await supabase
               .from('orders')
-              .select()
+              .select('''
+                *,
+                buyer:users!buyer_id (
+                  full_name,
+                  phone
+                ),
+                payment_method:payment_methods (
+                  id,
+                  name,
+                  account_number,
+                  account_name,
+                  admin
+                )
+              ''')
               .eq('courier_id', supabase.auth.currentUser!.id)
               .eq('status', 'completed')
               .gte('created_at', startOfDay.toIso8601String())
@@ -147,7 +160,42 @@ class _CompletedDeliveriesScreenState extends State<CompletedDeliveriesScreen> {
                 _buildInfoRow(
                     'Alamat Pengiriman', delivery['shipping_address'] ?? '-'),
                 const Divider(),
-                _buildInfoRow('Catatan', delivery['notes'] ?? '-'),
+                _buildInfoRow(
+                    'Produk',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(delivery['total_amount'] ?? 0)),
+                const Divider(),
+                _buildInfoRow(
+                    'Ongkir',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(delivery['shipping_cost'] ?? 0)),
+                const Divider(),
+                _buildInfoRow(
+                    'Admin Fee',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format(delivery['payment_method']?['admin'] ?? 0)),
+                const Divider(),
+                _buildInfoRow('Metode Pembayaran',
+                    delivery['payment_method']?['name'] ?? 'N/A'),
+                const Divider(),
+                _buildInfoRow(
+                    'Total',
+                    NumberFormat.currency(
+                      locale: 'id_ID',
+                      symbol: 'Rp ',
+                      decimalDigits: 0,
+                    ).format((delivery['total_amount'] ?? 0) +
+                        (delivery['shipping_cost'] ?? 0) +
+                        (delivery['payment_method']?['admin'] ?? 0))),
                 if (delivery['proof_of_delivery'] != null) ...[
                   const Divider(),
                   const Text(

@@ -236,11 +236,6 @@ class _PickupBranchOrdersScreenState extends State<PickupBranchOrdersScreen> {
                                 ),
                                 const Divider(height: 16),
                                 _buildInfoRow(
-                                  Icons.payments_outlined,
-                                  'Harga:',
-                                  'Rp ${NumberFormat('#,###').format(product['product']['price'])}',
-                                ),
-                                _buildInfoRow(
                                   Icons.numbers,
                                   'Order ID:',
                                   '#${product['order']['id'].toString().substring(0, 8)}',
