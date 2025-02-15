@@ -436,7 +436,52 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Menambahkan card untuk full address
+          // Pindahkan tombol peta dan lokasi ke atas
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() => showMap = !showMap);
+                  },
+                  icon: Icon(Icons.map, color: Colors.white),
+                  label: Text(
+                    showMap ? 'Sembunyikan Peta' : 'Pilih Lokasi dari Peta',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: getCurrentLocation,
+                  icon: Icon(Icons.my_location, color: AppTheme.primary),
+                  label: Text(
+                    'Gunakan Lokasi Saat Ini',
+                    style: TextStyle(color: AppTheme.primary),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: AppTheme.primary),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+
+          // Menampilkan full address jika ada
           if (addressController.text.isNotEmpty)
             Card(
               margin: EdgeInsets.only(bottom: 16),
@@ -470,6 +515,8 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 ),
               ),
             ),
+
+          // Form fields yang sudah ada
           TextField(
             controller: detailAddressController,
             decoration: _buildInputDecoration(
@@ -517,41 +564,6 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             keyboardType: TextInputType.number,
           ),
           SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              setState(() => showMap = !showMap);
-            },
-            icon: Icon(Icons.map, color: Colors.white),
-            label: Text(
-              showMap ? 'Sembunyikan Peta' : 'Pilih Lokasi dari Peta',
-              style: TextStyle(color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              padding: EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-          SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: getCurrentLocation,
-            icon: Icon(Icons.my_location, color: AppTheme.primary),
-            label: Text(
-              'Gunakan Lokasi Saat Ini',
-              style: TextStyle(color: AppTheme.primary),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: AppTheme.primary),
-              ),
-            ),
-          ),
-          SizedBox(height: 8),
           Text(
             '* Wajib diisi',
             style: TextStyle(
