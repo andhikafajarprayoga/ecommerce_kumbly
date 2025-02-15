@@ -98,6 +98,7 @@ void main() async {
   // Initialize background notifications
   await BackgroundNotificationService.initialize();
 
+
   runApp(GetMaterialApp(
     title: 'E-Commerce App',
     theme: ThemeData(

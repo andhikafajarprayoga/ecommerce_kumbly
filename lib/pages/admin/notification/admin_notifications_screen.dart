@@ -23,9 +23,14 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   @override
   void initState() {
     super.initState();
+    print('Initializing AdminNotificationsScreen');
     _initializeNotifications();
     _setupNotificationListener();
-    _backgroundService.initialize();
+    _backgroundService.initialize().then((_) {
+      print('Background service initialized');
+    }).catchError((error) {
+      print('Error initializing background service: $error');
+    });
   }
 
   @override

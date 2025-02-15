@@ -131,7 +131,7 @@ class _ChatScreenState extends State<ChatScreen> {
         // Proses admin chat rooms
         for (var room in adminRooms) {
           try {
-            room['store_name'] = 'Admin Kumbly';
+            room['store_name'] = 'Admin Saraja';
             room['is_admin_room'] = true;
 
             final lastMessageResponse = await supabase
@@ -450,7 +450,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   chatRoom: room,
                   seller: {
                     'store_name': room['is_admin_room']
-                        ? 'Admin Kumbly'
+                        ? 'Admin Saraja'
                         : room['store_name'],
                     'image': 'https://via.placeholder.com/50'
                   },
@@ -508,10 +508,14 @@ class _ChatScreenState extends State<ChatScreen> {
                           Text(
                             room['last_message'] ?? 'Belum ada pesan',
                             style: TextStyle(
-                              color: room['unread_count'] > 0
+                              color: (room['unread_count'] > 0 &&
+                                      room['last_message_sender_id'] !=
+                                          supabase.auth.currentUser?.id)
                                   ? Colors.black
                                   : Colors.grey[600],
-                              fontWeight: room['unread_count'] > 0
+                              fontWeight: (room['unread_count'] > 0 &&
+                                      room['last_message_sender_id'] !=
+                                          supabase.auth.currentUser?.id)
                                   ? FontWeight.bold
                                   : FontWeight.normal,
                               fontSize: 14,
