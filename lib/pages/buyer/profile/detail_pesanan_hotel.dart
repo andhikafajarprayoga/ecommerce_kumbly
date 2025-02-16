@@ -9,11 +9,44 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 final supabase = Supabase.instance.client; // Deklarasi supabase di level file
 
-class DetailPesananHotelScreen extends StatelessWidget {
+class DetailPesananHotelScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
 
   const DetailPesananHotelScreen({Key? key, required this.booking})
       : super(key: key);
+
+  @override
+  State<DetailPesananHotelScreen> createState() =>
+      _DetailPesananHotelScreenState();
+}
+
+class _DetailPesananHotelScreenState extends State<DetailPesananHotelScreen> {
+  String? paymentMethodName;
+  String? accountNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchPaymentMethodDetails();
+  }
+
+  Future<void> fetchPaymentMethodDetails() async {
+    try {
+      if (widget.booking['payment_method_id'] != null) {
+        final response = await supabase
+            .from('payment_methods')
+            .select('name, account_number')
+            .eq('id', widget.booking['payment_method_id'])
+            .single();
+        setState(() {
+          paymentMethodName = response['name'];
+          accountNumber = response['account_number'];
+        });
+      }
+    } catch (e) {
+      print('Error fetching payment method: $e');
+    }
+  }
 
   String formatDate(String date) {
     final DateTime dateTime = DateTime.parse(date);
@@ -61,7 +94,7 @@ class DetailPesananHotelScreen extends StatelessWidget {
       await supabase.from('hotel_bookings').update({
         'image_url': imageUrl,
         'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', booking['id']);
+      }).eq('id', widget.booking['id']);
 
       Get.back(); // Kembali ke halaman sebelumnya
       Get.snackbar(
@@ -123,27 +156,28 @@ class DetailPesananHotelScreen extends StatelessWidget {
                           'Booking ID',
                           style: TextStyle(
                             color: Colors.grey[600],
-                            fontSize: 14,
+                            fontSize: 12,
                           ),
                         ),
                         Text(
-                          '#${booking['id'].toString().substring(0, 8)}',
+                          '#${widget.booking['id']}',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 12),
-                    _buildStatusChip(booking['status']),
+                    _buildStatusChip(widget.booking['status']),
                   ],
                 ),
               ),
             ),
 
             // Upload Bukti Pembayaran Button
-            if (booking['image_url'] == null && booking['status'] == 'pending')
+            if (widget.booking['image_url'] == null &&
+                widget.booking['status'] == 'pending')
               Container(
                 margin: EdgeInsets.all(16),
                 width: double.infinity,
@@ -173,50 +207,58 @@ class DetailPesananHotelScreen extends StatelessWidget {
               'Detail Hotel',
               [
                 _buildDetailRow('Nama Hotel',
-                    booking['hotels']?['name'] ?? 'Unknown Hotel'),
-                _buildDetailRow('Tipe Kamar', booking['room_type'] ?? '-'),
-                _buildDetailRow('Check-in', formatDate(booking['check_in'])),
-                _buildDetailRow('Check-out', formatDate(booking['check_out'])),
+                    widget.booking['hotels']?['name'] ?? 'Unknown Hotel'),
                 _buildDetailRow(
-                    'Jumlah Malam', '${booking['total_nights']} malam'),
-                if (booking['hotels']?['address'] != null)
-                  _buildDetailRow('Alamat', booking['hotels']['address']),
+                    'Tipe Kamar', widget.booking['room_type'] ?? '-'),
+                _buildDetailRow(
+                    'Check-in', formatDate(widget.booking['check_in'])),
+                _buildDetailRow(
+                    'Check-out', formatDate(widget.booking['check_out'])),
+                _buildDetailRow(
+                    'Jumlah Malam', '${widget.booking['total_nights']} malam'),
+                if (widget.booking['hotels']?['address'] != null)
+                  _buildDetailRow(
+                      'Alamat', widget.booking['hotels']['address']),
               ],
             ),
 
             _buildSection(
               'Detail Tamu',
               [
-                _buildDetailRow('Nama Tamu', booking['guest_name']),
-                _buildDetailRow('Telepon', booking['guest_phone']),
-                if (booking['special_requests'] != null)
+                _buildDetailRow('Nama Tamu', widget.booking['guest_name']),
+                _buildDetailRow('Telepon', widget.booking['guest_phone']),
+                if (widget.booking['special_requests'] != null)
                   _buildDetailRow(
-                      'Permintaan Khusus', booking['special_requests']),
+                      'Permintaan Khusus', widget.booking['special_requests']),
               ],
             ),
 
             _buildSection(
               'Detail Pembayaran',
               [
+                _buildDetailRow('Total Pembayaran',
+                    formatCurrency(widget.booking['total_price'])),
                 _buildDetailRow(
-                    'Total Pembayaran', formatCurrency(booking['total_price'])),
-                _buildDetailRow(
-                    'Biaya Admin', formatCurrency(booking['admin_fee'])),
-                _buildDetailRow(
-                    'Biaya Aplikasi', formatCurrency(booking['app_fee'])),
+                    'Biaya Admin', formatCurrency(widget.booking['admin_fee'])),
+                _buildDetailRow('Biaya Aplikasi',
+                    formatCurrency(widget.booking['app_fee'])),
+                if (paymentMethodName != null)
+                  _buildDetailRow('Metode Pembayaran', paymentMethodName!),
+                if (accountNumber != null)
+                  _buildDetailRow('Nomor Rekening', accountNumber!),
                 Divider(height: 24),
                 _buildDetailRow(
                   'Total yang Harus Dibayar',
-                  formatCurrency(booking['total_price'] +
-                      (booking['admin_fee'] ?? 0) +
-                      (booking['app_fee'] ?? 0)),
+                  formatCurrency(widget.booking['total_price'] +
+                      (widget.booking['admin_fee'] ?? 0) +
+                      (widget.booking['app_fee'] ?? 0)),
                   isTotal: true,
                 ),
               ],
             ),
 
             // Bukti Pembayaran Section
-            if (booking['image_url'] != null)
+            if (widget.booking['image_url'] != null)
               _buildSection(
                 'Bukti Pembayaran',
                 [
@@ -225,7 +267,7 @@ class DetailPesananHotelScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                       image: DecorationImage(
-                        image: NetworkImage(booking['image_url']),
+                        image: NetworkImage(widget.booking['image_url']),
                         fit: BoxFit.cover,
                       ),
                     ),

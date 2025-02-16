@@ -25,6 +25,7 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
   final supabase = Supabase.instance.client;
   bool isUploading = false;
   String? paymentMethodName;
+  String? accountNumber;
 
   @override
   void initState() {
@@ -37,11 +38,12 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
       if (widget.booking['payment_method_id'] != null) {
         final response = await supabase
             .from('payment_methods')
-            .select('name')
+            .select('name, account_number')
             .eq('id', widget.booking['payment_method_id'])
             .single();
         setState(() {
           paymentMethodName = response['name'];
+          accountNumber = response['account_number'];
         });
       }
     } catch (e) {
@@ -252,10 +254,20 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
                       statusColor: _getStatusColor(widget.booking['status']),
                     ),
                     if (paymentMethodName != null)
-                      _buildDetailRow(
-                        'Metode Pembayaran',
-                        paymentMethodName!,
-                        icon: Icons.payment,
+                      Column(
+                        children: [
+                          _buildDetailRow(
+                            'Metode Pembayaran',
+                            paymentMethodName!,
+                            icon: Icons.payment,
+                          ),
+                          if (accountNumber != null)
+                            _buildDetailRow(
+                              'Nomor Rekening',
+                              accountNumber!,
+                              icon: Icons.account_balance,
+                            ),
+                        ],
                       ),
                   ],
                 ),

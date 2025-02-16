@@ -15,7 +15,9 @@ class HotelBookingsScreen extends StatefulWidget {
   _HotelBookingsScreenState createState() => _HotelBookingsScreenState();
 }
 
-class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
+class _HotelBookingsScreenState extends State<HotelBookingsScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   final supabase = Supabase.instance.client;
   RxList<Map<String, dynamic>> bookings = <Map<String, dynamic>>[].obs;
   RxList<Map<String, dynamic>> filteredBookings = <Map<String, dynamic>>[].obs;
@@ -26,6 +28,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     print('Debug initState hotelId: ${widget.hotelId}');
     _fetchBookings();
     filteredBookings.value = bookings;
@@ -33,6 +36,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     searchController.dispose();
     expandedCards.close();
     super.dispose();
@@ -44,8 +48,11 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
     } else {
       filteredBookings.value = bookings.where((booking) {
         final bookingId = booking['id'].toString().toLowerCase();
+        final guestName =
+            (booking['guest_name'] ?? '').toString().toLowerCase();
         final searchQuery = query.toLowerCase();
-        return bookingId.contains(searchQuery);
+        return bookingId.contains(searchQuery) ||
+            guestName.contains(searchQuery);
       }).toList();
     }
     print('Filtered bookings: ${filteredBookings.length}'); // Debug print
@@ -145,6 +152,17 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
         title: Text('Daftar Booking', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
         iconTheme: IconThemeData(color: Colors.white),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(text: 'Menunggu'),
+            Tab(text: 'Konfirmasi'),
+            Tab(text: 'Selesai'),
+          ],
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+        ),
       ),
       body: Column(
         children: [
@@ -155,7 +173,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
             child: TextField(
               controller: searchController,
               decoration: InputDecoration(
-                hintText: 'Cari berdasarkan ID Booking...',
+                hintText: 'Cari berdasarkan ID Booking atau Nama Tamu...',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -166,37 +184,56 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
               onChanged: filterBookings,
             ),
           ),
-          // Booking List
+          // Tab View
           Expanded(
-            child: Obx(() {
-              if (isLoading.value) {
-                return Center(child: CircularProgressIndicator());
-              }
-
-              final displayedBookings =
-                  searchController.text.isEmpty ? bookings : filteredBookings;
-
-              if (displayedBookings.isEmpty) {
-                return Center(
-                  child: Text(searchController.text.isEmpty
-                      ? 'Belum ada booking'
-                      : 'Tidak ada hasil pencarian'),
-                );
-              }
-
-              return ListView.builder(
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                itemCount: displayedBookings.length,
-                itemBuilder: (context, index) {
-                  final booking = displayedBookings[index];
-                  return _buildBookingCard(booking);
-                },
-              );
-            }),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Tab Menunggu (Pending)
+                _buildTabContent('pending'),
+                // Tab Konfirmasi (Confirmed)
+                _buildTabContent('confirmed'),
+                // Tab Selesai (Completed)
+                _buildTabContent('completed'),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildTabContent(String status) {
+    return Obx(() {
+      if (isLoading.value) {
+        return Center(child: CircularProgressIndicator());
+      }
+
+      final displayedBookings = filteredBookings
+          .where((booking) => booking['status'] == status)
+          .toList();
+
+      if (displayedBookings.isEmpty) {
+        return Center(
+          child: Text(
+            status == 'pending'
+                ? 'Tidak ada booking yang menunggu'
+                : status == 'confirmed'
+                    ? 'Tidak ada booking yang dikonfirmasi'
+                    : 'Tidak ada booking yang selesai',
+          ),
+        );
+      }
+
+      return ListView.builder(
+        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        itemCount: displayedBookings.length,
+        itemBuilder: (context, index) {
+          final booking = displayedBookings[index];
+          return _buildBookingCard(booking);
+        },
+      );
+    });
   }
 
   Widget _buildBookingCard(Map<String, dynamic> booking) {
@@ -252,7 +289,7 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
                                     size: 20, color: AppTheme.primary),
                                 SizedBox(width: 8),
                                 Text(
-                                  '#${booking['id'].toString().substring(0, 8)}',
+                                  '${booking['id'].toString().substring(0, 8)}',
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -421,6 +458,33 @@ class _HotelBookingsScreenState extends State<HotelBookingsScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                if (booking['status'] == 'confirmed')
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: ElevatedButton(
+                      onPressed: () =>
+                          _updateBookingStatus(booking['id'], 'completed'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle_outline, color: Colors.white),
+                          SizedBox(width: 8),
+                          Text(
+                            'Tamu Sudah Checkout',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],

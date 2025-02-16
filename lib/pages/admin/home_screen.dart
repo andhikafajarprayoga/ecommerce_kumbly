@@ -146,23 +146,12 @@ class AdminHomeScreen extends StatelessWidget {
                             onTap: () => Get.to(() => AdminChatScreen()),
                             badgeStream: supabase
                                 .from('chats')
-                                .stream(primaryKey: ['id'])
-                                .eq('receiver_id',
-                                    supabase.auth.currentUser?.id ?? '')
-                                .eq('is_read', false)
-                                .not('sender_id', 'eq',
-                                    supabase.auth.currentUser?.id ?? '')
-                                .map((data) {
-                                  final unreadCount = data.length;
-                                  print(
-                                      'DEBUG: Unread chat count: $unreadCount');
-                                  return unreadCount;
-                                })
-                                .handleError((error) {
-                                  print(
-                                      'DEBUG: Error getting chat count: $error');
-                                  return 0;
-                                }),
+                                .stream(primaryKey: ['id']).map((data) => data
+                                    .where((chat) =>
+                                        chat['is_read'] == false &&
+                                        chat['receiver_id'] ==
+                                            supabase.auth.currentUser?.id)
+                                    .length),
                           ),
                           _buildMenuCard(
                             icon: Icons.store,
@@ -309,7 +298,7 @@ class AdminHomeScreen extends StatelessWidget {
                           _buildMenuCard(
                             icon: Icons.check_circle_outline,
                             title: 'Selesaikan Pesanan',
-                            subtitle: 'Selesaikan pesanan yang sudah terkirim',
+                            subtitle: 'Selesaikan pesanan ',
                             color: Colors.green,
                             onTap: () => Get.to(() => CompleteOrdersScreen()),
                             badgeStream: supabase
@@ -678,8 +667,4 @@ class AdminHomeScreen extends StatelessWidget {
       },
     );
   }
-}
-
-extension on SupabaseStreamBuilder {
-  eq(String s, bool bool) {}
 }

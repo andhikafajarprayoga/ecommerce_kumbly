@@ -739,7 +739,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                     Icon(Icons.hotel, color: AppTheme.primary, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Booking ID: ${formatOrderId(booking['id'])}',
+                      'Booking ID: ${booking['id'].toString().substring(0, 8)}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primary,
@@ -1067,7 +1067,10 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
             ),
-            child: const Text('Ya, Selesaikan'),
+            child: const Text(
+              'Ya, Selesaikan',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),

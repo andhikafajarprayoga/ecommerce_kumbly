@@ -350,8 +350,10 @@ class _CompleteOrdersScreenState extends State<CompleteOrdersScreen>
                             padding: EdgeInsets.all(16),
                             child: ElevatedButton.icon(
                               onPressed: () => _completeOrder(order['id']),
-                              icon: Icon(Icons.check_circle_outline),
-                              label: Text('Selesaikan Pesanan'),
+                              icon: Icon(Icons.check_circle_outline,
+                                  color: Colors.white),
+                              label: Text('Selesaikan Pesanan',
+                                  style: TextStyle(color: Colors.white)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 foregroundColor: Colors.white,

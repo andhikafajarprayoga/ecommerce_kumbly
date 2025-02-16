@@ -643,17 +643,30 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppTheme.primary),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, color: AppTheme.primary, size: 20),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Alamat yang dipilih: ${addressController.text}',
-                  style: TextStyle(
-                    color: AppTheme.primaryDark,
-                    fontSize: 12,
+              Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppTheme.primary, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Alamat yang dipilih: ${addressController.text}',
+                      style: TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
+                ],
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Perhatian: Alamat yang dilihat oleh sistem untuk ongkir adalah yang dari peta.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 12,
                 ),
               ),
             ],

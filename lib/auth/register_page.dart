@@ -196,7 +196,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             const SizedBox(height: 20),
                             _buildInputField(
                               controller: phoneController,
-                              label: 'Nomor Telepon',
+                              label: 'Nomor WhatsApp',
                               icon: Icons.phone,
                               keyboardType: TextInputType.phone,
                               validator: (value) {

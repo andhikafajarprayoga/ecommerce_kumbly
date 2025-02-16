@@ -54,7 +54,7 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
       final response = await supabase
           .from('hotel_bookings')
           .select('hotel_id, status')
-          .or('status.eq.pending,status.eq.confirmed');
+          .eq('status', 'pending');
 
       Map<String, int> counts = {};
       for (var booking in response) {
@@ -221,7 +221,7 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
                                       ),
                                       SizedBox(width: 4),
                                       Text(
-                                        '${bookingCounts[hotel['id']]} Booking',
+                                        '${bookingCounts[hotel['id']]} Menunggu',
                                         style: TextStyle(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
