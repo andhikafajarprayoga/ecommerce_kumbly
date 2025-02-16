@@ -672,25 +672,30 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         .listen((List<Map<String, dynamic>> data) {
           if (data.isNotEmpty) {
             final latestOrder = data.first;
+            String orderId = latestOrder['id']?.toString() ?? '';
+            // Ambil 8 karakter pertama jika ID lebih panjang dari 8
+            String shortOrderId =
+                orderId.length > 8 ? orderId.substring(0, 8) : orderId;
+
             if (latestOrder['status'] == 'pending') {
               _showNotification(
                 'Pesanan Baru',
-                'Pesanan #${latestOrder['id'].toString().substring(0, 8)} sedang menunggu pembayaran',
+                'Pesanan #$shortOrderId sedang menunggu pembayaran',
               );
             } else if (latestOrder['status'] == 'processing') {
               _showNotification(
                 'Status Pesanan',
-                'Pesanan #${latestOrder['id'].toString().substring(0, 8)} sedang diproses',
+                'Pesanan #$shortOrderId sedang diproses',
               );
             } else if (latestOrder['status'] == 'shipping') {
               _showNotification(
                 'Status Pengiriman',
-                'Pesanan #${latestOrder['id'].toString().substring(0, 8)} sedang dalam pengiriman',
+                'Pesanan #$shortOrderId sedang dalam pengiriman',
               );
             } else if (latestOrder['status'] == 'completed') {
               _showNotification(
                 'Pesanan Selesai',
-                'Pesanan #${latestOrder['id'].toString().substring(0, 8)} telah selesai',
+                'Pesanan #$shortOrderId telah selesai',
               );
             }
           }
