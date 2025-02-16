@@ -349,6 +349,35 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Text(
+                      'Pilih Lokasi Toko',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Harap berhati-hati dalam menentukan titik lokasi, karena ini dapat mempengaruhi ongkir pengiriman toko Anda.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    _buildMapSection(),
+                    SizedBox(height: 24),
+                    Text(
+                      'Informasi Toko',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    SizedBox(height: 16),
                     _buildTextField(
                       controller: _storeNameController,
                       label: 'Nama Toko',
@@ -380,225 +409,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 12),
-                    Text(
-                      'Pilih Lokasi Toko',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[800],
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    // Tambahkan keterangan untuk berhati-hati dalam menentukan lokasi
-                    Text(
-                      'Harap berhati-hati dalam menentukan titik lokasi, karena ini dapat mempengaruhi ongkir pengiriman toko Anda.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Container(
-                      height: 300,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Stack(
-                        children: [
-                          FlutterMap(
-                            mapController: _mapController,
-                            options: MapOptions(
-                              initialCenter: _selectedLocation,
-                              initialZoom: 15,
-                              onTap: (tapPosition, point) async {
-                                setState(() {
-                                  _selectedLocation = point;
-                                });
-                                await _getAddressFromLatLng(point);
-                              },
-                            ),
-                            children: [
-                              TileLayer(
-                                urlTemplate:
-                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                userAgentPackageName: 'com.example.app',
-                              ),
-                              MarkerLayer(
-                                markers: [
-                                  Marker(
-                                    point: _selectedLocation,
-                                    width: 80,
-                                    height: 80,
-                                    child: Icon(
-                                      Icons.location_pin,
-                                      color: AppTheme.primary,
-                                      size: 40,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Positioned(
-                            top: 8,
-                            left: 8,
-                            right: 8,
-                            child: Column(
-                              children: [
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.1),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                  child: TextField(
-                                    controller: _searchController,
-                                    decoration: InputDecoration(
-                                      hintText: 'Cari lokasi...',
-                                      prefixIcon: Icon(Icons.search),
-                                      border: InputBorder.none,
-                                      contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 12),
-                                    ),
-                                    onChanged: (value) =>
-                                        _searchLocation(value),
-                                  ),
-                                ),
-                                if (_searchResults.isNotEmpty)
-                                  Container(
-                                    margin: EdgeInsets.only(top: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      children: _searchResults
-                                          .map(
-                                            (result) => ListTile(
-                                              title: Text(
-                                                result['display_name'],
-                                                style: TextStyle(fontSize: 14),
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              onTap: () async {
-                                                final newLocation = LatLng(
-                                                  result['lat'],
-                                                  result['lon'],
-                                                );
-                                                setState(() {
-                                                  _selectedLocation =
-                                                      newLocation;
-                                                  _searchResults = [];
-                                                  _searchController.clear();
-                                                });
-                                                _mapController.move(
-                                                    newLocation, 15);
-                                                await _getAddressFromLatLng(
-                                                    newLocation);
-                                              },
-                                            ),
-                                          )
-                                          .toList(),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          Positioned(
-                            right: 10,
-                            bottom: 16,
-                            child: ElevatedButton(
-                              onPressed: _getCurrentLocation,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    const Color.fromARGB(255, 255, 255, 255),
-                                side: BorderSide(
-                                    color:
-                                        const Color.fromARGB(255, 251, 93, 93)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                    vertical: 12, horizontal: 90),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.my_location, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Gunakan Lokasi Saat Ini',
-                                    style: TextStyle(color: Colors.red),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      margin: EdgeInsets.only(top: 8, bottom: 16),
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.location_on,
-                                  size: 16, color: AppTheme.primary),
-                              SizedBox(width: 4),
-                              Text(
-                                'Koordinat: ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  '${_selectedLocation.latitude.toStringAsFixed(6)}, ${_selectedLocation.longitude.toStringAsFixed(6)}',
-                                  style: TextStyle(color: Colors.grey[700]),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_referenceAddress.isNotEmpty) ...[
-                            SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.home,
-                                    size: 16, color: AppTheme.primary),
-                                SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    _referenceAddress,
-                                    style: TextStyle(color: Colors.grey[700]),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                    SizedBox(height: 24),
                     Text(
                       'Detail Alamat',
                       style: TextStyle(
@@ -607,7 +418,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                         color: Colors.grey[800],
                       ),
                     ),
-                    SizedBox(height: 8),
+                    SizedBox(height: 16),
                     _buildTextField(
                       controller: _streetController,
                       label: 'Alamat Lengkap',
@@ -667,6 +478,152 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildMapSection() {
+    return Container(
+      height: 300,
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Stack(
+        children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _selectedLocation,
+              initialZoom: 15,
+              onTap: (tapPosition, point) async {
+                setState(() {
+                  _selectedLocation = point;
+                });
+                await _getAddressFromLatLng(point);
+              },
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.app',
+              ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _selectedLocation,
+                    width: 80,
+                    height: 80,
+                    child: Icon(
+                      Icons.location_pin,
+                      color: AppTheme.primary,
+                      size: 40,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Positioned(
+            top: 8,
+            left: 8,
+            right: 8,
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Cari lokasi...',
+                      prefixIcon: Icon(Icons.search),
+                      border: InputBorder.none,
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    onChanged: (value) => _searchLocation(value),
+                  ),
+                ),
+                if (_searchResults.isNotEmpty)
+                  Container(
+                    margin: EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: _searchResults
+                          .map(
+                            (result) => ListTile(
+                              title: Text(
+                                result['display_name'],
+                                style: TextStyle(fontSize: 14),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              onTap: () async {
+                                final newLocation = LatLng(
+                                  result['lat'],
+                                  result['lon'],
+                                );
+                                setState(() {
+                                  _selectedLocation = newLocation;
+                                  _searchResults = [];
+                                  _searchController.clear();
+                                });
+                                _mapController.move(newLocation, 15);
+                                await _getAddressFromLatLng(newLocation);
+                              },
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 10,
+            bottom: 16,
+            child: ElevatedButton(
+              onPressed: _getCurrentLocation,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+                side: BorderSide(color: const Color.fromARGB(255, 251, 93, 93)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding: EdgeInsets.symmetric(vertical: 12, horizontal: 90),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.my_location, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text(
+                    'Gunakan Lokasi Saat Ini',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
