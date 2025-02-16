@@ -13,31 +13,36 @@ import 'package:intl/intl.dart';
 import '../store/store_detail_screen.dart';
 
 class FindScreen extends StatefulWidget {
+  final String? initialSearchQuery;
+
+  const FindScreen({Key? key, this.initialSearchQuery}) : super(key: key);
+
   @override
-  State<FindScreen> createState() => _FindScreenState();
+  _FindScreenState createState() => _FindScreenState();
 }
 
 class _FindScreenState extends State<FindScreen> {
+  final TextEditingController searchController = TextEditingController();
   final ProductController productController = Get.find<ProductController>();
   final supabase = Supabase.instance.client;
-  final searchController = TextEditingController();
   final minPriceController = TextEditingController(text: '0');
   final maxPriceController = TextEditingController(text: '0');
   final formatter = NumberFormat('#,###');
   final isSearching = false.obs;
 
-  void resetSearch() {
-    searchController.clear();
-    productController.searchQuery.value = '';
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      productController.products.clear();
-      productController.searchedMerchants.clear();
-    });
-  }
-
   @override
   void initState() {
     super.initState();
+
+    // Set initial search query dan lakukan pencarian jika ada
+    if (widget.initialSearchQuery != null &&
+        widget.initialSearchQuery!.isNotEmpty) {
+      searchController.text = widget.initialSearchQuery!;
+      // Lakukan pencarian dengan delay kecil untuk memastikan widget sudah ter-mount
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _performSearch(widget.initialSearchQuery!);
+      });
+    }
 
     // Cek tipe arguments untuk menentukan apakah query pencarian atau index navigasi
     final arguments = Get.arguments;
@@ -61,6 +66,42 @@ class _FindScreenState extends State<FindScreen> {
         performSearch('');
       });
     }
+  }
+
+  void _performSearch(String query) async {
+    if (query.isEmpty) return;
+
+    try {
+      isSearching.value = true;
+
+      // Set search query
+      productController.searchQuery.value = query;
+
+      // Cari produk
+      await productController.searchProducts(query);
+
+      // Cari toko
+      final merchantResponse = await supabase
+          .from('merchants')
+          .select('id, store_name, store_description')
+          .or('store_name.ilike.%${query}%,store_description.ilike.%${query}%')
+          .limit(5);
+
+      productController.searchedMerchants.assignAll(merchantResponse);
+    } catch (e) {
+      print('Error searching in FindScreen: $e');
+    } finally {
+      isSearching.value = false;
+    }
+  }
+
+  void resetSearch() {
+    searchController.clear();
+    productController.searchQuery.value = '';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      productController.products.clear();
+      productController.searchedMerchants.clear();
+    });
   }
 
   void _showSortOptions() {
@@ -838,6 +879,7 @@ class _FindScreenState extends State<FindScreen> {
   void dispose() {
     // Reset state pencarian saat meninggalkan FindScreen
     productController.searchQuery.value = '';
+    searchController.dispose();
     super.dispose();
   }
 

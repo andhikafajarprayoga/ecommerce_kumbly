@@ -183,12 +183,14 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
             productController.fetchProducts();
           });
         } else if (index == 1) {
-          // Reset Find/Search screen
-          searchController.clear();
-          productController.searchQuery.value = '';
-          productController.products.clear();
-          productController.searchedMerchants.clear();
-          productController.fetchProducts();
+          // Reset Find/Search screen hanya jika tab diklik ulang
+          if (_selectedIndex == 1) {
+            searchController.clear();
+            productController.searchQuery.value = '';
+            productController.products.clear();
+            productController.searchedMerchants.clear();
+            productController.fetchProducts();
+          }
         } else if (index == 2) {
           // Reset Hotel screen
           Get.find<HotelScreenController>().resetSearch();
@@ -203,12 +205,14 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   }
 
   void _performSearch(String value) async {
-    setState(() => _selectedIndex = 0);
-    productController.searchQuery.value = value;
+    if (value.isEmpty) return;
 
     try {
+      // Set search query
+      productController.searchQuery.value = value;
+
       // Cari produk
-      productController.searchProducts(value);
+      await productController.searchProducts(value);
 
       // Cari toko dengan case insensitive
       final merchantResponse = await supabase
@@ -217,8 +221,15 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           .or('store_name.ilike.%${value}%,store_description.ilike.%${value}%')
           .limit(5);
 
-      print('Merchant search response: $merchantResponse'); // Debug print
+      print('Merchant search response: $merchantResponse');
       productController.searchedMerchants.assignAll(merchantResponse);
+
+      // Pindah ke FindScreen dengan search query
+      setState(() {
+        _selectedIndex = 1;
+        // Update search query di product controller
+        productController.searchQuery.value = value;
+      });
     } catch (e) {
       print('Error searching: $e');
     }
@@ -229,9 +240,10 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       case 0:
         return _buildHomeContent();
       case 1:
-        return FindScreen();
+        // Pass initial search query ke FindScreen
+        return FindScreen(initialSearchQuery: searchController.text);
       case 2:
-        return HotelScreen(); // Tambahkan screen hotel
+        return HotelScreen();
       case 3:
         return ProfileScreen();
       default:
