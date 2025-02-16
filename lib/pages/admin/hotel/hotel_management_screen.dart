@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'hotel_booking_detail_screen.dart';
+import 'hotel_financial_summary_screen.dart';
 
 class HotelManagementScreen extends StatefulWidget {
   @override
@@ -95,6 +96,13 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
         title: Text('Kelola Hotel'),
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.analytics),
+            onPressed: () => Get.to(() => HotelFinancialSummaryScreen()),
+            tooltip: 'Ringkasan Keuangan',
+          ),
+        ],
       ),
       body: Column(
         children: [
