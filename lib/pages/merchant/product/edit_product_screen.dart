@@ -36,8 +36,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
   void initState() {
     super.initState();
     nameController.text = widget.product['name'];
-    final initialPrice = widget.product['price'].toString();
-    priceController.text = formatNumber(initialPrice);
+    final price = widget.product['price'] ?? 0;
+    priceController.text = NumberFormat('#,###', 'id_ID').format(price);
     descriptionController.text = widget.product['description'] ?? '';
     stockController.text = widget.product['stock'].toString();
     categoryController.text = widget.product['category'] ?? '';
@@ -469,14 +469,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
       try {
         List<String> imageUrls = await uploadImages(imagePaths);
 
-        // Konversi string harga yang berformat (contoh: "1,000,000") menjadi numeric
-        final price =
-            double.parse(priceController.text.replaceAll(RegExp(r'[^\d]'), ''));
+        final priceString =
+            priceController.text.replaceAll(RegExp(r'[^\d]'), '');
+        final price = int.parse(priceString);
 
         await productController.updateProduct(
           widget.product['id'],
           nameController.text,
-          price, // nilai numerik murni untuk database
+          price.toDouble(),
           int.parse(stockController.text),
           descriptionController.text,
           categoryController.text,
