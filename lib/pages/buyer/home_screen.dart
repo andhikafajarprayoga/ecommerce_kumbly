@@ -17,6 +17,7 @@ import '../../controllers/cart_controller.dart';
 import 'dart:async';
 import 'notification/notification_screen.dart';
 import '../../controllers/hotel_screen_controller.dart';
+import '../../services/notification_service.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -46,6 +47,9 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   void initState() {
     super.initState();
     Get.put(RxInt(0), tag: 'selectedIndex');
+
+    // Setup notifikasi untuk berbagai event
+    _setupNotificationListeners();
 
     // Reset data jika kembali dari FindScreen
     final arguments = Get.arguments;
@@ -653,6 +657,105 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _setupNotificationListeners() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // Notifikasi untuk pesanan baru
+    supabase
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('buyer_id', userId)
+        .listen((List<Map<String, dynamic>> data) {
+          if (data.isNotEmpty) {
+            final latestOrder = data.first;
+            if (latestOrder['status'] == 'pending') {
+              _showNotification(
+                'Pesanan Baru',
+                'Pesanan #${latestOrder['id'].toString().substring(0, 8)} sedang menunggu pembayaran',
+              );
+            } else if (latestOrder['status'] == 'processing') {
+              _showNotification(
+                'Status Pesanan',
+                'Pesanan #${latestOrder['id'].toString().substring(0, 8)} sedang diproses',
+              );
+            } else if (latestOrder['status'] == 'shipping') {
+              _showNotification(
+                'Status Pengiriman',
+                'Pesanan #${latestOrder['id'].toString().substring(0, 8)} sedang dalam pengiriman',
+              );
+            } else if (latestOrder['status'] == 'completed') {
+              _showNotification(
+                'Pesanan Selesai',
+                'Pesanan #${latestOrder['id'].toString().substring(0, 8)} telah selesai',
+              );
+            }
+          }
+        });
+
+    // Notifikasi untuk chat baru
+    supabase
+        .from('chat_messages')
+        .stream(primaryKey: ['id'])
+        .eq('receiver_id', userId)
+        .listen((List<Map<String, dynamic>> data) {
+          if (data.isNotEmpty) {
+            final latestMessage = data.first;
+            if (!latestMessage['is_read']) {
+              _showNotification(
+                'Pesan Baru',
+                'Anda memiliki pesan baru',
+              );
+            }
+          }
+        });
+
+    // Notifikasi untuk promo/voucher baru
+    supabase
+        .from('vouchers')
+        .stream(primaryKey: ['id']).listen((List<Map<String, dynamic>> data) {
+      if (data.isNotEmpty) {
+        final latestVoucher = data.first;
+        if (DateTime.parse(latestVoucher['created_at'])
+            .isAfter(DateTime.now().subtract(Duration(minutes: 5)))) {
+          _showNotification(
+            'Promo Baru',
+            'Ada voucher baru! ${latestVoucher['description']}',
+          );
+        }
+      }
+    });
+
+    // Notifikasi untuk perubahan status pembayaran
+    supabase
+        .from('payment_groups')
+        .stream(primaryKey: ['id'])
+        .eq('buyer_id', userId)
+        .listen((List<Map<String, dynamic>> data) {
+          if (data.isNotEmpty) {
+            final latestPayment = data.first;
+            if (latestPayment['payment_status'] == 'success') {
+              _showNotification(
+                'Pembayaran Berhasil',
+                'Pembayaran untuk pesanan Anda telah berhasil',
+              );
+            } else if (latestPayment['payment_status'] == 'failed') {
+              _showNotification(
+                'Pembayaran Gagal',
+                'Pembayaran untuk pesanan Anda gagal. Silakan coba lagi',
+              );
+            }
+          }
+        });
+  }
+
+  void _showNotification(String title, String body) {
+    NotificationService.showNotification(
+      title: title,
+      body: body,
     );
   }
 }
