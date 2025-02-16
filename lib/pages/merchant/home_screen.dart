@@ -29,7 +29,8 @@ class MerchantHomeScreen extends StatefulWidget {
   _MerchantHomeScreenState createState() => _MerchantHomeScreenState();
 }
 
-class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
+class _MerchantHomeScreenState extends State<MerchantHomeScreen>
+    with AutomaticKeepAliveClientMixin {
   final ProductController productController = Get.put(ProductController());
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -40,16 +41,26 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
   final RxInt _unreadChatsCount = 0.obs;
   late Stream<int> _unreadChatsStream;
   final supabase = Supabase.instance.client;
+  StreamSubscription? _chatSubscription;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
+    _initializeScreen();
+  }
+
+  void _initializeScreen() {
+    if (!mounted) return;
+
     flutterLocalNotificationsPlugin.initialize(
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
       onDidReceiveNotificationResponse: (details) {
-        // Handle tap notification
+        if (!mounted) return;
         if (details.payload != null) {
           final data = jsonDecode(details.payload!);
           if (data['type'] == 'notification') {
@@ -58,7 +69,10 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
         }
       },
     );
-    _setupUnreadChatsStream();
+
+    if (_unreadChatsCount.value == 0) {
+      _setupUnreadChatsStream();
+    }
     _setupNotificationListeners();
   }
 
@@ -207,83 +221,100 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
+
     final List<Widget> _screens = [
       _HomeMenu(),
       ChatListScreen(sellerId: widget.sellerId),
       ProfileScreen(),
     ];
 
-    return Scaffold(
-      body: _screens[_selectedIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Stack(
-                children: [
-                  const Icon(Icons.chat_bubble_rounded),
-                  Obx(() => _unreadChatsCount.value > 0
-                      ? Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(1),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 12,
-                              minHeight: 12,
-                            ),
-                            child: Text(
-                              _unreadChatsCount.value.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 8,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        )
-                      : const SizedBox()),
-                ],
+    return WillPopScope(
+      onWillPop: () async {
+        if (_selectedIndex != 0) {
+          setState(() => _selectedIndex = 0);
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        body: _screens[_selectedIndex],
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.2),
+                blurRadius: 10,
+                offset: const Offset(0, -5),
               ),
-              label: 'Chat',
-            ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.person_rounded),
-              label: 'Profile',
-            ),
-          ],
-          currentIndex: _selectedIndex,
-          selectedItemColor: AppTheme.primary,
-          unselectedItemColor: Colors.grey[400],
-          backgroundColor: Colors.white,
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
+            ],
+          ),
+          child: BottomNavigationBar(
+            items: [
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.home_rounded),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Stack(
+                  children: [
+                    const Icon(Icons.chat_bubble_rounded),
+                    Obx(() => _unreadChatsCount.value > 0
+                        ? Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(1),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 12,
+                                minHeight: 12,
+                              ),
+                              child: Text(
+                                _unreadChatsCount.value.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 8,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          )
+                        : const SizedBox()),
+                  ],
+                ),
+                label: 'Chat',
+              ),
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.person_rounded),
+                label: 'Profile',
+              ),
+            ],
+            currentIndex: _selectedIndex,
+            selectedItemColor: AppTheme.primary,
+            unselectedItemColor: Colors.grey[400],
+            backgroundColor: Colors.white,
+            showUnselectedLabels: true,
+            type: BottomNavigationBarType.fixed,
+            elevation: 0,
+            onTap: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+          ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _chatSubscription?.cancel();
+    super.dispose();
   }
 }
 
@@ -292,7 +323,8 @@ class _HomeMenu extends StatefulWidget {
   _HomeMenuState createState() => _HomeMenuState();
 }
 
-class _HomeMenuState extends State<_HomeMenu> {
+class _HomeMenuState extends State<_HomeMenu>
+    with AutomaticKeepAliveClientMixin {
   final supabase = Supabase.instance.client;
   final storeName = ''.obs;
   final needToShip = '0'.obs;
@@ -309,13 +341,18 @@ class _HomeMenuState extends State<_HomeMenu> {
   int _currentBannerIndex = 0;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
-    _checkMerchantAddress();
-    _setupMerchantData();
-    _setupOrdersCount();
-    _setupHotelBookingsStream();
-    _setupOrdersStream();
+    if (storeName.value.isEmpty) {
+      _checkMerchantAddress();
+      _setupMerchantData();
+      _setupOrdersCount();
+      _setupHotelBookingsStream();
+      _setupOrdersStream();
+    }
   }
 
   @override
@@ -438,8 +475,7 @@ class _HomeMenuState extends State<_HomeMenu> {
 
   @override
   Widget build(BuildContext context) {
-    _fetchMerchantData();
-    _fetchOrdersCount();
+    super.build(context);
 
     return Scaffold(
       body: SafeArea(

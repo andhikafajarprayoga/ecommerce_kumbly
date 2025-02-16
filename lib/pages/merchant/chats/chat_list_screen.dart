@@ -8,6 +8,7 @@ import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import 'package:rxdart/rxdart.dart' as rx;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:kumbly_ecommerce/services/notification_service.dart';
+import 'dart:convert';
 
 final supabase = Supabase.instance.client;
 
@@ -32,7 +33,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
     _initializeChatRooms();
   }
 
-  Future<void> _showNotification(String title, String body) async {
+  Future<void> _showNotification(String title, String body, String roomId,
+      String senderId, String messageId) async {
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
       'your_channel_id', // Ganti dengan ID saluran Anda
@@ -52,7 +54,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
       title,
       body,
       platformChannelSpecifics,
-      payload: 'item x', // Payload opsional
+      payload: jsonEncode({
+        'room_id': roomId,
+        'sender_id': senderId,
+        'message_id': messageId,
+      }),
     );
   }
 
