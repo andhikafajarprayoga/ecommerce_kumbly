@@ -480,11 +480,25 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
     try {
       setState(() => _isLoading = true);
 
-      // Hitung harga kamar setelah diskon
+      // Ambil merchant_id dari hotel data
+      final hotelResponse = await supabase
+          .from('hotels')
+          .select('merchant_id')
+          .eq('id', widget.hotel['id'])
+          .single();
+
+      // Verifikasi merchant_id di auth.users
+      final merchantUser = await supabase
+          .from('users')
+          .select()
+          .eq('id', hotelResponse['merchant_id'])
+          .single();
+
       double roomPriceAfterDiscount = _totalPrice - _voucherDiscount;
 
       final bookingData = {
         'hotel_id': widget.hotel['id'],
+        'merchant_id': merchantUser['id'], // Gunakan ID dari tabel users
         'room_type': widget.roomType['type'],
         'user_id': supabase.auth.currentUser!.id,
         'check_in': _selectedCheckIn!.toIso8601String(),
@@ -500,16 +514,11 @@ class _HotelBookingScreenState extends State<HotelBookingScreen> {
         'status': 'pending',
       };
 
-      print('Final Booking Data to be sent:');
-      print(bookingData);
-
       final response = await supabase
           .from('hotel_bookings')
           .insert(bookingData)
           .select()
           .single();
-
-      print('Booking Response: ${response.toString()}');
 
       Get.to(() => HotelBookingDetailScreen(booking: response));
     } catch (e) {
