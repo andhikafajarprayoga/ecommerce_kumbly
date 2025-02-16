@@ -18,6 +18,7 @@ import 'dart:async';
 import 'notification/notification_screen.dart';
 import '../../controllers/hotel_screen_controller.dart';
 import '../../services/notification_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -42,6 +43,8 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
   final CartController cartController = Get.put(CartController());
   StreamSubscription? _chatSubscription;
   var searchQuery = ''.obs;
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
@@ -70,7 +73,18 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       fetchCartCount();
       listenToCartChanges();
       _setupUnreadChatsStream();
+      _setupNotificationListeners();
     }
+
+    // Inisialisasi notification handler
+    flutterLocalNotificationsPlugin.initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      ),
+      onDidReceiveNotificationResponse: (details) {
+        _handleNotificationTap(details.payload);
+      },
+    );
   }
 
   @override
@@ -137,40 +151,145 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
 
     _chatSubscription?.cancel();
 
-    // Stream untuk chat_rooms
-    final roomStream = supabase
-        .from('chat_rooms')
-        .stream(primaryKey: ['id']).eq('buyer_id', userId);
+    try {
+      // Stream untuk chat_rooms
+      final roomStream = supabase
+          .from('chat_rooms')
+          .stream(primaryKey: ['id'])
+          .eq('buyer_id', userId)
+          .execute()
+          .handleError((error) {
+            print('Room stream error: $error');
+            Future.delayed(
+                Duration(seconds: 3), () => _setupUnreadChatsStream());
+          });
 
-    // Stream untuk chat_messages
-    final messageStream =
-        supabase.from('chat_messages').stream(primaryKey: ['id']);
+      // Stream untuk chat_messages
+      final messageStream = supabase
+          .from('chat_messages')
+          .stream(primaryKey: ['id'])
+          .execute()
+          .handleError((error) {
+            print('Message stream error: $error');
+            Future.delayed(
+                Duration(seconds: 3), () => _setupUnreadChatsStream());
+          });
 
-    // Combine kedua stream
-    _chatSubscription = CombineLatestStream(
-      [roomStream, messageStream],
-      (values) async {
-        final rooms = values[0] as List<Map<String, dynamic>>;
-        final messages = values[1] as List<Map<String, dynamic>>;
-        final roomIds = rooms.map((room) => room['id']).toList();
+      // Combine kedua stream dengan error handling
+      _chatSubscription = CombineLatestStream.combine2(
+        roomStream,
+        messageStream,
+        (rooms, messages) async {
+          try {
+            final roomsList = rooms as List<Map<String, dynamic>>;
+            final messagesList = messages as List<Map<String, dynamic>>;
+            final roomIds = roomsList.map((room) => room['id']).toList();
 
-        if (roomIds.isEmpty) return 0;
+            if (roomIds.isEmpty) return 0;
 
-        final unreadMessages = messages.where((msg) =>
-            roomIds.contains(msg['room_id']) &&
-            msg['is_read'] == false &&
-            msg['sender_id'] != userId);
+            final unreadMessages = messagesList.where((msg) =>
+                roomIds.contains(msg['room_id']) &&
+                msg['is_read'] == false &&
+                msg['sender_id'] != userId);
 
-        final unreadRooms = unreadMessages.map((msg) => msg['room_id']).toSet();
+            return unreadMessages.map((msg) => msg['room_id']).toSet().length;
+          } catch (e) {
+            print('Error processing chat data: $e');
+            return 0;
+          }
+        },
+      ).asyncMap((future) async => await future).listen(
+        (count) => _unreadChatsCount.value = count,
+        onError: (error) {
+          print('Combined stream error: $error');
+          Future.delayed(Duration(seconds: 3), () => _setupUnreadChatsStream());
+        },
+      );
+    } catch (e) {
+      print('Setup chat stream error: $e');
+      // Coba setup ulang setelah error
+      Future.delayed(Duration(seconds: 3), () => _setupUnreadChatsStream());
+    }
+  }
 
-        return unreadRooms.length;
-      },
-    ).listen(
-      (Future<int> countFuture) async {
-        final count = await countFuture;
-        _unreadChatsCount.value = count;
-      },
-      onError: (error) => print('Error in chat stream: $error'),
+  void _setupNotificationListeners() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // Listen to notifications table
+    supabase
+        .from('notifications')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .execute()
+        .listen((List<Map<String, dynamic>> notifications) {
+          if (notifications.isEmpty) return;
+
+          // Cek notifikasi yang belum dibaca
+          final unreadNotifications =
+              notifications.where((n) => n['is_read'] == false);
+          if (unreadNotifications.isEmpty) return;
+
+          // Ambil notifikasi terbaru
+          final latestNotif = unreadNotifications.first;
+          final now = DateTime.now();
+          final notifTime = DateTime.parse(latestNotif['created_at']);
+
+          // Tampilkan notifikasi jika baru dibuat (dalam 5 detik terakhir)
+          if (now.difference(notifTime).inSeconds <= 5) {
+            _showNotification(
+              latestNotif['title'],
+              latestNotif['message'],
+            );
+          }
+        });
+  }
+
+  void _handleNotificationTap(String? payload) {
+    if (payload == null) return;
+
+    try {
+      final data = jsonDecode(payload);
+      if (data['type'] == 'notification') {
+        Get.to(() => NotificationScreen());
+      }
+    } catch (e) {
+      print('Error handling notification tap: $e');
+    }
+  }
+
+  void _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'notifications_buyer_channel',
+      'Notifications',
+      channelDescription: 'Channel for buyer notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      enableVibration: true,
+      enableLights: true,
+      fullScreenIntent: true,
+      styleInformation: BigTextStyleInformation(''),
+      playSound: true,
+    );
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      DateTime.now().millisecond,
+      title,
+      body,
+      platformDetails,
+      payload: jsonEncode({
+        'type': 'notification',
+        'data': {
+          'title': title,
+          'message': body,
+        }
+      }),
     );
   }
 

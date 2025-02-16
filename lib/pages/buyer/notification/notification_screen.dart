@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'dart:async';
 
 class NotificationScreen extends StatefulWidget {
   @override
@@ -14,10 +15,14 @@ class _NotificationScreenState extends State<NotificationScreen> {
   List<Map<String, dynamic>> notifications = [];
   bool isLoading = true;
   RxInt unreadCount = 0.obs;
+  StreamSubscription<List<Map<String, dynamic>>>? _notificationSubscription;
 
   @override
   void initState() {
     super.initState();
+    timeago.setLocaleMessages('id', timeago.IdMessages());
+    timeago.setDefaultLocale('id');
+
     fetchNotifications();
     listenToNotifications();
   }
@@ -42,11 +47,13 @@ class _NotificationScreenState extends State<NotificationScreen> {
   }
 
   void listenToNotifications() {
-    supabase
+    _notificationSubscription = supabase
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', supabase.auth.currentUser!.id)
         .listen((List<Map<String, dynamic>> data) {
+          if (!mounted) return;
+
           setState(() {
             notifications = data;
             updateUnreadCount();
@@ -184,5 +191,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
       backgroundColor: iconColor.withOpacity(0.1),
       child: Icon(iconData, color: iconColor),
     );
+  }
+
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
   }
 }
