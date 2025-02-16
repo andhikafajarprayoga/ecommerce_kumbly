@@ -18,6 +18,8 @@ import 'package:kumbly_ecommerce/pages/merchant/profile/edit_store_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/hotel/hotel_management_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/hotel/hotel_bookings_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/notification/notification_seller_screen.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:convert';
 
 class MerchantHomeScreen extends StatefulWidget {
   final String sellerId;
@@ -29,17 +31,35 @@ class MerchantHomeScreen extends StatefulWidget {
 
 class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
   final ProductController productController = Get.put(ProductController());
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
   int _selectedIndex = 0;
   PageController _pageController = PageController();
   int _currentBannerIndex = 0;
   int unreadNotifications = 0; // Ganti dengan logika notifikasi yang sebenarnya
   final RxInt _unreadChatsCount = 0.obs;
   late Stream<int> _unreadChatsStream;
+  final supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
+    flutterLocalNotificationsPlugin.initialize(
+      const InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      ),
+      onDidReceiveNotificationResponse: (details) {
+        // Handle tap notification
+        if (details.payload != null) {
+          final data = jsonDecode(details.payload!);
+          if (data['type'] == 'notification') {
+            Get.to(() => NotificationSellerScreen());
+          }
+        }
+      },
+    );
     _setupUnreadChatsStream();
+    _setupNotificationListeners();
   }
 
   void _setupUnreadChatsStream() {
@@ -68,6 +88,120 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen> {
     _unreadChatsStream.listen(
       (count) => _unreadChatsCount.value = count,
       onError: (error) => print('Error in chat stream: $error'),
+    );
+  }
+
+  void _setupNotificationListeners() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    print('Setting up notification listener for merchant: $userId');
+
+    try {
+      supabase
+          .from('notifikasi_seller')
+          .stream(primaryKey: ['id'])
+          .order('created_at',
+              ascending: false) // Urutkan notifikasi terbaru dulu
+          .listen(
+            (List<Map<String, dynamic>> notifications) {
+              try {
+                print('Processing notifications: ${notifications.length}');
+                if (notifications.isEmpty) return;
+
+                // Filter hanya notifikasi yang belum dibaca
+                final newNotifications = notifications
+                    .where((notif) => notif['is_read'] == false)
+                    .toList();
+
+                if (newNotifications.isEmpty) return;
+
+                // Ambil notifikasi terbaru
+                final latestNotif = newNotifications.first;
+                print('Latest notification: $latestNotif');
+
+                final now = DateTime.now().toUtc();
+                final notifTime =
+                    DateTime.tryParse(latestNotif['created_at'] ?? '');
+
+                if (notifTime == null) {
+                  print('Invalid notification time');
+                  return;
+                }
+
+                final difference = now.difference(notifTime).inSeconds.abs();
+                print('Time difference: $difference seconds');
+
+                // Tentukan judul berdasarkan jenis notifikasi
+                String title = 'Notifikasi Baru';
+                if (latestNotif['order_id'] != null) {
+                  title = 'Pesanan Baru';
+                } else if (latestNotif['booking_id'] != null) {
+                  title = 'Booking Baru';
+                }
+
+                print(
+                    'Showing notification: $title - ${latestNotif['message']}');
+                _showNotification(
+                  title,
+                  latestNotif['message'] ?? 'Ada notifikasi baru',
+                );
+
+                // Update is_read setelah menampilkan notifikasi
+                supabase
+                    .from('notifikasi_seller')
+                    .update({'is_read': true})
+                    .eq('id', latestNotif['id'])
+                    .then((_) => print('Notification marked as read'));
+              } catch (e) {
+                print('Error processing notification: $e');
+              }
+            },
+            onError: (error) {
+              print('Listen error: $error');
+            },
+            cancelOnError: false,
+          );
+    } catch (e) {
+      print('Setup error: $e');
+    }
+  }
+
+  void _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'notifications_seller_channel',
+      'Seller Notifications',
+      channelDescription: 'Channel for seller notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: true,
+      enableVibration: true,
+      enableLights: true,
+      fullScreenIntent: true,
+      styleInformation: BigTextStyleInformation(''),
+      playSound: true,
+    );
+
+    const NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+    );
+
+    // Gunakan timestamp sebagai ID notifikasi
+    final notificationId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    await flutterLocalNotificationsPlugin.show(
+      notificationId, // Gunakan notificationId yang valid
+      title,
+      body,
+      platformDetails,
+      payload: jsonEncode({
+        'type': 'notification',
+        'data': {
+          'title': title,
+          'message': body,
+        }
+      }),
     );
   }
 
@@ -177,7 +311,6 @@ class _HomeMenuState extends State<_HomeMenu> {
   @override
   void initState() {
     super.initState();
-    print('Debug: Starting _setupHotelBookingsStream');
     _checkMerchantAddress();
     _setupMerchantData();
     _setupOrdersCount();
@@ -202,7 +335,6 @@ class _HomeMenuState extends State<_HomeMenu> {
 
   void _setupHotelBookingsStream() {
     final userId = supabase.auth.currentUser?.id;
-    print('Debug: Current userId: $userId');
 
     if (userId == null) return;
 
@@ -214,9 +346,7 @@ class _HomeMenuState extends State<_HomeMenu> {
           .eq('merchant_id', userId)
           .execute()
           .listen((hotels) {
-            print('Debug: Hotels: $hotels');
             final hotelIds = hotels.map((h) => h['id']).toList();
-            print('Debug: Hotel IDs: $hotelIds');
 
             bookingStreamSubscription?.cancel();
             bookingStreamSubscription = supabase
@@ -230,11 +360,7 @@ class _HomeMenuState extends State<_HomeMenu> {
                           booking['status'] == 'pending')
                       .toList();
 
-                  print(
-                      'Debug: Pending bookings count: ${pendingBookings.length}');
                   hotelBookingsCount.value = pendingBookings.length;
-                  print(
-                      'Debug: Badge count updated: ${hotelBookingsCount.value}');
                 });
           });
     } catch (e) {
