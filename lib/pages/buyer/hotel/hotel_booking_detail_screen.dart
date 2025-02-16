@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../home_screen.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class HotelBookingDetailScreen extends StatefulWidget {
   final Map<String, dynamic> booking;
@@ -262,10 +264,33 @@ class _HotelBookingDetailScreenState extends State<HotelBookingDetailScreen> {
                             icon: Icons.payment,
                           ),
                           if (accountNumber != null)
-                            _buildDetailRow(
-                              'Nomor Rekening',
-                              accountNumber!,
-                              icon: Icons.account_balance,
+                            InkWell(
+                              onTap: () {
+                                Clipboard.setData(
+                                    ClipboardData(text: accountNumber!));
+                                Get.snackbar(
+                                  'Berhasil',
+                                  'Nomor rekening telah disalin',
+                                  backgroundColor: Colors.green,
+                                  colorText: Colors.white,
+                                );
+                              },
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildDetailRow(
+                                      'Nomor Rekening',
+                                      accountNumber!,
+                                      icon: Icons.account_balance,
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.copy,
+                                    size: 20,
+                                    color: Colors.grey[600],
+                                  ),
+                                ],
+                              ),
                             ),
                         ],
                       ),

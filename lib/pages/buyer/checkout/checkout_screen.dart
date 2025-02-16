@@ -206,12 +206,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Map<String, dynamic>.from(widget.data['shipping_address']))
           : widget.data['shipping_address'].toString();
 
-      // Hitung ulang shipping cost yang sudah didiskon
-      double shippingDiscount =
-          discountAmount > 0 ? min(discountAmount, shippingCost) : 0;
-      double discountedShipping = max(0, shippingCost - shippingDiscount);
+      // Buat Map untuk menyimpan ongkir per merchant setelah diskon
+      Map<String, double> discountedShippingPerMerchant = {};
+
+      // Hitung diskon untuk setiap merchant
+      if (discountVoucher != null && discountAmount > 0) {
+        // Jika ada diskon, distribusikan ke setiap merchant secara proporsional
+        double totalShipping =
+            merchantShippingCosts.values.fold(0, (sum, cost) => sum + cost);
+
+        for (var entry in merchantShippingCosts.entries) {
+          String merchantId = entry.key;
+          double originalShipping = entry.value;
+
+          // Hitung proporsi diskon untuk merchant ini
+          double merchantDiscount =
+              (originalShipping / totalShipping) * discountAmount;
+          double discountedShipping =
+              max(0, originalShipping - merchantDiscount);
+
+          discountedShippingPerMerchant[merchantId] = discountedShipping;
+        }
+      } else {
+        // Jika tidak ada diskon, gunakan ongkir original
+        discountedShippingPerMerchant = Map.from(merchantShippingCosts);
+      }
+
+      // Hitung total akhir dengan ongkir yang sudah didiskon
+      double totalDiscountedShipping = discountedShippingPerMerchant.values
+          .fold(0, (sum, cost) => sum + cost);
       double finalTotal =
-          widget.data['total_amount'] + adminFee + discountedShipping;
+          widget.data['total_amount'] + adminFee + totalDiscountedShipping;
 
       final params = {
         'p_buyer_id': supabase.auth.currentUser!.id,
@@ -225,15 +250,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'merchant_id': item['products']['seller_id'],
                 })
             .toList(),
-        'p_shipping_costs': Map<String, dynamic>.fromEntries(
-          merchantShippingCosts.entries.map(
-            (e) => MapEntry(e.key,
-                discountedShipping), // Gunakan ongkir yang sudah didiskon
-          ),
-        ),
+        'p_shipping_costs':
+            discountedShippingPerMerchant, // Gunakan ongkir per merchant yang sudah didiskon
         'p_admin_fee': adminFee,
         'p_total_amount': finalTotal,
-        'p_total_shipping_cost': discountedShipping,
+        'p_total_shipping_cost': totalDiscountedShipping,
         'p_pengiriman_id': widget.data['pengiriman_id'],
       };
 
@@ -269,7 +290,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             orderData: {
               'payment_group_id': paymentGroupId,
               'total_amount': finalTotal,
-              'total_shipping_cost': discountedShipping,
+              'total_shipping_cost': totalDiscountedShipping,
               'admin_fee': adminFee,
             },
             paymentMethod: selectedMethod,

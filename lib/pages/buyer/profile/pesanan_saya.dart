@@ -266,77 +266,6 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
     }
   }
 
-  // Tambahkan fungsi untuk menghapus pesanan
-  void _showDeleteDialog(Map<String, dynamic> order) {
-    Get.dialog(
-      AlertDialog(
-        title: Text(
-          'Hapus Pesanan',
-          style: AppTheme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          'Apakah Anda yakin ingin menghapus pesanan ini?',
-          style: AppTheme.textTheme.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: Text(
-              'Batal',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => _deleteOrder(order['id']),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text('Ya, Hapus'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteOrder(String orderId) async {
-    try {
-      // Hapus order_items terlebih dahulu
-      await supabase.from('order_items').delete().eq('order_id', orderId);
-
-      // Hapus order_cancellations jika ada
-      await supabase
-          .from('order_cancellations')
-          .delete()
-          .eq('order_id', orderId);
-
-      // Setelah semua dependensi dihapus, baru hapus order
-      await supabase.from('orders').delete().eq('id', orderId);
-
-      // Beri notifikasi sukses
-      Get.back();
-      Get.snackbar(
-        'Berhasil',
-        'Pesanan telah dihapus',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
-
-      // Refresh daftar pesanan
-      orderController.fetchOrders();
-    } catch (e) {
-      print('Error deleting order: $e');
-      Get.back();
-      Get.snackbar(
-        'Gagal',
-        'Terjadi kesalahan saat menghapus pesanan: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
-
   // Di dalam ListView.builder, tambahkan tombol batalkan jika status pending
   Widget _buildCancelButton(Map<String, dynamic> order) {
     if (order['status'].toString().toLowerCase() != 'pending') {
@@ -384,22 +313,6 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
               'Menunggu Persetujuan seller',
               style: AppTheme.textTheme.bodySmall?.copyWith(
                 color: Colors.orange.shade900,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          )
-        else if (status == 'cancelled')
-          TextButton.icon(
-            onPressed: () => _showDeleteDialog(order),
-            icon: const Icon(
-              Icons.delete_outline,
-              color: Colors.red,
-              size: 18,
-            ),
-            label: Text(
-              'Hapus Pesanan',
-              style: AppTheme.textTheme.bodySmall?.copyWith(
-                color: Colors.red,
                 fontWeight: FontWeight.w600,
               ),
             ),

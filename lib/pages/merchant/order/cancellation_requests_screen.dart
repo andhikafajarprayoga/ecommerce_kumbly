@@ -12,16 +12,24 @@ class CancellationRequestsScreen extends StatefulWidget {
       _CancellationRequestsScreenState();
 }
 
-class _CancellationRequestsScreenState
-    extends State<CancellationRequestsScreen> {
+class _CancellationRequestsScreenState extends State<CancellationRequestsScreen>
+    with SingleTickerProviderStateMixin {
   final supabase = Supabase.instance.client;
   final cancellationRequests = <Map<String, dynamic>>[].obs;
   final isLoading = true.obs;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _fetchCancellationRequests();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchCancellationRequests() async {
@@ -39,6 +47,7 @@ class _CancellationRequestsScreenState
             processed_by,
             order:orders (
               id,
+              status,
               total_amount,
               shipping_address,
               order_items (
@@ -50,7 +59,11 @@ class _CancellationRequestsScreenState
                 )
               )
             )
-          ''').eq('status', 'pending').order('requested_at', ascending: false);
+          ''').inFilter('status', [
+        'pending',
+        'approved',
+        'rejected'
+      ]).order('requested_at', ascending: false);
 
       print('Debug response: $response');
 
@@ -156,7 +169,7 @@ class _CancellationRequestsScreenState
               _processRequest(request['id'], 'rejected');
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Tolak'),
+            child: const Text('Tolak', style: TextStyle(color: Colors.white)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -164,7 +177,7 @@ class _CancellationRequestsScreenState
               _processRequest(request['id'], 'approved');
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Setujui'),
+            child: const Text('Setujui', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -178,42 +191,70 @@ class _CancellationRequestsScreenState
         title: const Text('Permintaan Pembatalan'),
         backgroundColor: AppTheme.primary,
         foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'Menunggu'),
+            Tab(text: 'Dibatalkan'),
+          ],
+        ),
       ),
       body: Obx(() {
         if (isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (cancellationRequests.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.cancel_outlined, size: 80, color: Colors.grey[400]),
-                const SizedBox(height: 16),
-                Text(
-                  'Tidak ada permintaan pembatalan',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
+        final pendingRequests = cancellationRequests
+            .where((req) =>
+                req['status'] == 'pending' &&
+                req['order']['status'] != 'cancelled')
+            .toList();
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: cancellationRequests.length,
-          itemBuilder: (context, index) {
-            final request = cancellationRequests[index];
-            print('Debug request $index: $request');
-            return _buildRequestCard(request);
-          },
+        final canceledRequests = cancellationRequests
+            .where((req) => req['order']['status'] == 'cancelled')
+            .toList();
+
+        return TabBarView(
+          controller: _tabController,
+          children: [
+            _buildRequestList(pendingRequests),
+            _buildRequestList(canceledRequests),
+          ],
         );
       }),
+    );
+  }
+
+  Widget _buildRequestList(List<Map<String, dynamic>> requests) {
+    if (requests.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cancel_outlined, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Tidak ada permintaan pembatalan',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: requests.length,
+      itemBuilder: (context, index) {
+        final request = requests[index];
+        return _buildRequestCard(request);
+      },
     );
   }
 
@@ -281,22 +322,23 @@ class _CancellationRequestsScreenState
             ),
           ),
           const Divider(),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _showConfirmationDialog(request),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primary,
+          if (request['status'] == 'pending' && order['status'] != 'cancelled')
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _showConfirmationDialog(request),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primary,
+                      ),
+                      child: const Text('Proses'),
                     ),
-                    child: const Text('Proses'),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

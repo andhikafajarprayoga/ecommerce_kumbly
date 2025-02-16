@@ -257,13 +257,16 @@ class _HomeMenuState extends State<_HomeMenu> {
           final pendingShipments =
               orders.where((order) => order['status'] == 'pending').length;
 
-          // Count pending cancellations
+          // Count pending cancellations - Diperbarui untuk menghitung status pending_cancellation
           final pendingCancellations = orders
               .where((order) => order['status'] == 'pending_cancellation')
               .length;
 
           pendingShipmentCount.value = pendingShipments;
           pendingCancellationCount.value = pendingCancellations;
+
+          // Update cancelled count untuk status card
+          cancelled.value = pendingCancellations.toString();
         });
   }
 
@@ -734,7 +737,14 @@ class _HomeMenuState extends State<_HomeMenu> {
     required Color color,
   }) {
     return InkWell(
-      onTap: onTap,
+      onTap: () {
+        // Tambahkan navigasi ke CancellationRequestsScreen saat status pembatalan diklik
+        if (label == 'Pembatalan') {
+          Get.to(() => const CancellationRequestsScreen());
+        } else {
+          onTap();
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(

@@ -6,6 +6,8 @@ import '../../../../theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../controllers/order_controller.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -480,6 +482,9 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
         double.tryParse(widget.order['total_amount'].toString()) ?? 0.0;
     final paymentGroupId = widget.order['payment_group_id'];
 
+    print(
+        'Order shipping cost: ${widget.order['shipping_cost']}'); // Debug print
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
@@ -507,8 +512,122 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
           const SizedBox(height: 16),
           _buildPaymentRow('Subtotal Produk', totalAmount),
           const SizedBox(height: 8),
-          _buildPaymentRow(
-              'Biaya Pengiriman\nAkumulasi per chekout', shippingCost),
+          _buildPaymentRow('Biaya Pengiriman', shippingCost),
+
+          // Fetch payment group first, then payment method
+          FutureBuilder<Map<String, dynamic>?>(
+            future: _fetchPaymentGroupDetails(paymentGroupId),
+            builder: (context, paymentGroupSnapshot) {
+              if (paymentGroupSnapshot.hasData &&
+                  paymentGroupSnapshot.data != null) {
+                final paymentMethodId =
+                    paymentGroupSnapshot.data!['payment_method_id'];
+
+                return FutureBuilder<Map<String, dynamic>?>(
+                  future: _fetchPaymentMethod(paymentMethodId),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data != null) {
+                      final paymentMethod = snapshot.data!;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
+                          const Divider(),
+                          Text(
+                            'Metode Pembayaran',
+                            style: AppTheme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  paymentMethod['name'] ?? 'Tidak tersedia',
+                                  style:
+                                      AppTheme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (paymentMethod['account_number'] !=
+                                    null) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Nomor Rekening:',
+                                              style: AppTheme
+                                                  .textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              paymentMethod['account_number'],
+                                              style: AppTheme
+                                                  .textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            if (paymentMethod['account_name'] !=
+                                                null) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'a.n ${paymentMethod['account_name']}',
+                                                style: AppTheme
+                                                    .textTheme.bodySmall,
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.copy, size: 20),
+                                        onPressed: () {
+                                          Clipboard.setData(ClipboardData(
+                                            text:
+                                                paymentMethod['account_number'],
+                                          ));
+                                          Get.snackbar(
+                                            'Berhasil',
+                                            'Nomor rekening berhasil disalin',
+                                            backgroundColor: Colors.green,
+                                            colorText: Colors.white,
+                                          );
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+                    return const SizedBox();
+                  },
+                );
+              }
+              return const SizedBox();
+            },
+          ),
+
           FutureBuilder<Map<String, dynamic>?>(
             future: _fetchPaymentGroupDetails(paymentGroupId),
             builder: (context, snapshot) {
@@ -563,6 +682,22 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
       return response;
     } catch (e) {
       print('Error fetching payment group details: $e');
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> _fetchPaymentMethod(int paymentMethodId) async {
+    try {
+      final response = await supabase
+          .from('payment_methods')
+          .select()
+          .eq('id', paymentMethodId)
+          .single();
+
+      print('Payment Method Response: $response'); // Debug print
+      return response;
+    } catch (e) {
+      print('Error fetching payment method: $e');
       return null;
     }
   }
