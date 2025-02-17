@@ -748,8 +748,8 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Tambahkan tombol untuk memberi rating jika belum diberi rating
-                if (!booking['has_rating'])
+                // Tampilkan tombol rating hanya jika status completed dan belum diberi rating
+                if (booking['status'] == 'completed' && !booking['has_rating'])
                   ElevatedButton(
                     onPressed: () => _showHotelRatingScreen(booking),
                     style: ElevatedButton.styleFrom(
