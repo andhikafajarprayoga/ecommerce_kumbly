@@ -9,6 +9,7 @@ import 'package:rxdart/rxdart.dart' as rx;
 import 'package:get/get.dart';
 import 'dart:async';
 import '../../../services/notification_service.dart';
+import '../../../services/chat_service.dart';
 
 class AdminChatScreen extends StatefulWidget {
   @override
@@ -19,21 +20,19 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   final supabase = Supabase.instance.client;
   final RxList<Map<String, dynamic>> chatRooms = <Map<String, dynamic>>[].obs;
   final isLoading = true.obs;
-  final messages = <Map<String, dynamic>>[].obs;
   StreamSubscription? _roomsSubscription;
-  StreamSubscription? _messagesSubscription;
+  final _chatService = ChatService();
 
   @override
   void initState() {
     super.initState();
     _initializeChatRooms();
-    _setupMessageStream();
+    _chatService.initializeMessageListener();
   }
 
   @override
   void dispose() {
     _roomsSubscription?.cancel();
-    _messagesSubscription?.cancel();
     super.dispose();
   }
 
@@ -61,81 +60,6 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
             print('ERROR: Room stream error: $error');
           },
         );
-  }
-
-  void _setupMessageStream() {
-    print('DEBUG: Setting up message stream...');
-
-    _messagesSubscription = supabase
-        .from('admin_messages')
-        .stream(primaryKey: ['id'])
-        .eq('is_read', false)
-        .order('created_at', ascending: false)
-        .map((event) => event as List<Map<String, dynamic>>)
-        .listen((newMessages) {
-          messages.assignAll(newMessages);
-          _processNewMessages(newMessages);
-        });
-  }
-
-  void _processNewMessages(List<Map<String, dynamic>> newMessages) {
-    for (var message in newMessages) {
-      final messageTime = DateTime.parse(message['created_at']);
-      final currentTime = DateTime.now();
-
-      if (currentTime.difference(messageTime).inSeconds <= 30) {
-        print('DEBUG: Processing message: ${message['content']}');
-
-        if (message['sender_id'] != supabase.auth.currentUser!.id) {
-          _showNotificationAndUpdateUI(message);
-        }
-      }
-    }
-  }
-
-  Future<void> _showNotificationAndUpdateUI(
-      Map<String, dynamic> message) async {
-    try {
-      final sender = await supabase
-          .from('merchants')
-          .select('store_name')
-          .eq('id', message['sender_id'])
-          .single();
-
-      // Show notification
-      await NotificationService.showChatNotification(
-        title: sender['store_name'] ?? 'Unknown Merchant',
-        body: message['content'],
-        roomId: message['chat_room_id'],
-        senderId: message['sender_id'],
-        messageId: message['id'],
-      );
-
-      // Update room in UI
-      final roomIndex =
-          chatRooms.indexWhere((room) => room['id'] == message['chat_room_id']);
-      if (roomIndex != -1) {
-        chatRooms[roomIndex] = {
-          ...chatRooms[roomIndex],
-          'last_message': message['content'],
-          'last_message_time': message['created_at'],
-          'unread_count': await _getUnreadCount(message['chat_room_id']),
-        };
-
-        // Sort rooms
-        chatRooms.sort((a, b) {
-          final aTime =
-              DateTime.parse(a['last_message_time'] ?? a['created_at']);
-          final bTime =
-              DateTime.parse(b['last_message_time'] ?? b['created_at']);
-          return bTime.compareTo(aTime);
-        });
-
-        chatRooms.refresh();
-      }
-    } catch (e) {
-      print('ERROR: Failed to process message: $e');
-    }
   }
 
   Future<void> _enrichRooms(List<Map<String, dynamic>> rooms) async {

@@ -20,6 +20,9 @@ import 'services/courier_background_notification_service.dart';
 import 'services/admin_background_notification_service.dart';
 import 'services/background_notification_service.dart';
 
+import 'package:timeago/timeago.dart' as timeago;
+import 'services/chat_service.dart';
+
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
@@ -98,6 +101,10 @@ void main() async {
   // Initialize background notifications
   await BackgroundNotificationService.initialize();
 
+  timeago.setLocaleMessages('id', timeago.IdMessages());
+
+  // Setelah inisialisasi Supabase dan sebelum runApp
+  ChatService().initializeMessageListener();
 
   runApp(GetMaterialApp(
     title: 'E-Commerce App',
