@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:kumbly_ecommerce/controllers/merchant_home_controller.dart';
 import 'dart:async';
 import 'package:kumbly_ecommerce/pages/merchant/chats/chat_list_screen.dart';
 import 'package:kumbly_ecommerce/pages/merchant/finance/bank_accounts_screen.dart';
@@ -42,6 +43,7 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
   late Stream<int> _unreadChatsStream;
   final supabase = Supabase.instance.client;
   StreamSubscription? _chatSubscription;
+  final controller = Get.put(MerchantHomeController());
 
   @override
   bool get wantKeepAlive => true;

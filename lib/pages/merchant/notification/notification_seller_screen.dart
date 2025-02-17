@@ -121,10 +121,19 @@ class _NotificationSellerScreenState extends State<NotificationSellerScreen> {
                         child: ListTile(
                           leading: CircleAvatar(
                             backgroundColor: AppTheme.primary.withOpacity(0.1),
-                            child: Icon(Icons.shopping_bag,
+                            child: Icon(
+                                notification['orders'] != null
+                                    ? Icons.shopping_bag
+                                    : Icons.hotel,
                                 color: AppTheme.primary),
                           ),
-                          title: Text('Order #${notification['orders']['id']}'),
+                          title: Text(
+                            notification['orders'] != null
+                                ? 'Order #${notification['orders']['id']}'
+                                : notification['booking_id'] != null
+                                    ? 'Booking #${notification['booking_id']}'
+                                    : 'Notifikasi',
+                          ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
