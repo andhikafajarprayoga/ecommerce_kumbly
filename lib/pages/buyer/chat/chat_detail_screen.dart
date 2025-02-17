@@ -184,8 +184,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.seller['store_name'] ?? 'Chat'),
+        title: Text(widget.seller['store_name'] ?? 'Chat',
+            style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [

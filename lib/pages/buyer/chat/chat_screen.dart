@@ -8,8 +8,6 @@ import 'package:kumbly_ecommerce/auth/login_page.dart';
 import 'package:kumbly_ecommerce/auth/register_page.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/date_formatter.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'dart:convert';
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -20,24 +18,12 @@ class _ChatScreenState extends State<ChatScreen> {
   final supabase = Supabase.instance.client;
   late Stream<List<Map<String, dynamic>>> _chatRoomsStream;
   Map<String, Map<String, dynamic>> sellers = {};
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
     if (supabase.auth.currentUser != null) {
       _initializeChatRooms();
-
-      // Initialize notification tap handler
-      flutterLocalNotificationsPlugin.initialize(
-        const InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        ),
-        onDidReceiveNotificationResponse: (details) {
-          _handleNotificationTap(details.payload);
-        },
-      );
     }
   }
 
@@ -96,23 +82,6 @@ class _ChatScreenState extends State<ChatScreen> {
             if (lastMessage.isNotEmpty) {
               room['last_message'] = lastMessage.first['message'];
               room['last_message_time'] = lastMessage.first['created_at'];
-
-              // Tampilkan notifikasi jika ada pesan baru dan bukan dari user saat ini
-              if (!lastMessage.first['is_read'] &&
-                  lastMessage.first['sender_id'] != userId &&
-                  ModalRoute.of(context)?.settings.name !=
-                      ChatDetailScreen(
-                          chatRoom: room,
-                          seller: {
-                            'store_name': room['store_name'],
-                            'image': 'https://via.placeholder.com/50'
-                          },
-                          isAdminRoom: true)) {
-                _showNotification(
-                  'Pesan baru dari ${room['store_name']}',
-                  lastMessage.first['message'],
-                );
-              }
             }
 
             room['unread_count'] = messages
@@ -145,23 +114,6 @@ class _ChatScreenState extends State<ChatScreen> {
             if (lastMessageResponse != null) {
               room['last_message'] = lastMessageResponse['content'];
               room['last_message_time'] = lastMessageResponse['created_at'];
-
-              // Tampilkan notifikasi untuk pesan admin yang belum dibaca
-              if (!lastMessageResponse['is_read'] &&
-                  lastMessageResponse['sender_id'] != userId &&
-                  ModalRoute.of(context)?.settings.name !=
-                      ChatDetailScreen(
-                          chatRoom: room,
-                          seller: {
-                            'store_name': room['store_name'],
-                            'image': 'https://via.placeholder.com/50'
-                          },
-                          isAdminRoom: true)) {
-                _showNotification(
-                  'Pesan baru dari Admin',
-                  lastMessageResponse['content'],
-                );
-              }
             }
 
             room['unread_count'] = await _getUnreadCount(room['id'], true);
@@ -704,58 +656,5 @@ class _ChatScreenState extends State<ChatScreen> {
         .eq('room_id', roomId)
         .neq('sender_id', userId)
         .eq('is_read', false);
-  }
-
-  void _showNotification(String title, String body) async {
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'chat_channel', // channel id
-      'Chat Notifications', // channel name
-      channelDescription: 'Notifications for new chat messages',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: true,
-      enableVibration: true,
-      enableLights: true,
-      fullScreenIntent: true,
-      styleInformation: BigTextStyleInformation(''),
-      playSound: true,
-    );
-
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-    );
-
-    // Buat payload JSON yang valid
-    final payload = jsonEncode({
-      'type': 'chat',
-      'route': '/chat',
-      'data': {
-        'title': title,
-        'message': body,
-      }
-    });
-
-    await flutterLocalNotificationsPlugin.show(
-      DateTime.now().millisecond,
-      title,
-      body,
-      platformDetails,
-      payload: payload,
-    );
-  }
-
-  // Tambahkan fungsi ini untuk handle notification tap
-  void _handleNotificationTap(String? payload) {
-    if (payload == null) return;
-
-    try {
-      final data = jsonDecode(payload);
-      if (data['type'] == 'chat') {
-        Get.toNamed(data['route']);
-      }
-    } catch (e) {
-      print('Error handling notification tap: $e');
-    }
   }
 }
