@@ -55,12 +55,23 @@ class _PengirimanScreenState extends State<PengirimanScreen> {
 
       fetchPengiriman();
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Gagal menghapus pengiriman: $e',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      if (e.toString().contains('violates foreign key constraint')) {
+        Get.snackbar(
+          'Gagal Menghapus',
+          'Pengiriman ini tidak dapat dihapus karena masih digunakan dalam pesanan yang aktif',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 4),
+          icon: const Icon(Icons.error, color: Colors.white),
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          'Gagal menghapus pengiriman: $e',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 
