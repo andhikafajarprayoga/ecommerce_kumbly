@@ -81,35 +81,71 @@ class MerchantHomeController extends GetxController {
     if (userId == null) return;
 
     chatSubscription?.cancel();
-    chatSubscription = supabase
-        .from('chat_messages')
-        .stream(primaryKey: ['id'])
-        .eq('receiver_id', userId)
-        .order('created_at', ascending: false)
-        .execute()
-        .handleError((error) {
-          print('Chat stream error: $error');
-          // Reconnect after delay
-          Future.delayed(Duration(seconds: 3), () => setupChatStream());
-        })
-        .listen(
-          (data) {
-            try {
-              print('DEBUG: Received ${data.length} chat messages');
-              final unreadChats =
-                  data.where((msg) => msg['is_read'] == false).toList();
-              print('DEBUG: Unread chats: ${unreadChats.length}');
-              unreadChatsCount.value = unreadChats.length;
-            } catch (e) {
-              print('Error processing chat messages: $e');
-            }
-          },
-          onError: (error) {
-            print('Chat listen error: $error');
-            Future.delayed(Duration(seconds: 3), () => setupChatStream());
-          },
-          cancelOnError: false,
-        );
+
+    // Pertama cek apakah user ini adalah merchant
+    supabase
+        .from('merchants')
+        .select()
+        .eq('id', userId)
+        .single()
+        .then((merchantData) {
+      if (merchantData != null) {
+        // User adalah merchant, setup chat stream
+        supabase
+            .from('chat_rooms')
+            .stream(primaryKey: ['id'])
+            .eq('seller_id', userId)
+            .execute()
+            .handleError((error) {
+              print('Chat room stream error: $error');
+              Future.delayed(Duration(seconds: 3), () => setupChatStream());
+            })
+            .listen((rooms) {
+              try {
+                final roomIds =
+                    rooms.map((room) => room['id']).toList().cast<Object>();
+
+                if (roomIds.isNotEmpty) {
+                  final stream = supabase
+                      .from('chat_messages')
+                      .stream(primaryKey: ['id'])
+                      .inFilter('room_id', roomIds)
+                      .order('created_at', ascending: false);
+
+                  stream.execute().handleError((error) {
+                    print('Chat messages stream error: $error');
+                  }).listen(
+                    (messages) {
+                      try {
+                        final filteredMessages = messages
+                            .where((msg) => msg['sender_id'] != userId)
+                            .toList();
+
+                        final unreadCount = filteredMessages
+                            .where((msg) => msg['is_read'] == false)
+                            .length;
+                        unreadChatsCount.value = unreadCount;
+
+                        print('DEBUG: Unread messages count: $unreadCount');
+                      } catch (e) {
+                        print('Error processing chat messages: $e');
+                      }
+                    },
+                    onError: (error) {
+                      print('Chat messages listen error: $error');
+                    },
+                    cancelOnError: false,
+                  );
+                }
+              } catch (e) {
+                print('Error processing chat rooms: $e');
+              }
+            });
+      } else {
+        // User bukan merchant, reset unread count
+        unreadChatsCount.value = 0;
+      }
+    });
   }
 
   void setupOrdersStream() {

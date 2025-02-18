@@ -40,7 +40,35 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
       final response = await query.order('created_at', ascending: false);
 
       setState(() {
-        allOrders = List<Map<String, dynamic>>.from(response);
+        // Sort data berdasarkan prioritas status dan created_at
+        allOrders = List<Map<String, dynamic>>.from(response)
+          ..sort((a, b) {
+            // Prioritas status
+            final statusPriority = {
+              'pending': 0,
+              'processing': 1,
+              'shipping': 2,
+              'transit': 3,
+              'delivered': 4,
+              'completed': 5,
+              'cancelled': 6,
+              'pending_cancellation': 7,
+            };
+
+            final aStatus = statusPriority[a['status']] ?? 999;
+            final bStatus = statusPriority[b['status']] ?? 999;
+
+            // Jika status berbeda, urutkan berdasarkan prioritas
+            if (aStatus != bStatus) {
+              return aStatus.compareTo(bStatus);
+            }
+
+            // Jika status sama, urutkan berdasarkan created_at terbaru
+            final aDate = DateTime.parse(a['created_at']);
+            final bDate = DateTime.parse(b['created_at']);
+            return bDate.compareTo(aDate);
+          });
+
         applyFilters(searchController.text);
       });
     } catch (e) {
@@ -55,7 +83,6 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
         if (searchQuery.isNotEmpty) {
           final buyerId = order['buyer_id'].toString().toLowerCase();
           final searchLower = searchQuery.toLowerCase();
-
           return buyerId.contains(searchLower);
         }
         return true;
