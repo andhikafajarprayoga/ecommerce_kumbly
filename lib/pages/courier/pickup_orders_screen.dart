@@ -63,10 +63,15 @@ class PickupOrdersController extends GetxController {
     try {
       isLoading.value = true;
 
-      final data = await _supabase.from('orders').select('''
+      final data = await _supabase
+          .from('orders')
+          .select('''
             *,
             buyer:buyer_id(*)
-          ''').eq('status', 'processing').eq('keterangan', 'ready');
+          ''')
+          .eq('status', 'processing')
+          .eq('keterangan', 'ready')
+          .order('created_at', ascending: false);
 
       for (var order in data) {
         if (order['merchant_id'] != null) {
