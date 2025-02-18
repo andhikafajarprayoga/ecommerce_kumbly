@@ -5,6 +5,8 @@ import '../../../controllers/withdrawal_controller.dart';
 import '../../../models/withdrawal_request.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../theme/app_theme.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class WithdrawalDetailScreen extends StatelessWidget {
   final WithdrawalRequest request;
@@ -268,12 +270,32 @@ class WithdrawalDetailScreen extends StatelessWidget {
                 const Icon(Icons.credit_card, color: Colors.blue, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    request.accountNumber ?? 'Nomor rekening tidak tersedia',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontFamily: 'monospace',
-                      letterSpacing: 1,
+                  child: InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(
+                        text: request.accountNumber ?? '',
+                      ));
+                      Get.snackbar(
+                        'Sukses',
+                        'Nomor rekening berhasil disalin',
+                        duration: const Duration(seconds: 2),
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            request.accountNumber ??
+                                'Nomor rekening tidak tersedia',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontFamily: 'monospace',
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ),
+                        const Icon(Icons.copy, size: 16, color: Colors.grey),
+                      ],
                     ),
                   ),
                 ),
