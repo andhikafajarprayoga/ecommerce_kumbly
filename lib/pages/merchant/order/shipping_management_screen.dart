@@ -1093,6 +1093,21 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
                 style: TextStyle(color: Colors.white),
               ),
             ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                Get.back();
+                _completeHotelOrder(orderId);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple,
+                minimumSize: const Size(double.infinity, 45),
+              ),
+              child: const Text(
+                'Khusus Hotel',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
           ],
         ),
       ),
@@ -1408,5 +1423,36 @@ class _ShippingManagementScreenState extends State<ShippingManagementScreen> {
     setState(() {
       // Trigger rebuild untuk menerapkan filter
     });
+  }
+
+  // Tambahkan fungsi untuk menyelesaikan pesanan hotel
+  Future<void> _completeHotelOrder(String orderId) async {
+    try {
+      await supabase.from('orders').update({
+        'status': 'completed',
+      }).eq('id', orderId);
+
+      // Update juga status di hotel_bookings
+      // await supabase
+      //     .from('hotel_bookings')
+      //     .update({'status': 'completed'}).eq('order_id', orderId);
+
+      Get.snackbar(
+        'Sukses',
+        'Pesanan hotel berhasil diselesaikan',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      await _fetchOrders();
+    } catch (e) {
+      print('Error completing hotel order: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal menyelesaikan pesanan hotel',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 }
