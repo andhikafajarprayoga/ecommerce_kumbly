@@ -14,6 +14,10 @@ class AddressScreen extends StatefulWidget {
 class _AddressScreenState extends State<AddressScreen> {
   final supabase = Supabase.instance.client;
   final AuthController authController = Get.find<AuthController>();
+
+  // Tambah controller untuk nama dan telepon
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
   final streetController = TextEditingController();
   final villageController = TextEditingController();
   final districtController = TextEditingController();
@@ -25,20 +29,23 @@ class _AddressScreenState extends State<AddressScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAddress();
+    _loadBranchProfile();
   }
 
-  Future<void> _loadAddress() async {
+  Future<void> _loadBranchProfile() async {
     try {
-      final user = await supabase
-          .from('users')
+      final branch = await supabase
+          .from('branches')
           .select()
-          .eq('id', authController.currentUser.value!.id)
+          .eq('user_id', authController.currentUser.value?.id ?? '')
           .single();
 
       setState(() {
-        if (user['address'] != null) {
-          address = user['address'];
+        nameController.text = branch['name'] ?? '';
+        phoneController.text = branch['phone'] ?? '';
+
+        if (branch['address'] != null) {
+          address = branch['address'];
           streetController.text = address['street'] ?? '';
           villageController.text = address['village'] ?? '';
           districtController.text = address['district'] ?? '';
@@ -48,11 +55,11 @@ class _AddressScreenState extends State<AddressScreen> {
         }
       });
     } catch (e) {
-      print('Error loading address: $e');
+      print('Error loading branch profile: $e');
     }
   }
 
-  Future<void> _updateAddress() async {
+  Future<void> _updateBranchProfile() async {
     try {
       final newAddress = {
         'street': streetController.text,
@@ -63,9 +70,11 @@ class _AddressScreenState extends State<AddressScreen> {
         'postal_code': postalCodeController.text,
       };
 
-      await supabase.from('users').update({
+      await supabase.from('branches').update({
+        'name': nameController.text,
+        'phone': phoneController.text,
         'address': newAddress,
-      }).eq('id', authController.currentUser.value!.id);
+      }).eq('user_id', authController.currentUser.value?.id ?? '');
 
       setState(() {
         address = newAddress;
@@ -73,7 +82,7 @@ class _AddressScreenState extends State<AddressScreen> {
 
       Get.snackbar(
         'Sukses',
-        'Alamat berhasil diperbarui',
+        'Profil cabang berhasil diperbarui',
         backgroundColor: Colors.green,
         colorText: Colors.white,
       );
@@ -91,7 +100,7 @@ class _AddressScreenState extends State<AddressScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kelola Alamat'),
+        title: const Text('Profil Cabang'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -101,6 +110,32 @@ class _AddressScreenState extends State<AddressScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text(
+                  'Informasi Cabang',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Cabang',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nomor Telepon',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16),
                 const Text(
                   'Alamat Cabang',
                   style: TextStyle(
@@ -158,32 +193,18 @@ class _AddressScreenState extends State<AddressScreen> {
                   ),
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () {
-                        streetController.clear();
-                        villageController.clear();
-                        districtController.clear();
-                        cityController.clear();
-                        provinceController.clear();
-                        postalCodeController.clear();
-                        _updateAddress();
-                      },
-                      child: const Text('Hapus'),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _updateBranchProfile,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _updateAddress,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                      ),
-                      child: const Text('Simpan',
-                          style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
+                    child: const Text('Simpan Perubahan',
+                        style: TextStyle(color: Colors.white)),
+                  ),
                 ),
               ],
             ),
@@ -195,6 +216,8 @@ class _AddressScreenState extends State<AddressScreen> {
 
   @override
   void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
     streetController.dispose();
     villageController.dispose();
     districtController.dispose();

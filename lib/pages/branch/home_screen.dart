@@ -11,6 +11,7 @@ import 'package:kumbly_ecommerce/pages/branch/address_screen.dart';
 import 'package:kumbly_ecommerce/pages/branch/manual_order_screen.dart';
 import 'package:kumbly_ecommerce/pages/branch/processing_orders_screen.dart';
 import 'package:kumbly_ecommerce/pages/branch/branch_inventory_screen.dart';
+import 'package:kumbly_ecommerce/pages/branch/register_branch_screen.dart';
 
 class BranchHomeScreen extends StatefulWidget {
   const BranchHomeScreen({super.key});
@@ -29,7 +30,32 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
   @override
   void initState() {
     super.initState();
+    _checkBranchStatus();
     _initializeStreams();
+  }
+
+  Future<void> _checkBranchStatus() async {
+    try {
+      // Cek apakah user sudah terdaftar sebagai branch
+      final branch = await supabase
+          .from('branches')
+          .select()
+          .eq('user_id', authController.currentUser.value?.id ?? '')
+          .maybeSingle();
+
+      if (branch == null) {
+        // Jika belum terdaftar sebagai branch, arahkan ke halaman registrasi branch
+        Get.off(() => const RegisterBranchScreen());
+      }
+    } catch (e) {
+      print('Error checking branch status: $e');
+      Get.snackbar(
+        'Error',
+        'Terjadi kesalahan saat memeriksa status cabang',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 
   void _initializeStreams() {
