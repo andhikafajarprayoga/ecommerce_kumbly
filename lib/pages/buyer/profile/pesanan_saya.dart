@@ -133,7 +133,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
           double.tryParse(order['total_amount'].toString()) ?? 0.0;
       final shippingCost =
           double.tryParse(order['shipping_cost'].toString()) ?? 0.0;
-      return totalAmount + shippingCost;
+      return totalAmount + shippingCost; // Hanya total produk + ongkir
     } catch (e) {
       print('Error calculating total payment: $e');
       return 0.0;
@@ -473,7 +473,11 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
         itemCount: orderController.orders.length,
         itemBuilder: (context, index) {
           final order = orderController.orders[index];
-          final totalPayment = calculateTotalPayment(order);
+          final totalAmount =
+              double.tryParse(order['total_amount'].toString()) ?? 0.0;
+          final shippingCost =
+              double.tryParse(order['shipping_cost'].toString()) ?? 0.0;
+          final totalPayment = totalAmount + shippingCost;
 
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
@@ -563,9 +567,46 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                       ),
                       _buildInfoRow(
                         Icons.payments_outlined,
-                        'Total Pembayaran',
+                        'Total Produk + Ongkir',
                         formatCurrency(totalPayment),
                       ),
+                      if (order['payment_group_id'] != null) ...[
+                        FutureBuilder<Map<String, dynamic>?>(
+                          future: supabase
+                              .from('payment_groups')
+                              .select()
+                              .eq('id', order['payment_group_id'])
+                              .single(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData && snapshot.data != null) {
+                              final adminFee = double.tryParse(
+                                      snapshot.data!['admin_fee'].toString()) ??
+                                  0.0;
+                              return Column(
+                                children: [
+                                  const SizedBox(height: 8),
+                                  _buildInfoRow(
+                                    Icons.payments_outlined,
+                                    'Biaya Admin',
+                                    formatCurrency(adminFee),
+                                  ),
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: Divider(height: 1),
+                                  ),
+                                  _buildInfoRow(
+                                    Icons.payments_outlined,
+                                    'Total yang Harus Dibayar',
+                                    formatCurrency(totalPayment + adminFee),
+                                    isHighlighted: true,
+                                  ),
+                                ],
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ],
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 8),
                         child: Divider(height: 1),
