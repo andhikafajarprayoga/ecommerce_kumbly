@@ -572,21 +572,52 @@ class _BranchHomeScreenState extends State<BranchHomeScreen> {
   }
 
   Stream<List<Map<String, dynamic>>> _getDeliveredOrdersStream() {
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return Stream.value([]);
 
     return supabase
-        .from('orders')
-        .stream(primaryKey: ['id'])
-        .eq('status', 'delivered')
-        .execute();
+        .from('branches')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+        .asStream()
+        .asyncExpand((branchData) {
+      if (branchData == null) return Stream.value([]);
+
+      return supabase
+          .from('branch_products')
+          .stream(primaryKey: ['id'])
+          .execute()
+          .map((data) => data
+              .where((item) =>
+                  item['branch_id'] == branchData['id'] &&
+                  item['status'] == 'received')
+              .toList());
+    });
   }
 
   Stream<List<Map<String, dynamic>>> _getInTransitOrdersStream() {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return Stream.value([]);
+
     return supabase
-        .from('orders')
-        .stream(primaryKey: ['id'])
-        .eq('status', 'shipping')
-        .execute();
+        .from('branches')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+        .asStream()
+        .asyncExpand((branchData) {
+      if (branchData == null) return Stream.value([]);
+
+      return supabase
+          .from('branch_products')
+          .stream(primaryKey: ['id'])
+          .execute()
+          .map((data) => data
+              .where((item) =>
+                  item['branch_id'] == branchData['id'] &&
+                  item['status'] == 'waiting')
+              .toList());
+    });
   }
 }
