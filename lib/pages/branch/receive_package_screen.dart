@@ -175,7 +175,7 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
       child: ExpansionTile(
         title: Text('Order #${order['order_id'].toString().substring(0, 8)}'),
         subtitle:
-            Text('Status: ${_getStatusLabel(order['status'] ?? 'Menunggu')}'),
+            Text('Status: ${_getStatusLabel(order['status'] ?? 'waiting')}'),
         trailing: _buildStatusChip(order['status']),
         children: [
           Padding(
@@ -206,8 +206,7 @@ class _ReceivePackageScreenState extends State<ReceivePackageScreen> {
                     Text(
                         'Alamat: ${address != null ? _formatAddress(address) : '-'}'),
                     const SizedBox(height: 16),
-                    if (order['status'] ==
-                        'waiting') // Tampilkan tombol hanya jika status waiting
+                    if (order['status'] == null || order['status'] == 'waiting')
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
