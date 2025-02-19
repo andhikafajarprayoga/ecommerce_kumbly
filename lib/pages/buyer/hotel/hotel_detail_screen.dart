@@ -118,7 +118,6 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                 onPressed: () async {
                   final currentUser = supabase.auth.currentUser;
                   final merchantId = widget.hotel['merchant_id'];
-                  
 
                   if (currentUser == null || merchantId == null) {
                     Get.snackbar(
@@ -129,7 +128,6 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                     );
                     return;
                   }
-                  
 
                   try {
                     // Debug print untuk memeriksa nilai
@@ -539,7 +537,22 @@ class _HotelDetailScreenState extends State<HotelDetailScreen> {
                               width: double.infinity,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  // Navigate to booking screen
+                                  final currentUser = supabase.auth.currentUser;
+
+                                  if (currentUser == null) {
+                                    // Jika user belum login, tampilkan snackbar dan arahkan ke login screen
+                                    Get.snackbar(
+                                      'Perhatian',
+                                      'Silakan login terlebih dahulu untuk melakukan pemesanan',
+                                      backgroundColor: Colors.orange,
+                                      colorText: Colors.white,
+                                    );
+                                    Get.toNamed(
+                                        '/login'); // Pastikan route '/login' sudah terdaftar
+                                    return;
+                                  }
+
+                                  // Jika sudah login, lanjut ke halaman booking
                                   Get.to(() => HotelBookingScreen(
                                         hotel: widget.hotel,
                                         roomType: room,

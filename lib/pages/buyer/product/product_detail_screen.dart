@@ -265,7 +265,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Text(
                         widget.product['description'] ?? 'Tidak ada deskripsi',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 14,
                           color: Colors.black87,
                           height: 1.5,
                         ),

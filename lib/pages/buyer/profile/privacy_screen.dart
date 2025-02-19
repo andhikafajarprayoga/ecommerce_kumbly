@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../theme/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PrivacyScreen extends StatelessWidget {
   const PrivacyScreen({super.key});
@@ -46,6 +47,47 @@ class PrivacyScreen extends StatelessWidget {
             _buildPrivacySection(
               'Keamanan Data',
               'Kami menggunakan enkripsi dan tindakan keamanan lainnya untuk melindungi data Anda.',
+            ),
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 10,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    'Untuk informasi lebih lengkap, silakan kunjungi:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.textHint,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  InkWell(
+                    onTap: () => launch(
+                        'https://sarajaprivacypolicy.blogspot.com/p/kebijakan-privasi-terakhir-diperbarui.html'),
+                    child: Text(
+                      'Kebijakan Privasi Saraja',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: AppTheme.primary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
