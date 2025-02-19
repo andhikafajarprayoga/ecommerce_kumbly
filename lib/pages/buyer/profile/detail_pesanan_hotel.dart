@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/services.dart';
 
 final supabase = Supabase.instance.client; // Deklarasi supabase di level file
 
@@ -245,7 +246,26 @@ class _DetailPesananHotelScreenState extends State<DetailPesananHotelScreen> {
                 if (paymentMethodName != null)
                   _buildDetailRow('Metode Pembayaran', paymentMethodName!),
                 if (accountNumber != null)
-                  _buildDetailRow('Nomor Rekening', accountNumber!),
+                  InkWell(
+                    onTap: () {
+                      Clipboard.setData(ClipboardData(text: accountNumber!));
+                      Get.snackbar(
+                        'Berhasil',
+                        'Nomor rekening telah disalin',
+                        backgroundColor: Colors.green,
+                        colorText: Colors.white,
+                      );
+                    },
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child:
+                              _buildDetailRow('Nomor Rekening', accountNumber!),
+                        ),
+                        Icon(Icons.copy, size: 20, color: Colors.grey),
+                      ],
+                    ),
+                  ),
                 Divider(height: 24),
                 _buildDetailRow(
                   'Total yang Harus Dibayar',

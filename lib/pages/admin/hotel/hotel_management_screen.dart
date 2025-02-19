@@ -13,7 +13,7 @@ class HotelManagementScreen extends StatefulWidget {
 
 class _HotelManagementScreenState extends State<HotelManagementScreen> {
   final supabase = Supabase.instance.client;
-  String selectedStatus = 'all';
+  String selectedStatus = 'pending';
   List<Map<String, dynamic>> allBookings = [];
   List<Map<String, dynamic>> filteredBookings = [];
   final TextEditingController searchController = TextEditingController();
@@ -125,8 +125,6 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
             padding: EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                _buildFilterChip('all', 'Semua'),
-                SizedBox(width: 8),
                 _buildFilterChip('pending', 'Menunggu'),
                 SizedBox(width: 8),
                 _buildFilterChip('confirmed', 'Dikonfirmasi'),
@@ -134,6 +132,8 @@ class _HotelManagementScreenState extends State<HotelManagementScreen> {
                 _buildFilterChip('completed', 'Selesai'),
                 SizedBox(width: 8),
                 _buildFilterChip('cancelled', 'Dibatalkan'),
+                SizedBox(width: 8),
+                _buildFilterChip('all', 'Semua'),
               ],
             ),
           ),

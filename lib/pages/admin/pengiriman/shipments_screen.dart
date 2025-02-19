@@ -15,7 +15,7 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
   final ShipmentsController controller = Get.put(ShipmentsController());
   final supabase = Supabase.instance.client;
   RealtimeChannel? _ordersSubscription;
-  String selectedStatus = 'all';
+  String selectedStatus = 'pending';
   List<Map<String, dynamic>> allOrders = [];
   List<Map<String, dynamic>> filteredOrders = [];
   final TextEditingController searchController = TextEditingController();
@@ -205,8 +205,6 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          _buildFilterChip('all', 'Semua'),
-          SizedBox(width: 8),
           _buildFilterChip('pending', 'Menunggu'),
           SizedBox(width: 8),
           _buildFilterChip('pending_cancellation', 'Menunggu Pembatalan'),
@@ -222,6 +220,8 @@ class _ShipmentsScreenState extends State<ShipmentsScreen> {
           _buildFilterChip('completed', 'Selesai'),
           SizedBox(width: 8),
           _buildFilterChip('cancelled', 'Dibatalkan'),
+          SizedBox(width: 8),
+          _buildFilterChip('all', 'Semua'),
         ],
       ),
     );

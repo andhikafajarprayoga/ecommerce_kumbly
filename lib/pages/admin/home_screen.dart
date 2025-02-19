@@ -289,9 +289,9 @@ class AdminHomeScreen extends StatelessWidget {
                             onTap: () => Get.to(() => AdminAccountScreen()),
                           ),
                           _buildMenuCard(
-                            icon: Icons.hotel,
-                            title: 'Fee Admin Hotel',
-                            subtitle: 'Kelola Fee Admin Hotel',
+                            icon: Icons.payments,
+                            title: 'Fee Admin',
+                            subtitle: 'Kelola Fee Admin',
                             color: Colors.red,
                             onTap: () => Get.to(() => AdminFeesScreen()),
                           ),

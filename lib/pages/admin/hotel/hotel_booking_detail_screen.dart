@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HotelBookingDetailScreen extends StatelessWidget {
   final Map<String, dynamic> booking;
@@ -108,6 +109,30 @@ class HotelBookingDetailScreen extends StatelessWidget {
                     Text('Belum ada bukti pembayaran',
                         style: TextStyle(color: Colors.grey)),
                   ],
+                ),
+              ),
+            SizedBox(height: 24),
+            if (booking['status'] !=
+                'completed') // Tampilkan tombol hanya jika status bukan completed
+              Container(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => _showCompleteBookingDialog(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Selesaikan Booking',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -245,5 +270,58 @@ class HotelBookingDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showCompleteBookingDialog(BuildContext context) {
+    Get.dialog(
+      AlertDialog(
+        title: Text('Konfirmasi'),
+        content: Text('Apakah Anda yakin ingin menyelesaikan booking ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => _completeBooking(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+            ),
+            child: Text(
+              'Ya, Selesaikan',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _completeBooking() async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('hotel_bookings')
+          .update({'status': 'completed'}).eq('id', booking['id']);
+
+      Get.back(); // Tutup dialog
+      Get.snackbar(
+        'Sukses',
+        'Status booking berhasil diubah menjadi selesai',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      // Refresh halaman sebelumnya
+      Get.back(result: true);
+    } catch (e) {
+      print('Error completing booking: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mengubah status booking',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 }
