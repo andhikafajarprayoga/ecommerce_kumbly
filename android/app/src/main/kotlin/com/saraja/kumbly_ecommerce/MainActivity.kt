@@ -1,4 +1,4 @@
-package com.example.kumbly_ecommerce
+package com.saraja.kumbly_ecommerce
 
 import io.flutter.embedding.android.FlutterActivity
 
