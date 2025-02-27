@@ -37,6 +37,17 @@ class _CartScreenState extends State<CartScreen> {
     return total;
   }
 
+  void updateCartItem(String id, int newQuantity) {
+    final itemIndex =
+        cartController.cartItems.indexWhere((item) => item['id'] == id);
+    if (itemIndex != -1) {
+      setState(() {
+        cartController.cartItems[itemIndex]['quantity'] = newQuantity;
+      });
+      cartController.updateQuantity(id, newQuantity);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -150,19 +161,26 @@ class _CartScreenState extends State<CartScreen> {
                         Divider(height: 1),
 
                         // Merchant Items
+                        // In CartScreen, update the onUpdateQuantity handler
                         ...merchantItems
                             .map((item) => CartItemWidget(
                                   item: item,
-                                  isSelected:
-                                      selectedItems[item['id']] ?? false,
+                                  isSelected: selectedItems[item['id']] ?? false,
                                   onChanged: (bool? value) {
                                     setState(() {
-                                      selectedItems[item['id']] =
-                                          value ?? false;
+                                      selectedItems[item['id']] = value ?? false;
                                     });
                                   },
-                                  onUpdateQuantity:
-                                      cartController.updateQuantity,
+                                  onUpdateQuantity: (String id, int newQuantity) {
+                                    // Update locally first without triggering a reload
+                                    final itemIndex = cartController.cartItems.indexWhere((item) => item['id'] == id);
+                                    if (itemIndex != -1) {
+                                      cartController.cartItems[itemIndex]['quantity'] = newQuantity;
+                                      setState(() {}); // Update UI without reload
+                                    }
+                                    // Then update in backend without refreshing the list
+                                    cartController.updateQuantity(id, newQuantity, shouldRefresh: false);
+                                  },
                                   onRemove: cartController.removeFromCart,
                                 ))
                             .toList(),
@@ -362,7 +380,7 @@ class _CartScreenState extends State<CartScreen> {
 }
 
 // Buat widget terpisah untuk item cart
-class CartItemWidget extends StatelessWidget {
+class CartItemWidget extends StatefulWidget {
   final Map<String, dynamic> item;
   final bool isSelected;
   final Function(bool?) onChanged;
@@ -376,6 +394,26 @@ class CartItemWidget extends StatelessWidget {
     required this.onUpdateQuantity,
     required this.onRemove,
   });
+  @override
+  State<CartItemWidget> createState() => _CartItemWidgetState();
+}
+
+class _CartItemWidgetState extends State<CartItemWidget> {
+  late int quantity;
+
+  @override
+  void initState() {
+    super.initState();
+    quantity = widget.item['quantity'];
+  }
+
+  @override
+  void didUpdateWidget(CartItemWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item['quantity'] != widget.item['quantity']) {
+      quantity = widget.item['quantity'];
+    }
+  }
 
   String _getFirstImageUrl(Map<String, dynamic> product) {
     List<String> imageUrls = [];
@@ -401,10 +439,11 @@ class CartItemWidget extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.all(12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Checkbox(
-            value: isSelected,
-            onChanged: onChanged,
+            value: widget.isSelected,
+            onChanged: widget.onChanged,
             activeColor: AppTheme.primary,
           ),
           Container(
@@ -413,7 +452,7 @@ class CartItemWidget extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               image: DecorationImage(
-                image: NetworkImage(_getFirstImageUrl(item['products'])),
+                image: NetworkImage(_getFirstImageUrl(widget.item['products'])),
                 fit: BoxFit.cover,
               ),
             ),
@@ -424,64 +463,88 @@ class CartItemWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item['products']['name'],
+                  widget.item['products']['name'],
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Rp ${NumberFormat('#,###').format(item['products']['price'])}',
+                  'Rp ${NumberFormat('#,###').format(widget.item['products']['price'])}',
                   style: TextStyle(
                     color: AppTheme.primary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.remove, size: 16),
-                            onPressed: () {
-                              int newQuantity = item['quantity'] - 1;
-                              if (newQuantity > 0) {
-                                onUpdateQuantity(item['id'], newQuantity);
-                              }
-                            },
-                            constraints: BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
+                IntrinsicWidth(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.remove, size: 16),
+                              onPressed: () {
+                                if (quantity > 1) {
+                                  setState(() {
+                                    quantity--;
+                                    widget.item['quantity'] = quantity;
+                                  });
+                                  widget.onUpdateQuantity(
+                                      widget.item['id'], quantity);
+                                }
+                              },
+                              constraints: BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
                             ),
-                          ),
-                          Text('${item['quantity']}'),
-                          IconButton(
-                            icon: Icon(Icons.add, size: 16),
-                            onPressed: () {
-                              onUpdateQuantity(
-                                  item['id'], item['quantity'] + 1);
-                            },
-                            constraints: BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
+                            SizedBox(
+                              width: 32,
+                              child: Center(
+                                child: Text('$quantity'),
+                              ),
                             ),
-                          ),
-                        ],
+                            IconButton(
+                              icon: Icon(Icons.add, size: 16),
+                              onPressed: () {
+                                setState(() {
+                                  quantity++;
+                                  widget.item['quantity'] = quantity;
+                                });
+                                widget.onUpdateQuantity(
+                                    widget.item['id'], quantity);
+                              },
+                              constraints: BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Spacer(),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline, color: Colors.red[400]),
-                      onPressed: () => onRemove(item['id']),
-                    ),
-                  ],
+                      SizedBox(width: 8),
+                      IconButton(
+                        icon:
+                            Icon(Icons.delete_outline, color: Colors.red[400]),
+                        onPressed: () => widget.onRemove(widget.item['id']),
+                        constraints: BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

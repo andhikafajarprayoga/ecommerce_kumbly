@@ -83,11 +83,10 @@ class CartController extends GetxController {
   }
 
   // Update quantity produk di keranjang
-  Future<void> updateQuantity(String cartItemId, int newQuantity) async {
+  Future<void> updateQuantity(String cartItemId, int newQuantity,
+      {bool shouldRefresh = true}) async {
     try {
       print("Update item dengan ID: $cartItemId ke jumlah: $newQuantity");
-
-      isLoading(true);
 
       // Pastikan jumlah tidak kurang dari 1
       if (newQuantity < 1) {
@@ -100,8 +99,10 @@ class CartController extends GetxController {
           .from('cart_items')
           .update({'quantity': newQuantity}).eq('id', cartItemId);
 
-      // Ambil ulang data cart
-      await fetchCartItems();
+      // Ambil ulang data cart jika diperlukan
+      if (shouldRefresh) {
+        await fetchCartItems();
+      }
     } catch (e) {
       print('Error updating quantity: $e');
       Get.snackbar(
@@ -109,8 +110,6 @@ class CartController extends GetxController {
         'Gagal memperbarui jumlah produk',
         snackPosition: SnackPosition.TOP,
       );
-    } finally {
-      isLoading(false);
     }
   }
 
