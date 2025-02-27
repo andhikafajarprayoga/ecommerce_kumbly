@@ -22,6 +22,7 @@ class CartController extends GetxController {
 
       final response = await supabase.from('cart_items').select('''
             *,
+            created_at,
             products:product_id (
               *,
               merchant:merchants!inner(
@@ -31,7 +32,6 @@ class CartController extends GetxController {
           ''').eq('user_id', userId);
 
       cartItems.value = List<Map<String, dynamic>>.from(response);
-      print('Debug response: $response'); // untuk debug
     } catch (e) {
       print('Error fetching cart items: $e');
       Get.snackbar(

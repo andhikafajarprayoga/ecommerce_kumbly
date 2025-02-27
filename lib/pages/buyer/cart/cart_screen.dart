@@ -76,9 +76,19 @@ class _CartScreenState extends State<CartScreen> {
           );
         }
 
+        // Sort items by created_at timestamp first
+        final sortedItems =
+            List<Map<String, dynamic>>.from(cartController.cartItems)
+              ..sort((a, b) {
+                final DateTime aDate = DateTime.parse(a['created_at']);
+                final DateTime bDate = DateTime.parse(b['created_at']);
+                return bDate
+                    .compareTo(aDate); // Descending order (newest first)
+              });
+
         // Kelompokkan items berdasarkan merchant
         Map<String, List<dynamic>> groupedItems = {};
-        for (var item in cartController.cartItems) {
+        for (var item in sortedItems) {
           String sellerId = item['products']['seller_id'].toString();
 
           if (!groupedItems.containsKey(sellerId)) {
@@ -87,14 +97,24 @@ class _CartScreenState extends State<CartScreen> {
           groupedItems[sellerId]!.add(item);
         }
 
+        // Sort the merchant groups by their newest item
+        final sortedMerchants = groupedItems.keys.toList()
+          ..sort((a, b) {
+            final aNewestDate =
+                DateTime.parse(groupedItems[a]!.first['created_at']);
+            final bNewestDate =
+                DateTime.parse(groupedItems[b]!.first['created_at']);
+            return bNewestDate.compareTo(aNewestDate);
+          });
+
         return Column(
           children: [
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: groupedItems.length,
+                itemCount: sortedMerchants.length,
                 itemBuilder: (context, index) {
-                  String sellerId = groupedItems.keys.elementAt(index);
+                  String sellerId = sortedMerchants[index];
                   List<dynamic> merchantItems = groupedItems[sellerId]!;
 
                   return Card(
@@ -165,21 +185,29 @@ class _CartScreenState extends State<CartScreen> {
                         ...merchantItems
                             .map((item) => CartItemWidget(
                                   item: item,
-                                  isSelected: selectedItems[item['id']] ?? false,
+                                  isSelected:
+                                      selectedItems[item['id']] ?? false,
                                   onChanged: (bool? value) {
                                     setState(() {
-                                      selectedItems[item['id']] = value ?? false;
+                                      selectedItems[item['id']] =
+                                          value ?? false;
                                     });
                                   },
-                                  onUpdateQuantity: (String id, int newQuantity) {
+                                  onUpdateQuantity:
+                                      (String id, int newQuantity) {
                                     // Update locally first without triggering a reload
-                                    final itemIndex = cartController.cartItems.indexWhere((item) => item['id'] == id);
+                                    final itemIndex = cartController.cartItems
+                                        .indexWhere((item) => item['id'] == id);
                                     if (itemIndex != -1) {
-                                      cartController.cartItems[itemIndex]['quantity'] = newQuantity;
-                                      setState(() {}); // Update UI without reload
+                                      cartController.cartItems[itemIndex]
+                                          ['quantity'] = newQuantity;
+                                      setState(
+                                          () {}); // Update UI without reload
                                     }
                                     // Then update in backend without refreshing the list
-                                    cartController.updateQuantity(id, newQuantity, shouldRefresh: false);
+                                    cartController.updateQuantity(
+                                        id, newQuantity,
+                                        shouldRefresh: false);
                                   },
                                   onRemove: cartController.removeFromCart,
                                 ))
