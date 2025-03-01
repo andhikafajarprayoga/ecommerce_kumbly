@@ -5,6 +5,8 @@ import 'auth/login_page.dart';
 import 'auth/register_page.dart';
 import 'pages/buyer/home_screen.dart';
 import 'controllers/auth_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'pages/admin/home_screen.dart';
 import 'pages/courier/home_screen.dart';
@@ -54,9 +56,27 @@ Future<void> showNotification() async {
   );
 }
 
+Future<void> checkFirstRun() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  bool isFirstRun = prefs.getBool('first_run') ?? true;
+
+  if (isFirstRun) {
+    await requestPermissions();
+    await prefs.setBool('first_run', false);
+  }
+}
+
+Future<void> requestPermissions() async {
+  await Permission.notification.request();
+  await Permission.storage.request();
+  await Permission.camera.request();
+  await Permission.location.request();
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  // Add this line after ensureInitialized
+  await checkFirstRun();
   // Initialize local notifications
   await LocalNotificationService().initNotification();
 
