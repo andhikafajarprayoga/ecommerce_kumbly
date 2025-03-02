@@ -8,6 +8,8 @@ import 'dart:convert';
 import '../../../theme/app_theme.dart';
 import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../../../services/permission_service.dart';
 
 class EditAddressScreen extends StatefulWidget {
   final Map<String, dynamic> initialAddress;
@@ -36,7 +38,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   TextEditingController searchController = TextEditingController();
   MapController mapController = MapController();
   LatLng selectedLocation =
-      const LatLng(-6.200000, 106.816666); // Default Jakarta
+      const LatLng(-8.587235, 116.091767); // Default Jakarta
   double zoomLevel = 15.0;
   bool isLoading = false;
   bool showMap = true;
@@ -65,50 +67,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       fetchAddressFromCoordinates(selectedLocation);
     }
 
-    // Tampilkan alert untuk mengingatkan pengguna tentang posisi peta
+    // Minta izin lokasi saat pertama kali buka halaman
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Get.dialog(
-        AlertDialog(
-          title: Text('Perhatian Posisi Peta'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Pastikan posisi peta menunjukkan lokasi yang benar.'),
-              SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.primary),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: AppTheme.primary, size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Titik lokasi di peta akan digunakan untuk perhitungan ongkos kirim.',
-                        style: TextStyle(
-                          color: AppTheme.primaryDark,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: Text('Tutup', style: TextStyle(color: AppTheme.primary)),
-            ),
-          ],
-        ),
-      );
+      Permission.location.request();
     });
   }
 
@@ -323,25 +284,105 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     }
   }
 
+  Future<bool> checkAndRequestLocationPermission() async {
+    // Cek status izin lokasi
+    var status = await Permission.location.status;
+
+    // Jika belum diizinkan
+    if (!status.isGranted) {
+      // Tampilkan dialog konfirmasi
+      bool? shouldOpenSettings = await Get.dialog<bool>(
+        AlertDialog(
+          title: Text('Izin Lokasi Diperlukan'),
+          content: Text(
+              'Untuk menggunakan fitur ini, Anda perlu mengizinkan akses lokasi di pengaturan.'),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(result: false),
+              child: Text('BATAL', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () => Get.back(result: true),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+              child: Text('BUKA PENGATURAN',
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+        barrierDismissible: false,
+      );
+
+      // Jika user memilih membuka pengaturan
+      if (shouldOpenSettings == true) {
+        await openAppSettings();
+        // Cek ulang status setelah kembali dari pengaturan
+        status = await Permission.location.status;
+      }
+    }
+
+    return status.isGranted;
+  }
+
   Future<void> getCurrentLocation() async {
     try {
+      // Cek dan minta izin lokasi terlebih dahulu
+      bool hasPermission = await checkAndRequestLocationPermission();
+      if (!hasPermission) {
+        return;
+      }
+
+      // Cek GPS aktif
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Tampilkan dialog untuk membuka pengaturan GPS
+        bool? shouldOpenSettings = await Get.dialog<bool>(
+          AlertDialog(
+            title: Text('GPS Tidak Aktif'),
+            content: Text(
+                'Untuk menggunakan fitur ini, Anda perlu mengaktifkan GPS di pengaturan.'),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(result: false),
+                child: Text('BATAL', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () => Get.back(result: true),
+                style:
+                    ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+                child: Text('BUKA PENGATURAN',
+                    style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+          barrierDismissible: false,
+        );
+
+        if (shouldOpenSettings == true) {
+          await Geolocator.openLocationSettings();
+        }
+        return;
+      }
+
       final position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
 
-      setState(() {
-        selectedLocation = LatLng(position.latitude, position.longitude);
-        zoomLevel = 16.0;
-      });
-
-      mapController.move(selectedLocation, zoomLevel);
-      fetchAddressFromCoordinates(selectedLocation);
+      setState(() =>
+          selectedLocation = LatLng(position.latitude, position.longitude));
+      mapController.move(selectedLocation, 16.0);
+      await fetchAddressFromCoordinates(selectedLocation);
     } catch (e) {
-      Get.snackbar(
-        "Error",
-        "Gagal mendapatkan lokasi: $e",
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      print('Location error: $e');
+      if (e.toString().contains('permission')) {
+        await checkAndRequestLocationPermission();
+      } else {
+        Get.snackbar(
+          "Error",
+          "Gagal mendapatkan lokasi: $e",
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 
