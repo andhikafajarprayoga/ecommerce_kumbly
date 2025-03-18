@@ -37,7 +37,7 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
 
   // Tambahkan variable untuk maps
   final MapController _mapController = MapController();
-  LatLng _selectedLocation = LatLng(-6.200000, 106.816666); // Default Jakarta
+  LatLng _selectedLocation = LatLng(-8.988952, 117.213519); // Default Jakarta
   String _referenceAddress = '';
 
   // Tambahkan controller untuk search
@@ -461,7 +461,8 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
                     SizedBox(height: 8),
                     Text(
                       'Harap perhatikan titik lokasi Anda, karena ini akan menjadi acuan untuk ongkir.',
-                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Colors.red, fontWeight: FontWeight.bold),
                     ),
                     if (_referenceAddress.isNotEmpty) ...[
                       SizedBox(height: 8),

@@ -78,6 +78,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       (List<Map<String, dynamic>> messages,
           List<Map<String, dynamic>> rooms) async {
         List<Map<String, dynamic>> validRooms = [];
+        Map<String, Map<String, dynamic>> uniqueRooms = {};
 
         for (var room in rooms) {
           try {
@@ -118,16 +119,25 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   body: latestMessage['message'],
                   roomId: room['id'],
                   senderId: latestMessage['sender_id'],
-                  messageId: latestMessage['id'], // Tambahkan message ID
+                  messageId: latestMessage['id'],
                 );
               }
             }
 
-            validRooms.add(room);
+            // Gunakan buyer_id sebagai key untuk memastikan tidak ada duplikasi
+            uniqueRooms[room['buyer_id']] = room;
           } catch (e) {
             print('Error processing chat room: $e');
           }
         }
+
+        // Konversi kembali ke list dan urutkan berdasarkan waktu pesan terakhir
+        validRooms = uniqueRooms.values.toList();
+        validRooms.sort((a, b) {
+          final aTime = a['last_message_time'] ?? a['created_at'];
+          final bTime = b['last_message_time'] ?? b['created_at'];
+          return bTime.compareTo(aTime); // Descending order (terbaru di atas)
+        });
 
         return validRooms;
       },

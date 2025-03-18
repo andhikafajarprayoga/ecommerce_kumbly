@@ -353,21 +353,61 @@ class _UsersScreenState extends State<UsersScreen> {
                   onPressed: () async {
                     Navigator.pop(context);
                     try {
-                      await supabase.auth.admin.deleteUser(user['id']);
+                      // Cek apakah user saat ini adalah admin
+                      final currentUser = supabase.auth.currentUser;
+                      if (currentUser == null)
+                        throw Exception('User tidak ditemukan');
+
+                      final adminCheck = await supabase
+                          .from('users')
+                          .select('role')
+                          .eq('id', currentUser.id)
+                          .single();
+
+                      if (adminCheck['role'] != 'admin') {
+                        throw Exception('Anda tidak memiliki akses admin');
+                      }
+
+                      // Jika user adalah seller, tangani produk dan merchant
+                      if (user['role'] == 'seller') {
+                        // Hapus semua produk dari seller ini terlebih dahulu
+                        await supabase
+                            .from('products')
+                            .delete()
+                            .eq('seller_id', user['id']);
+
+                        print('Products deleted successfully');
+
+                        // Hapus data merchant
+                        await supabase
+                            .from('merchants')
+                            .delete()
+                            .eq('id', user['id']);
+
+                        print('Merchant deleted successfully');
+                      }
+
+                      // Ubah role user menjadi buyer
+                      await supabase
+                          .from('users')
+                          .update({'role': 'buyer'}).eq('id', user['id']);
+
                       Get.snackbar(
                         'Sukses',
-                        'User berhasil dihapus',
+                        'User berhasil diubah menjadi buyer dan data toko dihapus',
                         backgroundColor: Colors.green,
                         colorText: Colors.white,
+                        duration: Duration(seconds: 3),
                       );
                       fetchUsers();
                     } catch (e) {
-                      print('Error deleting user: $e');
+                      print('Error updating user: $e');
                       Get.snackbar(
                         'Error',
-                        'Gagal menghapus user',
+                        'Gagal mengubah role user: ${e.toString()}',
                         backgroundColor: Colors.red,
                         colorText: Colors.white,
+                        duration: Duration(seconds: 3),
                       );
                     }
                   },

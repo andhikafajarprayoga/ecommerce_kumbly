@@ -829,7 +829,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           .insert({
             'buyer_id': buyerId,
             'seller_id': widget.product['seller_id'],
-            'created_at': DateTime.now().toUtc().toIso8601String(),
+            'created_at': DateTime.now().toIso8601String(),
           })
           .select()
           .single();
@@ -843,11 +843,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         .eq('id', widget.product['seller_id'])
         .single();
 
-    // Navigasi ke chat detail
-    Get.to(() => ChatDetailScreen(
-          chatRoom: chatRoom,
-          seller: seller,
-        ));
+    // Navigasi ke chat detail dengan data produk untuk konfirmasi
+    Get.to(
+        () => ChatDetailScreen(
+              chatRoom: chatRoom,
+              seller: seller,
+            ),
+        arguments: {'productToSend': widget.product});
   }
 
   void handleCheckout() async {

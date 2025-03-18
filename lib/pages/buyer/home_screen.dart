@@ -660,27 +660,26 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       CategoryIcon(
-                        icon: Icons.checkroom_outlined,
-                        label: 'Fashion',
+                        icon: Icons.food_bank_outlined,
+                        label: 'Makanan',
                         subCategories: [
-                          'Tas & Dompet',
-                          'Pakaian Pria',
-                          'Sepatu & Sandal'
+                          'Makanan Instan',
+                          'Minuman Kemasan',
+                          'Camilan & Snack',
+                          'Bahan Makanan'
                         ],
                         onTap: () {
                           if (productController.currentCategory.value ==
-                              'fashion') {
+                              'Makanan') {
                             productController.currentCategory.value = '';
                             productController.fetchProducts();
                           } else {
-                            productController.currentCategory.value = 'fashion';
+                            productController.currentCategory.value = 'Makanan';
                             productController.filterByMainCategory([
-                              'Pakaian Pria',
-                              'Sepatu & Sandal',
-                              'Tas & Dompet',
-                              'Aksesoris',
-                              'Jam Tangan & Perhiasan',
-                              'Pakaian Wanita'
+                              'Makanan Instan',
+                              'Minuman Kemasan',
+                              'Camilan & Snack',
+                              'Bahan Makanan'
                             ]);
                           }
                         },
@@ -798,7 +797,8 @@ class CategoryIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final isSelected =
-          productController.currentCategory.value == label.toLowerCase();
+          productController.currentCategory.value.toLowerCase() ==
+              label.toLowerCase();
 
       return GestureDetector(
         onTap: onTap,
@@ -806,6 +806,7 @@ class CategoryIcon extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: isSelected
@@ -822,20 +823,28 @@ class CategoryIcon extends StatelessWidget {
                       ]
                     : [],
               ),
-              child: Icon(
-                icon,
-                size: 30,
-                color: isSelected ? Colors.white : AppTheme.primary,
+              child: AnimatedSwitcher(
+                duration: Duration(milliseconds: 300),
+                transitionBuilder: (Widget child, Animation<double> animation) {
+                  return ScaleTransition(scale: animation, child: child);
+                },
+                child: Icon(
+                  icon,
+                  key: ValueKey<bool>(isSelected),
+                  size: 30,
+                  color: isSelected ? Colors.white : AppTheme.primary,
+                ),
               ),
             ),
             SizedBox(height: 8),
-            Text(
-              label,
+            AnimatedDefaultTextStyle(
+              duration: Duration(milliseconds: 300),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 color: isSelected ? AppTheme.primary : AppTheme.textPrimary,
               ),
+              child: Text(label),
             ),
           ],
         ),

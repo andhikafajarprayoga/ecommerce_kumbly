@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../theme/app_theme.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:get/get.dart';
+import '../../../pages/buyer/product/product_detail_screen.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final Map<String, dynamic> chatRoom;
@@ -33,8 +37,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _initializeMessages();
     _markMessagesAsRead();
 
-    // Pastikan untuk menggulir ke bawah setelah pesan dimuat
+    // Cek apakah ada data produk yang perlu ditampilkan untuk konfirmasi
+    if (Get.arguments != null && Get.arguments['productToSend'] != null) {
+      final productData = Get.arguments['productToSend'];
+      // Tampilkan dialog konfirmasi setelah widget selesai build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showProductSendConfirmation(productData);
+      });
+    }
 
+    // Pastikan untuk menggulir ke bawah setelah pesan dimuat
     _scrollToBottom();
   }
 
@@ -294,45 +306,107 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     required String time,
     required bool isRead,
   }) {
+    bool containsImageUrl = message.contains('http') &&
+        (message.contains('.jpg') ||
+            message.contains('.jpeg') ||
+            message.contains('.png') ||
+            message.contains('.gif'));
+
+    String displayText = message;
+    String? imageUrl;
+    String? productId;
+
+    // Extract dan sembunyikan product ID dari pesan
+    final productIdMatch =
+        RegExp(r'<!--product_id:(.*?)-->').firstMatch(message);
+    if (productIdMatch != null) {
+      productId = productIdMatch.group(1);
+      // Hapus product ID dari tampilan pesan
+      displayText = message.replaceAll(productIdMatch.group(0)!, '').trim();
+    }
+
+    if (containsImageUrl) {
+      final urlMatch = RegExp(r'(https?:\/\/[^\s]+)').firstMatch(message);
+      if (urlMatch != null) {
+        imageUrl = urlMatch.group(0);
+        displayText = displayText.replaceAll(imageUrl!, '').trim();
+      }
+    }
+
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         decoration: BoxDecoration(
           color: isMine ? AppTheme.primary : Colors.grey[200],
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message ?? '',
-              style: TextStyle(
-                color: isMine ? Colors.white : Colors.black,
-                fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  time,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isMine ? Colors.white70 : Colors.grey,
+            if (imageUrl != null)
+              GestureDetector(
+                onTap: () {
+                  if (productId != null) {
+                    _navigateToProductDetail({'id': productId});
+                  }
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                  child: Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    height: 150,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 150,
+                        color: Colors.grey[300],
+                        child: Icon(Icons.error_outline, size: 20),
+                      );
+                    },
                   ),
                 ),
-                if (isMine) ...[
-                  SizedBox(width: 4),
-                  Icon(
-                    isRead ? Icons.done_all : Icons.done,
-                    size: 12,
-                    color: Colors.white70,
+              ),
+            Padding(
+              padding: EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (displayText.isNotEmpty) ...[
+                    Text(
+                      displayText.trim(),
+                      style: TextStyle(
+                        color: isMine ? Colors.white : Colors.black,
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                  ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isMine ? Colors.white70 : Colors.grey,
+                        ),
+                      ),
+                      if (isMine) ...[
+                        SizedBox(width: 4),
+                        Icon(
+                          isRead ? Icons.done_all : Icons.done,
+                          size: 12,
+                          color: Colors.white70,
+                        ),
+                      ],
+                    ],
                   ),
                 ],
-              ],
+              ),
             ),
           ],
         ),
@@ -426,6 +500,155 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       return 'Kemarin';
     } else {
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    }
+  }
+
+  // Tambahkan fungsi untuk navigasi ke detail produk
+  void _navigateToProductDetail(Map<String, dynamic> productData) async {
+    try {
+      // Ambil detail produk dari database
+      final product = await supabase
+          .from('products')
+          .select()
+          .eq('id', productData['id'])
+          .single();
+
+      // Navigasi ke halaman detail produk
+      Get.to(() => ProductDetailScreen(product: product));
+    } catch (e) {
+      print('Error navigating to product detail: $e');
+      Get.snackbar(
+        'Error',
+        'Tidak dapat membuka detail produk',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+  }
+
+  // Tambahkan fungsi untuk menampilkan dialog konfirmasi
+  void _showProductSendConfirmation(Map<String, dynamic> product) {
+    // Parse image URLs untuk mendapatkan gambar pertama
+    String firstImageUrl = '';
+    if (product['image_url'] != null) {
+      try {
+        if (product['image_url'] is List) {
+          firstImageUrl = product['image_url'][0];
+        } else if (product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(product['image_url']);
+          firstImageUrl = urls.first;
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
+
+    Get.dialog(
+      AlertDialog(
+        title: Text(
+          'Kirim Informasi Produk',
+          style: TextStyle(fontSize: 16),
+        ),
+        contentPadding: EdgeInsets.all(12),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (firstImageUrl.isNotEmpty)
+              Container(
+                height: 80, // Ukuran lebih kecil
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(firstImageUrl),
+                    fit: BoxFit.cover,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            SizedBox(height: 8), // Jarak lebih kecil
+            Text(
+              product['name'],
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            SizedBox(height: 2), // Jarak lebih kecil
+            Text(
+              'Rp ${NumberFormat('#,###').format(product['price'])}',
+              style: TextStyle(color: AppTheme.primary, fontSize: 13),
+            ),
+            SizedBox(height: 8), // Jarak lebih kecil
+            Text(
+              'Kirim informasi produk ini ke penjual?',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('Batal', style: TextStyle(fontSize: 13)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              _sendProductMessage(product);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size(60, 30),
+            ),
+            child: Text('Kirim', style: TextStyle(fontSize: 13)),
+          ),
+        ],
+      ),
+      barrierDismissible: true,
+    );
+  }
+
+  // Fungsi untuk mengirim pesan produk
+  Future<void> _sendProductMessage(Map<String, dynamic> product) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    // Parse image URLs untuk mendapatkan gambar pertama
+    String firstImageUrl = '';
+    if (product['image_url'] != null) {
+      try {
+        if (product['image_url'] is List) {
+          firstImageUrl = product['image_url'][0];
+        } else if (product['image_url'] is String) {
+          final List<dynamic> urls = json.decode(product['image_url']);
+          firstImageUrl = urls.first;
+        }
+      } catch (e) {
+        print('Error parsing image URLs: $e');
+      }
+    }
+
+    // Format pesan produk
+    String productMessage = '''
+${product['name']}
+Rp ${NumberFormat('#,###').format(product['price'])}
+<!--product_id:${product['id']}-->
+$firstImageUrl
+''';
+
+    try {
+      // Kirim pesan dengan informasi produk
+      await supabase.from('chat_messages').insert({
+        'room_id': widget.chatRoom['id'],
+        'sender_id': userId,
+        'message': productMessage,
+        'is_read': false,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      _scrollToBottom();
+    } catch (e) {
+      print('Error sending product message: $e');
     }
   }
 }

@@ -354,170 +354,248 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildChatItem(Map<String, dynamic> room) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
+    return GestureDetector(
+      onLongPress: () {
+        _showDeleteConfirmation(room);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          onTap: () async {
-            // Mark messages as read before navigating
-            final userId = supabase.auth.currentUser?.id;
-            if (userId != null) {
-              if (room['is_admin_room'] ?? false) {
-                await supabase
-                    .from('admin_messages')
-                    .update({'is_read': true})
-                    .eq('chat_room_id', room['id'])
-                    .neq('sender_id', userId)
-                    .eq('is_read', false);
-              } else {
-                await supabase
-                    .from('chat_messages')
-                    .update({'is_read': true})
-                    .eq('room_id', room['id'])
-                    .neq('sender_id', userId)
-                    .eq('is_read', false);
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () async {
+              // Mark messages as read before navigating
+              final userId = supabase.auth.currentUser?.id;
+              if (userId != null) {
+                if (room['is_admin_room'] ?? false) {
+                  await supabase
+                      .from('admin_messages')
+                      .update({'is_read': true})
+                      .eq('chat_room_id', room['id'])
+                      .neq('sender_id', userId)
+                      .eq('is_read', false);
+                } else {
+                  await supabase
+                      .from('chat_messages')
+                      .update({'is_read': true})
+                      .eq('room_id', room['id'])
+                      .neq('sender_id', userId)
+                      .eq('is_read', false);
+                }
               }
-            }
 
-            // Reset unread count in local state
-            setState(() {
-              room['unread_count'] = 0;
-            });
+              // Reset unread count in local state
+              setState(() {
+                room['unread_count'] = 0;
+              });
 
-            Get.to(() => ChatDetailScreen(
-                  chatRoom: room,
-                  seller: {
-                    'store_name': room['is_admin_room']
-                        ? 'Admin Saraja'
-                        : room['store_name'],
-                    'image': 'https://via.placeholder.com/50'
-                  },
-                  isAdminRoom: room['is_admin_room'] ?? false,
-                ));
-          },
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppTheme.primary.withOpacity(0.8),
-                            AppTheme.primary,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+              Get.to(() => ChatDetailScreen(
+                    chatRoom: room,
+                    seller: {
+                      'store_name': room['is_admin_room']
+                          ? 'Admin Saraja'
+                          : room['store_name'],
+                      'image': 'https://via.placeholder.com/50'
+                    },
+                    isAdminRoom: room['is_admin_room'] ?? false,
+                  ));
+            },
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primary.withOpacity(0.8),
+                              AppTheme.primary,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(
-                        child: Text(
-                          (room['store_name'] as String)
-                              .substring(0, 1)
-                              .toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
+                        child: Center(
+                          child: Text(
+                            (room['store_name'] as String)
+                                .substring(0, 1)
+                                .toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              room['store_name'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              room['last_message'] ?? 'Belum ada pesan',
+                              style: TextStyle(
+                                color: (room['unread_count'] > 0 &&
+                                        room['last_message_sender_id'] !=
+                                            supabase.auth.currentUser?.id)
+                                    ? Colors.black
+                                    : Colors.grey[600],
+                                fontWeight: (room['unread_count'] > 0 &&
+                                        room['last_message_sender_id'] !=
+                                            supabase.auth.currentUser?.id)
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                fontSize: 14,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            room['store_name'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            room['last_message'] ?? 'Belum ada pesan',
+                            DateFormatter.formatChatTime(
+                                room['last_message_time'] ??
+                                    room['created_at']),
                             style: TextStyle(
-                              color: (room['unread_count'] > 0 &&
-                                      room['last_message_sender_id'] !=
-                                          supabase.auth.currentUser?.id)
-                                  ? Colors.black
+                              fontSize: 12,
+                              color: room['unread_count'] > 0
+                                  ? AppTheme.primary
                                   : Colors.grey[600],
-                              fontWeight: (room['unread_count'] > 0 &&
-                                      room['last_message_sender_id'] !=
-                                          supabase.auth.currentUser?.id)
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              fontSize: 14,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          DateFormatter.formatChatTime(
-                              room['last_message_time'] ?? room['created_at']),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: room['unread_count'] > 0
-                                ? AppTheme.primary
-                                : Colors.grey[600],
-                          ),
-                        ),
-                        if (room['unread_count'] > 0) ...[
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primary,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(
-                              '${room['unread_count']}',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                          if (room['unread_count'] > 0) ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text(
+                                '${room['unread_count']}',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showDeleteConfirmation(Map<String, dynamic> room) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Hapus Percakapan'),
+          content: Text('Apakah Anda yakin ingin menghapus percakapan ini?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                try {
+                  // Hapus pesan-pesan dalam room
+                  if (room['is_admin_room']) {
+                    await supabase
+                        .from('admin_messages')
+                        .delete()
+                        .eq('chat_room_id', room['id']);
+
+                    // Hapus room chat admin
+                    await supabase
+                        .from('admin_chat_rooms')
+                        .delete()
+                        .eq('id', room['id']);
+                  } else {
+                    await supabase
+                        .from('chat_messages')
+                        .delete()
+                        .eq('room_id', room['id']);
+
+                    // Hapus room chat
+                    await supabase
+                        .from('chat_rooms')
+                        .delete()
+                        .eq('id', room['id']);
+                  }
+
+                  // Gunakan Get.snackbar sebagai alternatif yang lebih aman
+                  Get.snackbar(
+                    'Sukses',
+                    'Percakapan telah dihapus',
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.green.withOpacity(0.1),
+                    colorText: Colors.green,
+                    duration: Duration(seconds: 2),
+                  );
+                } catch (e) {
+                  print('Error deleting chat room: $e');
+
+                  // Gunakan Get.snackbar sebagai alternatif yang lebih aman
+                  Get.snackbar(
+                    'Gagal',
+                    'Gagal menghapus percakapan',
+                    snackPosition: SnackPosition.BOTTOM,
+                    backgroundColor: Colors.red.withOpacity(0.1),
+                    colorText: Colors.red,
+                    duration: Duration(seconds: 2),
+                  );
+                }
+              },
+              child: Text('Hapus', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 

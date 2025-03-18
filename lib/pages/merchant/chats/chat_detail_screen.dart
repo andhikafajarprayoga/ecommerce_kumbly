@@ -151,62 +151,147 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     required String time,
     required bool isRead,
   }) {
+    bool containsImageUrl = message.contains('http') &&
+        (message.contains('.jpg') ||
+            message.contains('.jpeg') ||
+            message.contains('.png') ||
+            message.contains('.gif'));
+
+    String displayText = message;
+    String? imageUrl;
+    String? productId;
+
+    // Extract dan sembunyikan product ID dari pesan
+    final productIdMatch =
+        RegExp(r'<!--product_id:(.*?)-->').firstMatch(message);
+    if (productIdMatch != null) {
+      productId = productIdMatch.group(1);
+      // Hapus product ID dari tampilan pesan
+      displayText = message.replaceAll(productIdMatch.group(0)!, '').trim();
+    }
+
+    if (containsImageUrl) {
+      final urlMatch = RegExp(r'(https?:\/\/[^\s]+)').firstMatch(message);
+      if (urlMatch != null) {
+        imageUrl = urlMatch.group(0);
+        displayText = displayText.replaceAll(imageUrl!, '').trim();
+      }
+    }
+
+    // Cek apakah ini pesan produk
+    bool isProductMessage = displayText.contains('Rp') && imageUrl != null;
+
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        margin: EdgeInsets.only(
-          bottom: 8,
-          left: isMine ? 50 : 0,
-          right: isMine ? 0 : 50,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+        margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         decoration: BoxDecoration(
-          color: isMine ? AppTheme.primary : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: isMine ? AppTheme.primary : Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message,
-              style: TextStyle(
-                color: isMine ? Colors.white : Colors.black,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  time,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color:
-                        isMine ? Colors.white.withOpacity(0.7) : Colors.black54,
+            if (imageUrl != null)
+              GestureDetector(
+                onTap: () {
+                  if (productId != null) {
+                    // Navigasi ke detail produk jika diperlukan
+                  }
+                },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                  child: Image.network(
+                    imageUrl,
+                    width: double.infinity,
+                    height: 150,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        height: 150,
+                        color: Colors.grey[300],
+                        child: Icon(Icons.error_outline, size: 20),
+                      );
+                    },
                   ),
                 ),
-                if (isMine) ...[
-                  const SizedBox(width: 4),
-                  Icon(
-                    isRead ? Icons.done_all : Icons.done,
-                    size: 12,
-                    color: Colors.white70,
+              ),
+            Padding(
+              padding: EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (displayText.isNotEmpty) ...[
+                    if (isProductMessage) ...[
+                      // Format pesan produk dengan lebih rapi
+                      ...displayText.split('\n').map((line) {
+                        if (line.startsWith('Rp')) {
+                          return Text(
+                            line,
+                            style: TextStyle(
+                              color: isMine ? Colors.white : Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        } else if (line
+                            .contains('Apakah produk ini masih tersedia?')) {
+                          return Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text(
+                              line,
+                              style: TextStyle(
+                                color: isMine ? Colors.white : Colors.black,
+                                fontSize: 14,
+                              ),
+                            ),
+                          );
+                        } else {
+                          return Text(
+                            line,
+                            style: TextStyle(
+                              color: isMine ? Colors.white : Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        }
+                      }).toList(),
+                    ] else ...[
+                      Text(
+                        displayText.trim(),
+                        style: TextStyle(
+                          color: isMine ? Colors.white : Colors.black,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: 4),
+                  ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isMine ? Colors.white70 : Colors.grey,
+                        ),
+                      ),
+                      if (isMine) ...[
+                        SizedBox(width: 4),
+                        Icon(
+                          isRead ? Icons.done_all : Icons.done,
+                          size: 12,
+                          color: Colors.white70,
+                        ),
+                      ],
+                    ],
                   ),
                 ],
-              ],
+              ),
             ),
           ],
         ),
