@@ -208,233 +208,332 @@ class _FindScreenState extends State<FindScreen> {
   }
 
   void _showFilterBottomSheet() {
+    final Map<String, List<String>> categories = {
+      'Elektronik & Gadget': [
+        'Smartphone & Aksesoris',
+        'Laptop & PC',
+        'Kamera & Aksesoris',
+        'Smartwatch & Wearable Tech',
+        'Peralatan Gaming',
+      ],
+      'Fashion & Aksesoris': [
+        'Pakaian Pria',
+        'Pakaian Wanita',
+        'Sepatu & Sandal',
+        'Tas & Dompet',
+        'Jam Tangan & Perhiasan',
+      ],
+      'Kesehatan & Kecantikan': [
+        'Skincare',
+        'Make-up',
+        'Parfum',
+        'Suplemen & Vitamin',
+        'Alat Kesehatan',
+      ],
+      'Makanan & Minuman': [
+        'Makanan Instan',
+        'Minuman Kemasan',
+        'Camilan & Snack',
+        'Bahan Makanan',
+      ],
+      'Rumah Tangga & Perabotan': [
+        'Peralatan Dapur',
+        'Furniture',
+        'Dekorasi Rumah',
+        'Alat Kebersihan',
+      ],
+      'Otomotif & Aksesoris': [
+        'Suku Cadang Kendaraan',
+        'Aksesoris Mobil & Motor',
+        'Helm & Perlengkapan Berkendara',
+      ],
+      'Hobi & Koleksi': [
+        'Buku & Majalah',
+        'Alat Musik',
+        'Action Figure & Koleksi',
+        'Olahraga & Outdoor',
+      ],
+      'Bayi & Anak': [
+        'Pakaian Bayi & Anak',
+        'Mainan Anak',
+        'Perlengkapan Bayi',
+      ],
+      'Keperluan Industri & Bisnis': [
+        'Alat Teknik & Mesin',
+        'Perlengkapan Kantor',
+        'Peralatan Keamanan',
+      ],
+
+      // ... kategori lainnya ...
+    };
+
     showModalBottomSheet(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => Container(
           padding: EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Filter',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () => Get.back(),
-                  ),
-                ],
-              ),
-              Divider(),
-              Text(
-                'Rentang Harga',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: minPriceController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        prefixText: 'Rp ',
-                        labelText: 'Harga Minimum',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Filter',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
-                      onChanged: (value) {
-                        if (value.isNotEmpty) {
-                          try {
-                            String numericValue =
-                                value.replaceAll(RegExp(r'[^0-9]'), '');
-                            if (numericValue.isEmpty) numericValue = '0';
-                            String formattedValue =
-                                formatter.format(int.parse(numericValue));
-                            minPriceController.value = TextEditingValue(
-                              text: formattedValue,
-                              selection: TextSelection.collapsed(
-                                  offset: formattedValue.length),
-                            );
-                          } catch (e) {
-                            print('Error formatting price: $e');
-                          }
-                        }
-                      },
                     ),
+                    IconButton(
+                      icon: Icon(Icons.close),
+                      onPressed: () => Get.back(),
+                    ),
+                  ],
+                ),
+                Divider(),
+                // Tambahkan bagian Kategori
+                Text(
+                  'Kategori',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: TextField(
-                      controller: maxPriceController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        prefixText: 'Rp ',
-                        labelText: 'Harga Maksimum',
-                        border: OutlineInputBorder(),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                SizedBox(height: 8),
+                Container(
+                  height: 200,
+                  child: ListView.builder(
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) {
+                      String mainCategory = categories.keys.elementAt(index);
+                      List<String> subCategories = categories[mainCategory]!;
+
+                      return ExpansionTile(
+                        leading: Icon(_getCategoryIcon(mainCategory)),
+                        title: Text(mainCategory),
+                        children: subCategories
+                            .map((subCategory) => ListTile(
+                                  contentPadding: EdgeInsets.only(left: 72),
+                                  title: Text(subCategory),
+                                  onTap: () {
+                                    productController
+                                        .filterByMainCategory([subCategory]);
+                                    Get.back();
+                                  },
+                                ))
+                            .toList(),
+                      );
+                    },
+                  ),
+                ),
+                Divider(),
+                // Bagian filter harga yang sudah ada
+                Text(
+                  'Rentang Harga',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: minPriceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          prefixText: 'Rp ',
+                          labelText: 'Harga Minimum',
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        onChanged: (value) {
+                          if (value.isNotEmpty) {
+                            try {
+                              String numericValue =
+                                  value.replaceAll(RegExp(r'[^0-9]'), '');
+                              if (numericValue.isEmpty) numericValue = '0';
+                              String formattedValue =
+                                  formatter.format(int.parse(numericValue));
+                              minPriceController.value = TextEditingValue(
+                                text: formattedValue,
+                                selection: TextSelection.collapsed(
+                                    offset: formattedValue.length),
+                              );
+                            } catch (e) {
+                              print('Error formatting price: $e');
+                            }
+                          }
+                        },
                       ),
-                      onChanged: (value) {
-                        if (value.isNotEmpty) {
-                          try {
-                            String numericValue =
-                                value.replaceAll(RegExp(r'[^0-9]'), '');
-                            if (numericValue.isEmpty) numericValue = '0';
-                            String formattedValue =
-                                formatter.format(int.parse(numericValue));
-                            maxPriceController.value = TextEditingValue(
-                              text: formattedValue,
-                              selection: TextSelection.collapsed(
-                                  offset: formattedValue.length),
-                            );
-                          } catch (e) {
-                            print('Error formatting price: $e');
-                          }
-                        }
-                      },
                     ),
-                  ),
-                ],
-              ),
-              Divider(),
-              Text(
-                'Urutkan',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: TextField(
+                        controller: maxPriceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          prefixText: 'Rp ',
+                          labelText: 'Harga Maksimum',
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        onChanged: (value) {
+                          if (value.isNotEmpty) {
+                            try {
+                              String numericValue =
+                                  value.replaceAll(RegExp(r'[^0-9]'), '');
+                              if (numericValue.isEmpty) numericValue = '0';
+                              String formattedValue =
+                                  formatter.format(int.parse(numericValue));
+                              maxPriceController.value = TextEditingValue(
+                                text: formattedValue,
+                                selection: TextSelection.collapsed(
+                                    offset: formattedValue.length),
+                              );
+                            } catch (e) {
+                              print('Error formatting price: $e');
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              SizedBox(height: 8),
-              ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                Divider(),
+                // Bagian pengurutan yang sudah ada
+                Text(
+                  'Urutkan',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Icon(Icons.trending_up, color: AppTheme.primary),
                 ),
-                title: Text('Terlaris'),
-                onTap: () {
-                  productController.sortBySales();
-                  Get.back();
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                SizedBox(height: 8),
+                ListTile(
+                  leading: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.trending_up, color: AppTheme.primary),
                   ),
-                  child: Icon(Icons.arrow_upward, color: AppTheme.primary),
+                  title: Text('Terlaris'),
+                  onTap: () {
+                    productController.sortBySales();
+                    Get.back();
+                  },
                 ),
-                title: Text('Harga Terendah'),
-                onTap: () {
-                  productController.sortByPriceAsc();
-                  Get.back();
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                ListTile(
+                  leading: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.arrow_upward, color: AppTheme.primary),
                   ),
-                  child: Icon(Icons.arrow_downward, color: AppTheme.primary),
+                  title: Text('Harga Terendah'),
+                  onTap: () {
+                    productController.sortByPriceAsc();
+                    Get.back();
+                  },
                 ),
-                title: Text('Harga Tertinggi'),
-                onTap: () {
-                  productController.sortByPriceDesc();
-                  Get.back();
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryLight.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                ListTile(
+                  leading: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.arrow_downward, color: AppTheme.primary),
                   ),
-                  child: Icon(Icons.location_on, color: AppTheme.primary),
+                  title: Text('Harga Tertinggi'),
+                  onTap: () {
+                    productController.sortByPriceDesc();
+                    Get.back();
+                  },
                 ),
-                title: Text('Terdekat dengan alamat pengiriman'),
-                onTap: () {
-                  _sortByDistance();
-                  Get.back();
-                },
-              ),
-              SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    try {
-                      // Konversi string ke integer dengan menghapus format ribuan
-                      int? minPrice = minPriceController.text.isEmpty
-                          ? null
-                          : int.parse(minPriceController.text
-                              .replaceAll(RegExp(r'[^0-9]'), ''));
+                ListTile(
+                  leading: Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryLight.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.location_on, color: AppTheme.primary),
+                  ),
+                  title: Text('Terdekat dengan alamat pengiriman'),
+                  onTap: () {
+                    _sortByDistance();
+                    Get.back();
+                  },
+                ),
+                SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      try {
+                        // Konversi string ke integer dengan menghapus format ribuan
+                        int? minPrice = minPriceController.text.isEmpty
+                            ? null
+                            : int.parse(minPriceController.text
+                                .replaceAll(RegExp(r'[^0-9]'), ''));
 
-                      int? maxPrice = maxPriceController.text.isEmpty
-                          ? null
-                          : int.parse(maxPriceController.text
-                              .replaceAll(RegExp(r'[^0-9]'), ''));
+                        int? maxPrice = maxPriceController.text.isEmpty
+                            ? null
+                            : int.parse(maxPriceController.text
+                                .replaceAll(RegExp(r'[^0-9]'), ''));
 
-                      // Validasi hanya jika kedua nilai diisi
-                      if (minPrice != null &&
-                          maxPrice != null &&
-                          minPrice > maxPrice &&
-                          maxPrice != 0) {
+                        // Validasi hanya jika kedua nilai diisi
+                        if (minPrice != null &&
+                            maxPrice != null &&
+                            minPrice > maxPrice &&
+                            maxPrice != 0) {
+                          Get.snackbar(
+                            'Error',
+                            'Harga minimum tidak boleh lebih besar dari harga maksimum',
+                            backgroundColor: Colors.red,
+                            colorText: Colors.white,
+                          );
+                          return;
+                        }
+
+                        // Gunakan nilai null jika field kosong
+                        // Jika hanya minPrice yang diisi, gunakan minPrice dan biarkan maxPrice null
+                        productController.filterByPriceRange(
+                            minPrice ?? 0, maxPrice ?? 999999999);
+                        Get.back();
+                      } catch (e) {
+                        print('Error applying price filter: $e');
                         Get.snackbar(
                           'Error',
-                          'Harga minimum tidak boleh lebih besar dari harga maksimum',
+                          'Format harga tidak valid',
                           backgroundColor: Colors.red,
                           colorText: Colors.white,
                         );
-                        return;
                       }
-
-                      // Gunakan nilai null jika field kosong
-                      // Jika hanya minPrice yang diisi, gunakan minPrice dan biarkan maxPrice null
-                      productController.filterByPriceRange(
-                          minPrice ?? 0, maxPrice ?? 999999999);
-                      Get.back();
-                    } catch (e) {
-                      print('Error applying price filter: $e');
-                      Get.snackbar(
-                        'Error',
-                        'Format harga tidak valid',
-                        backgroundColor: Colors.red,
-                        colorText: Colors.white,
-                      );
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: Text(
-                    'Terapkan Filter',
-                    style: TextStyle(color: Colors.white),
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text(
+                      'Terapkan Filter',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -443,6 +542,31 @@ class _FindScreenState extends State<FindScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
     );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'Elektronik & Gadget':
+        return Icons.devices;
+      case 'Fashion & Aksesoris':
+        return Icons.shopping_bag;
+      case 'Kesehatan & Kecantikan':
+        return Icons.health_and_safety;
+      case 'Makanan & Minuman':
+        return Icons.restaurant;
+      case 'Rumah Tangga & Perabotan':
+        return Icons.home;
+      case 'Otomotif & Aksesoris':
+        return Icons.directions_car;
+      case 'Hobi & Koleksi':
+        return Icons.sports_esports;
+      case 'Bayi & Anak':
+        return Icons.child_care;
+      case 'Keperluan Industri & Bisnis':
+        return Icons.business;
+      default:
+        return Icons.category;
+    }
   }
 
   Future<void> _sortByDistance() async {
@@ -698,8 +822,16 @@ class _FindScreenState extends State<FindScreen> {
 
       // Jika tidak ada hasil berdasarkan merchant, lakukan pencarian produk
       if (productController.products.isEmpty) {
-        print('Debug: Mencari produk');
-        await productController.searchProducts(value);
+        print('Debug: Mencari produk berdasarkan nama dan kategori');
+        final productsResponse = await supabase
+            .from('products')
+            .select()
+            .or('name.ilike.%$value%,category.ilike.%$value%')
+            .order('created_at', ascending: false);
+
+        if (productsResponse != null) {
+          productController.products.assignAll(productsResponse);
+        }
       }
     } catch (e) {
       print('Debug: Error dalam pencarian: $e');
