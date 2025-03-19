@@ -11,7 +11,7 @@ class ProductController extends GetxController {
   RxString currentCategory = ''.obs;
   Rx<double?> minPrice = Rx<double?>(null);
   Rx<double?> maxPrice = Rx<double?>(null);
-  RxList<Map<String, dynamic>> searchedMerchants = <Map<String, dynamic>>[].obs;
+  final RxList<dynamic> searchedMerchants = <dynamic>[].obs;
   RxList<Map<String, dynamic>> hotels = <Map<String, dynamic>>[].obs;
 
   @override
@@ -41,7 +41,7 @@ class ProductController extends GetxController {
     }
   }
 
-  Future<void> searchProducts(String query) async {
+  Future<void> searchProducts(String query, {String? category}) async {
     try {
       isLoading.value = true;
 
@@ -50,11 +50,18 @@ class ProductController extends GetxController {
         return;
       }
 
-      final response = await supabase
+      // Membangun query pencarian
+      var queryBuilder = supabase
           .from('products')
           .select()
-          .or('name.ilike.%${query}%,description.ilike.%${query}%')
-          .order('created_at', ascending: false);
+          .or('name.ilike.%${query}%,description.ilike.%${query}%');
+
+      // Jika kategori tidak kosong, tambahkan filter kategori dengan or
+      if (category != null && category.isNotEmpty) {
+        queryBuilder = queryBuilder.or('category.ilike.%${category}%');
+      }
+
+      final response = await queryBuilder.order('created_at', ascending: false);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (response != null) {

@@ -9,6 +9,9 @@ import '../../../../pages/buyer/profile/detail_pesanan_hotel.dart';
 import '../../../utils/date_formatter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../../../pages/buyer/profile/hotel_rating_screen.dart';
+import '../../../../pages/buyer/chat/chat_detail_screen.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -294,75 +297,183 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
     final status = order['status'].toString().toLowerCase();
     final hasRating = order['has_rating'] ?? false;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
       children: [
-        if (status == 'pending')
-          _buildCancelButton(order)
-        else if (status == 'pending_cancellation')
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: 4,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade100,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'Menunggu Persetujuan seller',
-              style: AppTheme.textTheme.bodySmall?.copyWith(
-                color: Colors.orange.shade900,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          )
-        else if (status == 'delivered')
-          TextButton.icon(
-            onPressed: () => _showCompleteOrderDialog(order),
-            icon: const Icon(
-              Icons.check_circle_outline,
-              color: Colors.green,
-              size: 18,
-            ),
-            label: Text(
-              'Selesaikan Pesanan',
-              style: AppTheme.textTheme.bodySmall?.copyWith(
-                color: Colors.green,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        TextButton(
-          onPressed: () {
-            Get.to(() => DetailPesananScreen(order: order));
-          },
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-          ),
-          child: Row(
-            children: [
-              Text(
-                'Lihat Detail',
-                style: TextStyle(
-                  color: AppTheme.primary,
-                  fontWeight: FontWeight.w600,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            if (status == 'pending')
+              _buildCancelButton(order)
+            else if (status == 'pending_cancellation')
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Menunggu Persetujuan seller',
+                  style: AppTheme.textTheme.bodySmall?.copyWith(
+                    color: Colors.orange.shade900,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              )
+            else if (status == 'delivered')
+              TextButton.icon(
+                onPressed: () => _showCompleteOrderDialog(order),
+                icon: const Icon(
+                  Icons.check_circle_outline,
+                  color: Colors.green,
+                  size: 18,
+                ),
+                label: Text(
+                  'Selesaikan Pesanan',
+                  style: AppTheme.textTheme.bodySmall?.copyWith(
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 14,
-                color: AppTheme.primary,
+            TextButton(
+              onPressed: () {
+                Get.to(() => DetailPesananScreen(order: order));
+              },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
-            ],
+              child: Row(
+                children: [
+                  Text(
+                    'Lihat Detail',
+                    style: TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: AppTheme.primary,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        // Tambahkan tombol chat dengan penjual
+        TextButton.icon(
+          onPressed: () => _chatWithSeller(order),
+          icon: const Icon(
+            Icons.chat_outlined,
+            color: Colors.blue,
+            size: 18,
+          ),
+          label: Text(
+            'Hubungi Penjual',
+            style: AppTheme.textTheme.bodySmall?.copyWith(
+              color: Colors.blue,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
     );
+  }
+
+  // Tambahkan fungsi untuk memulai chat dengan penjual
+  void _chatWithSeller(Map<String, dynamic> order) async {
+    try {
+      // Cek apakah merchant_id ada di order
+      if (order['merchant_id'] == null) {
+        // Jika tidak ada, coba ambil dari database
+        final orderData = await supabase
+            .from('orders')
+            .select('merchant_id')
+            .eq('id', order['id'])
+            .single();
+
+        if (orderData == null || orderData['merchant_id'] == null) {
+          throw Exception('Merchant ID tidak ditemukan dalam order');
+        }
+
+        // Update order dengan merchant_id yang baru didapat
+        order['merchant_id'] = orderData['merchant_id'];
+      }
+
+      // Ambil detail merchant user
+      final merchantUser = await supabase
+          .from('users')
+          .select('*, merchants(*)')
+          .eq('id', order['merchant_id'])
+          .single();
+
+      if (merchantUser == null) {
+        throw Exception('Data user merchant tidak ditemukan');
+      }
+
+      // Cek apakah chat room sudah ada
+      final existingRoom = await supabase
+          .from('chat_rooms')
+          .select()
+          .eq('buyer_id', supabase.auth.currentUser!.id)
+          .eq('seller_id', order['merchant_id'])
+          .maybeSingle();
+
+      String chatRoomId;
+      Map<String, dynamic> chatRoom;
+
+      if (existingRoom != null) {
+        chatRoomId = existingRoom['id'];
+        chatRoom = existingRoom;
+      } else {
+        // Buat chat room baru
+        final newRoom = await supabase
+            .from('chat_rooms')
+            .insert({
+              'buyer_id': supabase.auth.currentUser!.id,
+              'seller_id': order['merchant_id'],
+              'last_message_time': DateTime.now().toIso8601String(),
+            })
+            .select()
+            .single();
+        chatRoomId = newRoom['id'];
+        chatRoom = newRoom;
+      }
+
+      // Siapkan data seller untuk ChatDetailScreen
+      final seller = {
+        'id': merchantUser['id'],
+        'store_name': merchantUser['merchants']?[0]?['store_name'] ??
+            merchantUser['full_name'],
+        'full_name': merchantUser['full_name'],
+        'image_url': merchantUser['image_url'],
+      };
+
+      // Navigasi ke halaman chat dengan mengirim data order
+      Get.to(() => ChatDetailScreen(
+            chatRoom: chatRoom,
+            seller: seller,
+            isAdminRoom: false,
+            orderToConfirm: order,
+          ));
+    } catch (e) {
+      print('Error starting chat: $e');
+      Get.snackbar(
+        'Gagal',
+        'Tidak dapat memulai chat dengan penjual: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    }
   }
 
   @override
@@ -478,6 +589,9 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
           final shippingCost =
               double.tryParse(order['shipping_cost'].toString()) ?? 0.0;
           final totalPayment = totalAmount + shippingCost;
+
+          print('Order: ${order}');
+          print('Merchant ID: ${order['merchant_id']}');
 
           return Container(
             margin: const EdgeInsets.only(bottom: 12),

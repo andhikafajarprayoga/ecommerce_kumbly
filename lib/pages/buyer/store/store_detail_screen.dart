@@ -76,6 +76,7 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
       appBar: AppBar(
         title: Text(widget.merchant['store_name'],
             style: TextStyle(color: Colors.white)),
+        foregroundColor: Colors.white,
         backgroundColor: AppTheme.primary,
       ),
       body: Column(

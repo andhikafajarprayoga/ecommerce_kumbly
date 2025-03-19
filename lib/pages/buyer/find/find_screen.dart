@@ -714,16 +714,16 @@ class _FindScreenState extends State<FindScreen> {
 
       final response =
           await Supabase.instance.client.from('products').select('''
-            id,
-            name,
-            description,
-            price,
-            stock,
-            category,
-            image_url,
-            sales,
-            seller_id
-          ''').eq('seller_id', merchantId);
+        id,
+        name,
+        description,
+        price,
+        stock,
+        category,
+        image_url,
+        sales,
+        seller_id
+      ''').eq('seller_id', merchantId);
 
       print('Raw merchant products response: $response'); // Debug print
 
@@ -763,76 +763,55 @@ class _FindScreenState extends State<FindScreen> {
 
         if (productsResponse != null) {
           productController.products.assignAll(productsResponse);
+          print('Debug: Loaded all products: ${productsResponse.length}');
         }
         return;
       }
 
-      // Cari merchant berdasarkan nama toko dan lokasi
+      // Cari merchant berdasarkan nama toko
       final merchantsResponse = await supabase
           .from('merchants')
           .select('id, store_name, store_description, store_address')
-          .not('store_address', 'is', null);
+          .or('store_name.ilike.%${value}%,store_description.ilike.%${value}%')
+          .limit(10);
 
-      List<String> merchantIds = [];
+      print('Debug: Merchants search result: $merchantsResponse');
 
-      for (var merchant in merchantsResponse) {
-        // Cek nama toko dan lokasi toko
-        try {
-          final storeAddress = jsonDecode(merchant['store_address']);
-          if (merchant['store_name']
-                  .toString()
-                  .toLowerCase()
-                  .contains(value.toLowerCase()) ||
-              (storeAddress != null &&
-                  (storeAddress['province']
-                          .toString()
-                          .toLowerCase()
-                          .contains(value.toLowerCase()) ||
-                      storeAddress['city']
-                          .toString()
-                          .toLowerCase()
-                          .contains(value.toLowerCase()) ||
-                      storeAddress['district']
-                          .toString()
-                          .toLowerCase()
-                          .contains(value.toLowerCase()) ||
-                      storeAddress['village']
-                          .toString()
-                          .toLowerCase()
-                          .contains(value.toLowerCase())))) {
-            merchantIds.add(merchant['id']);
-            productController.searchedMerchants.add(merchant);
-          }
-        } catch (e) {
-          print('Error parsing address: $e');
+      if (merchantsResponse != null && merchantsResponse.isNotEmpty) {
+        productController.searchedMerchants.assignAll(merchantsResponse);
+        print('Debug: Found ${merchantsResponse.length} merchants');
+
+        // Jika ada merchant yang ditemukan, cari produk dari merchant pertama
+        if (merchantsResponse.isNotEmpty) {
+          final merchantId = merchantsResponse[0]['id'];
+          await _fetchMerchantProducts(merchantId);
         }
+      } else {
+        print('Debug: No merchants found for query: $value');
       }
 
-      // Ambil produk dari merchant yang sesuai
-      if (merchantIds.isNotEmpty) {
-        final productsResponse = await supabase
-            .from('products')
-            .select()
-            .inFilter('seller_id', merchantIds);
-
-        if (productsResponse != null) {
-          productController.products.assignAll(productsResponse);
-        }
-      }
-
-      // Jika tidak ada hasil berdasarkan merchant, lakukan pencarian produk
+      // Jika tidak ada produk dari merchant, cari produk berdasarkan nama dan kategori
       if (productController.products.isEmpty) {
-        print('Debug: Mencari produk berdasarkan nama dan kategori');
         final productsResponse = await supabase
             .from('products')
             .select()
             .or('name.ilike.%$value%,category.ilike.%$value%')
             .order('created_at', ascending: false);
 
+        print('Debug: Products search result: $productsResponse');
+
         if (productsResponse != null) {
           productController.products.assignAll(productsResponse);
+          print('Debug: Found ${productsResponse.length} products');
+        } else {
+          print('Debug: No products found for query: $value');
         }
       }
+
+      // Debug state setelah pencarian
+      print(
+          'Debug: searchedMerchants count: ${productController.searchedMerchants.length}');
+      print('Debug: products count: ${productController.products.length}');
     } catch (e) {
       print('Debug: Error dalam pencarian: $e');
     } finally {
@@ -879,6 +858,7 @@ class _FindScreenState extends State<FindScreen> {
                                   searchController.clear();
                                   productController.searchQuery.value = '';
                                   productController.products.clear();
+                                  productController.searchedMerchants.clear();
                                 });
                               },
                             )
@@ -889,6 +869,7 @@ class _FindScreenState extends State<FindScreen> {
                         productController.searchQuery.value = value;
                         if (value.isEmpty) {
                           productController.products.clear();
+                          productController.searchedMerchants.clear();
                         }
                       });
                     },
@@ -908,6 +889,11 @@ class _FindScreenState extends State<FindScreen> {
           ),
         ),
         body: Obx(() {
+          print('Debug: Building FindScreen body');
+          print(
+              'Debug: searchedMerchants count: ${productController.searchedMerchants.length}');
+          print('Debug: products count: ${productController.products.length}');
+
           if (productController.isLoading.value) {
             return Center(child: CircularProgressIndicator());
           }
@@ -915,14 +901,15 @@ class _FindScreenState extends State<FindScreen> {
           // Cek apakah ada produk yang ditemukan
           if (productController.products.isEmpty &&
               productController.searchedMerchants.isEmpty) {
-            return Center(
-                child: Text(
-                    'Tidak ada produk ditemukan')); // Menampilkan pesan jika tidak ada produk
+            return Center(child: Text('Tidak ada produk ditemukan'));
           }
 
           // Tampilkan produk secara langsung saat awal masuk
-          if (productController.products.isEmpty) {
-            performSearch(''); // Memanggil performSearch dengan string kosong
+          if (productController.products.isEmpty &&
+              productController.searchedMerchants.isEmpty &&
+              !isSearching.value) {
+            print('Debug: Auto-loading all products');
+            performSearch('');
           }
 
           return CustomScrollView(
@@ -945,20 +932,80 @@ class _FindScreenState extends State<FindScreen> {
                     (context, index) {
                       final merchant =
                           productController.searchedMerchants[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          child: Icon(Icons.store),
+                      print(
+                          'Debug: Rendering merchant: ${merchant['store_name']}');
+                      return Card(
+                        margin:
+                            EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.all(8),
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.grey[200],
+                            child: Icon(Icons.store, color: AppTheme.primary),
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  merchant['store_name'] ?? 'Nama Toko',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryLight.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'Toko',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppTheme.primary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                merchant['store_description'] ??
+                                    'Deskripsi tidak tersedia',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              SizedBox(height: 4),
+                              FutureBuilder(
+                                future: supabase
+                                    .from('products')
+                                    .select('id')
+                                    .eq('seller_id', merchant['id']),
+                                builder: (context, snapshot) {
+                                  int productCount = 0;
+                                  if (snapshot.hasData &&
+                                      snapshot.data is List) {
+                                    productCount =
+                                        (snapshot.data as List).length;
+                                  }
+                                  return Text(
+                                    '$productCount Produk',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textHint,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          trailing: Icon(Icons.chevron_right),
+                          onTap: () {
+                            Get.to(() => StoreDetailScreen(merchant: merchant));
+                          },
                         ),
-                        title: Text(merchant['store_name'] ?? 'Nama Toko'),
-                        subtitle: Text(
-                          merchant['store_description'] ??
-                              'Deskripsi tidak tersedia',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onTap: () {
-                          Get.to(() => StoreDetailScreen(merchant: merchant));
-                        },
                       );
                     },
                     childCount: productController.searchedMerchants.length,

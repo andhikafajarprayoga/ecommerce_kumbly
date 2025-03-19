@@ -101,8 +101,12 @@ class _MerchantHomeScreenState extends State<MerchantHomeScreen>
         .asBroadcastStream(); // Memastikan stream bisa didengarkan oleh multiple listeners
 
     // Subscribe ke stream untuk update badge
-    _unreadChatsStream.listen(
-      (count) => _unreadChatsCount.value = count,
+    _chatSubscription?.cancel(); // Batalkan subscription sebelumnya jika ada
+    _chatSubscription = _unreadChatsStream.listen(
+      (count) {
+        print('Unread chat rooms count: $count');
+        _unreadChatsCount.value = count;
+      },
       onError: (error) => print('Error in chat stream: $error'),
     );
   }

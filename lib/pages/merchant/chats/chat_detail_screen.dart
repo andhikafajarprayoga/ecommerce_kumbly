@@ -3,6 +3,10 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
 import 'package:kumbly_ecommerce/services/notification_service.dart';
+import 'dart:math' as math;
+import 'dart:convert' as json;
+import 'package:intl/intl.dart';
+import 'dart:convert';
 
 class ChatDetailScreen extends StatefulWidget {
   final String roomId;
@@ -34,6 +38,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _isActive = true;
     _fetchMessages();
     _listenForNewMessages();
+
+    // Tandai semua pesan sebagai telah dibaca saat membuka chat
+    _markMessagesAsRead();
   }
 
   @override
@@ -158,28 +165,54 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             message.contains('.gif'));
 
     String displayText = message;
-    String? imageUrl;
-    String? productId;
+    List<String> imageUrls = [];
+    List<String> productIds = [];
+    bool isOrderMessage = message.contains('Detail Pesanan:') &&
+        message.contains('Produk dalam pesanan ini:');
 
-    // Extract dan sembunyikan product ID dari pesan
-    final productIdMatch =
-        RegExp(r'<!--product_id:(.*?)-->').firstMatch(message);
-    if (productIdMatch != null) {
-      productId = productIdMatch.group(1);
-      // Hapus product ID dari tampilan pesan
-      displayText = message.replaceAll(productIdMatch.group(0)!, '').trim();
-    }
+    // Jika ini adalah pesan pesanan, ekstrak gambar dan ID produk
+    if (isOrderMessage) {
+      // Ambil bagian setelah "Produk dalam pesanan ini:"
+      final parts = message.split('Produk dalam pesanan ini:');
+      if (parts.length > 1) {
+        final productsText = parts[1].trim();
 
-    if (containsImageUrl) {
+        // Pisahkan masing-masing produk (dipisahkan oleh ---)
+        final productSections = productsText.split('---');
+
+        for (var section in productSections) {
+          // Ekstrak URL gambar
+          final urlMatch = RegExp(r'(https?:\/\/[^\s]+\.(jpg|jpeg|png|gif))')
+              .firstMatch(section);
+          if (urlMatch != null) {
+            imageUrls.add(urlMatch.group(0)!);
+          }
+
+          // Ekstrak ID produk
+          final productIdMatch =
+              RegExp(r'<!--product_id:(.*?)-->').firstMatch(section);
+          if (productIdMatch != null) {
+            productIds.add(productIdMatch.group(1)!);
+          }
+        }
+      }
+    } else if (containsImageUrl) {
+      // Untuk pesan biasa dengan gambar
       final urlMatch = RegExp(r'(https?:\/\/[^\s]+)').firstMatch(message);
       if (urlMatch != null) {
-        imageUrl = urlMatch.group(0);
-        displayText = displayText.replaceAll(imageUrl!, '').trim();
+        imageUrls.add(urlMatch.group(0)!);
+        displayText = displayText.replaceAll(urlMatch.group(0)!, '').trim();
+      }
+
+      // Extract product ID jika ada
+      final productIdMatch =
+          RegExp(r'<!--product_id:(.*?)-->').firstMatch(message);
+      if (productIdMatch != null) {
+        productIds.add(productIdMatch.group(1)!);
+        displayText =
+            displayText.replaceAll(productIdMatch.group(0)!, '').trim();
       }
     }
-
-    // Cek apakah ini pesan produk
-    bool isProductMessage = displayText.contains('Rp') && imageUrl != null;
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
@@ -194,102 +227,147 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (imageUrl != null)
-              GestureDetector(
-                onTap: () {
-                  if (productId != null) {
-                    // Navigasi ke detail produk jika diperlukan
-                  }
-                },
-                child: ClipRRect(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                  child: Image.network(
-                    imageUrl,
-                    width: double.infinity,
-                    height: 150,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 150,
-                        color: Colors.grey[300],
-                        child: Icon(Icons.error_outline, size: 20),
-                      );
-                    },
-                  ),
-                ),
-              ),
+            // Tampilkan pesan teks
             Padding(
               padding: EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (displayText.isNotEmpty) ...[
-                    if (isProductMessage) ...[
-                      // Format pesan produk dengan lebih rapi
-                      ...displayText.split('\n').map((line) {
-                        if (line.startsWith('Rp')) {
-                          return Text(
-                            line,
-                            style: TextStyle(
-                              color: isMine ? Colors.white : Colors.black,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          );
-                        } else if (line
-                            .contains('Apakah produk ini masih tersedia?')) {
-                          return Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                              line,
-                              style: TextStyle(
-                                color: isMine ? Colors.white : Colors.black,
-                                fontSize: 14,
-                              ),
-                            ),
-                          );
-                        } else {
-                          return Text(
-                            line,
-                            style: TextStyle(
-                              color: isMine ? Colors.white : Colors.black,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          );
-                        }
-                      }).toList(),
-                    ] else ...[
-                      Text(
-                        displayText.trim(),
-                        style: TextStyle(
-                          color: isMine ? Colors.white : Colors.black,
-                          fontSize: 14,
-                        ),
+                  if (isOrderMessage) ...[
+                    // Tampilkan detail pesanan
+                    Text(
+                      displayText.split('Produk dalam pesanan ini:')[0].trim(),
+                      style: TextStyle(
+                        color: isMine ? Colors.white : Colors.black,
+                        fontSize: 14,
                       ),
-                    ],
-                    SizedBox(height: 4),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Produk dalam pesanan ini:',
+                      style: TextStyle(
+                        color: isMine ? Colors.white : Colors.black,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ] else ...[
+                    Text(
+                      displayText.trim(),
+                      style: TextStyle(
+                        color: isMine ? Colors.white : Colors.black,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        time,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isMine ? Colors.white70 : Colors.grey,
-                        ),
-                      ),
-                      if (isMine) ...[
-                        SizedBox(width: 4),
-                        Icon(
-                          isRead ? Icons.done_all : Icons.done,
-                          size: 12,
-                          color: Colors.white70,
-                        ),
-                      ],
-                    ],
+                ],
+              ),
+            ),
+
+            // Tampilkan gambar-gambar produk
+            if (imageUrls.isNotEmpty && isOrderMessage) ...[
+              for (int i = 0; i < imageUrls.length; i++) ...[
+                Container(
+                  width: double.infinity,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: NetworkImage(imageUrls[i]),
+                      fit: BoxFit.cover,
+                    ),
                   ),
+                ),
+
+                // Ambil teks produk dari bagian pesan
+                Builder(
+                  builder: (context) {
+                    final parts = message.split('Produk dalam pesanan ini:');
+                    if (parts.length > 1) {
+                      final productsText = parts[1].trim();
+                      final productSections = productsText.split('---');
+
+                      if (i < productSections.length) {
+                        final section = productSections[i].trim();
+                        final lines = section.split('\n');
+
+                        // Filter baris yang berisi nama produk dan harga
+                        final productInfo = lines
+                            .where((line) =>
+                                !line.contains('<!--product_id:') &&
+                                !line.contains('http') &&
+                                line.trim().isNotEmpty)
+                            .toList();
+
+                        return Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ...productInfo
+                                  .map((line) => Text(
+                                        line.trim(),
+                                        style: TextStyle(
+                                          color: isMine
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontSize: 14,
+                                          fontWeight: line.contains('Rp')
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
+                                      ))
+                                  .toList(),
+
+                              // Tambahkan divider jika bukan produk terakhir
+                              if (i < imageUrls.length - 1)
+                                Divider(
+                                    color: isMine
+                                        ? Colors.white30
+                                        : Colors.grey.shade300),
+                            ],
+                          ),
+                        );
+                      }
+                    }
+                    return SizedBox();
+                  },
+                ),
+              ],
+            ] else if (imageUrls.isNotEmpty) ...[
+              // Untuk pesan biasa dengan gambar
+              Container(
+                width: double.infinity,
+                height: 150,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: NetworkImage(imageUrls[0]),
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ],
+
+            // Tampilkan waktu dan status baca
+            Padding(
+              padding: EdgeInsets.all(12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    time,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isMine ? Colors.white70 : Colors.grey,
+                    ),
+                  ),
+                  if (isMine) ...[
+                    SizedBox(width: 4),
+                    Icon(
+                      isRead ? Icons.done_all : Icons.done,
+                      size: 12,
+                      color: Colors.white70,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -505,6 +583,361 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       return 'Kemarin';
     } else {
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    }
+  }
+
+  // Tambahkan fungsi untuk menampilkan dialog konfirmasi pesanan
+  void _showOrderSendConfirmation(Map<String, dynamic> order) async {
+    // Format total dengan aman
+    String totalFormatted = '0';
+    try {
+      double totalAmount = 0;
+
+      // Coba ambil total_amount
+      if (order['total_amount'] != null) {
+        totalAmount += double.tryParse(order['total_amount'].toString()) ?? 0;
+      }
+
+      // Coba ambil shipping_cost
+      if (order['shipping_cost'] != null) {
+        totalAmount += double.tryParse(order['shipping_cost'].toString()) ?? 0;
+      }
+
+      // Coba ambil admin_fee dari payment_group jika ada
+      if (order['payment_group_id'] != null) {
+        final paymentGroup = await _supabase
+            .from('payment_groups')
+            .select()
+            .eq('id', order['payment_group_id'])
+            .maybeSingle();
+
+        if (paymentGroup != null && paymentGroup['admin_fee'] != null) {
+          totalAmount +=
+              double.tryParse(paymentGroup['admin_fee'].toString()) ?? 0;
+        }
+      }
+
+      // Format total
+      totalFormatted = 'Rp ${NumberFormat('#,###').format(totalAmount)}';
+    } catch (e) {
+      print('Error calculating total payment: $e');
+    }
+
+    // Format tanggal dengan aman
+    String dateFormatted = 'Tidak tersedia';
+    try {
+      if (order['created_at'] != null) {
+        final date = DateTime.parse(order['created_at']);
+        dateFormatted =
+            '${date.day} ${_getMonthName(date.month)} ${date.year}, ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+      }
+    } catch (e) {
+      print('Error formatting date: $e');
+    }
+
+    // Siapkan list untuk menyimpan informasi produk
+    List<Map<String, dynamic>> productInfoList = [];
+
+    try {
+      if (order['order_items'] != null && order['order_items'].isNotEmpty) {
+        // Ambil maksimal 3 produk untuk ditampilkan
+        final itemsToShow = order['order_items'].length > 3
+            ? order['order_items'].sublist(0, 3)
+            : order['order_items'];
+
+        for (var item in itemsToShow) {
+          final product = item['products'];
+          if (product != null) {
+            String productName = product['name'] ?? 'Produk';
+
+            // Ambil harga dari item order
+            double price = 0;
+            if (item['price'] != null) {
+              price = double.tryParse(item['price'].toString()) ?? 0;
+            } else if (product['price'] != null) {
+              price = double.tryParse(product['price'].toString()) ?? 0;
+            }
+
+            String productPrice = 'Rp ${NumberFormat('#,###').format(price)}';
+
+            // Parse image URLs untuk mendapatkan gambar pertama
+            String productImage = '';
+            if (product['image_url'] != null) {
+              try {
+                final List<dynamic> urls = jsonDecode(product['image_url']);
+                if (urls.isNotEmpty) {
+                  productImage = urls.first;
+                }
+              } catch (e) {
+                print('Error parsing image URLs: $e');
+              }
+            }
+
+            productInfoList.add({
+              'name': productName,
+              'price': productPrice,
+              'image': productImage,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      print('Error getting product info: $e');
+    }
+
+    // Tampilkan dialog konfirmasi
+    Get.dialog(
+      AlertDialog(
+        title: Text('Kirim Detail Pesanan'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Detail Pesanan:'),
+              Text('Order ID: ${_formatOrderId(order['id'])}'),
+              Text('Status: ${order['status'] ?? 'Tidak tersedia'}'),
+              Text('Total: $totalFormatted'),
+              Text('Tanggal: $dateFormatted'),
+              SizedBox(height: 12),
+              Text('Produk dalam pesanan ini:'),
+              SizedBox(height: 8),
+
+              // Tampilkan semua produk yang sudah diambil
+              ...productInfoList
+                  .map((product) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (product['image'].isNotEmpty)
+                            Container(
+                              height: 80,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                image: DecorationImage(
+                                  image: NetworkImage(product['image']),
+                                  fit: BoxFit.cover,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                          SizedBox(height: 4),
+                          Text(product['name'],
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text(product['price'],
+                              style: TextStyle(
+                                  fontSize: 12, color: AppTheme.primary)),
+                          SizedBox(height: 8),
+                          if (productInfoList.last != product) Divider(),
+                        ],
+                      ))
+                  .toList(),
+
+              SizedBox(height: 8),
+              if (order['order_items'].length > 3)
+                Text(
+                  '...dan ${order['order_items'].length - 3} produk lainnya',
+                  style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+                ),
+              SizedBox(height: 12),
+              Text(
+                'Kirim detail pesanan ini ke penjual?',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('Batal', style: TextStyle(fontSize: 13)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              _sendOrderMessage(order);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size(60, 30),
+            ),
+            child: Text('Kirim', style: TextStyle(fontSize: 13)),
+          ),
+        ],
+      ),
+      barrierDismissible: true,
+    );
+  }
+
+  // Helper function untuk format order ID
+  String _formatOrderId(String id) {
+    if (id.isEmpty) return 'Tidak tersedia';
+    return '#${id.substring(0, math.min(id.length, 7))}';
+  }
+
+  // Helper function untuk mendapatkan nama bulan
+  String _getMonthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des'
+    ];
+    return months[month - 1];
+  }
+
+  // Fungsi untuk mengirim pesan pesanan
+  Future<void> _sendOrderMessage(Map<String, dynamic> order) async {
+    try {
+      // Format total dengan aman
+      String totalFormatted = '0';
+      try {
+        double totalAmount = 0;
+
+        // Coba ambil total_amount
+        if (order['total_amount'] != null) {
+          totalAmount += double.tryParse(order['total_amount'].toString()) ?? 0;
+        }
+
+        // Coba ambil shipping_cost
+        if (order['shipping_cost'] != null) {
+          totalAmount +=
+              double.tryParse(order['shipping_cost'].toString()) ?? 0;
+        }
+
+        // Coba ambil admin_fee dari payment_group jika ada
+        if (order['payment_group_id'] != null) {
+          final paymentGroup = await _supabase
+              .from('payment_groups')
+              .select()
+              .eq('id', order['payment_group_id'])
+              .maybeSingle();
+
+          if (paymentGroup != null && paymentGroup['admin_fee'] != null) {
+            totalAmount +=
+                double.tryParse(paymentGroup['admin_fee'].toString()) ?? 0;
+          }
+        }
+
+        // Format total
+        totalFormatted = 'Rp ${NumberFormat('#,###').format(totalAmount)}';
+      } catch (e) {
+        print('Error calculating total payment: $e');
+      }
+
+      // Format tanggal dengan aman
+      String dateFormatted = 'Tidak tersedia';
+      try {
+        if (order['created_at'] != null) {
+          final date = DateTime.parse(order['created_at']);
+          dateFormatted =
+              '${date.day} ${_getMonthName(date.month)} ${date.year}, ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+        }
+      } catch (e) {
+        print('Error formatting date: $e');
+      }
+
+      // Buat satu pesan yang berisi detail pesanan dan produk
+      String completeMessage = "Detail Pesanan:\n";
+      completeMessage += "Order ID: ${_formatOrderId(order['id'])}\n";
+      completeMessage += "Status: ${order['status'] ?? 'Tidak tersedia'}\n";
+      completeMessage += "Total: $totalFormatted\n";
+      completeMessage += "Tanggal: $dateFormatted\n\n";
+      completeMessage += "Produk dalam pesanan ini:\n\n";
+
+      // Ambil detail produk dari order
+      final orderItems = order['order_items'] as List;
+
+      // Untuk setiap item dalam pesanan, tambahkan ke pesan produk
+      for (int i = 0; i < orderItems.length; i++) {
+        final item = orderItems[i];
+        final product = item['products'];
+
+        // Parse image URLs untuk mendapatkan gambar pertama
+        String firstImageUrl = '';
+        if (product['image_url'] != null) {
+          try {
+            final List<dynamic> urls = jsonDecode(product['image_url']);
+            if (urls.isNotEmpty) {
+              firstImageUrl = urls.first;
+            }
+          } catch (e) {
+            print('Error parsing image URLs: $e');
+          }
+        }
+
+        // Ambil harga dari item order
+        double price = 0;
+        try {
+          if (item['price'] != null) {
+            price = double.tryParse(item['price'].toString()) ?? 0;
+          } else if (product['price'] != null) {
+            price = double.tryParse(product['price'].toString()) ?? 0;
+          }
+        } catch (e) {
+          print('Error calculating price: $e');
+        }
+
+        // Format pesan produk
+        String productInfo = '''
+${product['name']}
+Rp ${NumberFormat('#,###').format(price)}
+<!--product_id:${product['id']}-->
+$firstImageUrl
+''';
+
+        // Tambahkan ke pesan produk
+        completeMessage += productInfo;
+
+        // Tambahkan pemisah jika bukan produk terakhir
+        if (i < orderItems.length - 1) {
+          completeMessage += "\n---\n\n";
+        }
+      }
+
+      // Kirim pesan lengkap dengan detail pesanan dan produk
+      await _supabase.from('chat_messages').insert({
+        'room_id': widget.roomId,
+        'sender_id': widget.currentUserId,
+        'message': completeMessage,
+        'is_read': false,
+      });
+
+      _scrollToBottom();
+    } catch (e) {
+      print('Error sending order message: $e');
+      Get.snackbar(
+        'Gagal',
+        'Tidak dapat mengirim detail pesanan: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
+  Future<void> _markMessagesAsRead() async {
+    try {
+      // Perbarui status is_read untuk semua pesan di room ini yang bukan dari pengguna saat ini
+      await _supabase
+          .from('chat_messages')
+          .update({'is_read': true})
+          .eq('room_id', widget.roomId)
+          .neq('sender_id', widget.currentUserId);
+
+      print('Messages marked as read in room: ${widget.roomId}');
+    } catch (e) {
+      print('Error marking messages as read: $e');
     }
   }
 }

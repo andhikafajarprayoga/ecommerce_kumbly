@@ -304,6 +304,8 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
             productController.searchedMerchants.clear();
             productController.fetchProducts();
           });
+          searchController
+              .clear(); // Kosongkan field pencarian saat kembali ke beranda
         } else if (index == 1) {
           // Reset Find/Search screen hanya jika tab diklik ulang
           if (_selectedIndex == 1) {
@@ -403,7 +405,10 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                   ),
-                  onSubmitted: _performSearch,
+                  onSubmitted: (value) {
+                    _performSearch(value);
+                    // Kosongkan field setelah pencarian
+                  },
                 ),
               ),
               actions: [

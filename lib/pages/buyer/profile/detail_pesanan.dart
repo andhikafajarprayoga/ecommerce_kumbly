@@ -348,56 +348,62 @@ class _DetailPesananScreenState extends State<DetailPesananScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Debug print
-                      Builder(builder: (context) {
-                        print('Order Items: ${widget.order['order_items']}');
-                        print(
-                            'Product Image: ${widget.order['order_items'][0]['products']['image_url']}');
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            widget.order['order_items'][0]['products']
-                                    ['image_url']
-                                .toString()
-                                .replaceAll(RegExp(r'[\[\]"]'), '')
-                                .split(',')[0],
-                            width: 80,
-                            height: 80,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              print('Error loading image: $error');
-                              return Container(
-                                width: 80,
-                                height: 80,
-                                color: Colors.grey[200],
-                                child: Icon(Icons.image_not_supported,
-                                    color: Colors.grey[400]),
-                              );
-                            },
-                          ),
-                        );
-                      }),
-                      const SizedBox(width: 12),
-                      // Informasi Produk
-                      Expanded(
-                        child: Column(
+
+                  // Tampilkan semua produk
+                  ...List.generate(widget.order['order_items'].length, (index) {
+                    final item = widget.order['order_items'][index];
+                    final product = item['products'];
+
+                    return Column(
+                      children: [
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildInfoRow(
-                                'Produk',
-                                widget.order['order_items'][0]['products']
-                                    ['name']),
-                            const SizedBox(height: 8),
-                            _buildInfoRow('Jumlah',
-                                '${widget.order['order_items'][0]['quantity']} pcs'),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                product['image_url']
+                                    .toString()
+                                    .replaceAll(RegExp(r'[\[\]"]'), '')
+                                    .split(',')[0],
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  print('Error loading image: $error');
+                                  return Container(
+                                    width: 80,
+                                    height: 80,
+                                    color: Colors.grey[200],
+                                    child: Icon(Icons.image_not_supported,
+                                        color: Colors.grey[400]),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildInfoRow('Produk', product['name']),
+                                  const SizedBox(height: 8),
+                                  _buildInfoRow(
+                                      'Jumlah', '${item['quantity']} pcs'),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
+                        if (index < widget.order['order_items'].length - 1)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            child: Divider(),
+                          ),
+                      ],
+                    );
+                  }),
+
                   const SizedBox(height: 16),
                   _buildInfoRow('Alamat', shippingAddress),
                   const SizedBox(height: 12),
