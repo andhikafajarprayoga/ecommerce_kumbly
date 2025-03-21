@@ -537,7 +537,9 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             child: Row(
               children: [
                 _filterChip('Menunggu Pembayaran', 'pending'),
-                _filterChip('Dikirim', 'confirmed', 'shipping'),
+                _filterChip('Dikemas', 'processing'),
+                _filterChip(
+                    'Dikirim', 'confirmed', 'shipping', 'transit', 'to_branch'),
                 _filterChip('Selesai', 'completed'),
                 _filterChip('Dibatalkan', 'cancelled'),
                 _filterChip('Semua', 'all'),
@@ -547,7 +549,10 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
     );
   }
 
-  Widget _filterChip(String label, String value, [String? secondaryValue]) {
+  Widget _filterChip(String label, String value,
+      [String? secondaryValue,
+      String? tertiaryValue,
+      String? quaternaryValue]) {
     final isSelected = selectedFilter.value == value;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -564,10 +569,18 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
           if (selected) {
             selectedFilter.value = value;
 
+            // Cek apakah ini filter dengan multiple status
             if (value == 'confirmed' && secondaryValue != null) {
-              // Buat filter khusus untuk status 'Dikirim' yang mencakup 'confirmed' dan 'shipping'
-              orderController
-                  .filterOrdersByMultipleStatus([value, secondaryValue]);
+              List<String> statuses = [value, secondaryValue];
+              // Tambahkan status ketiga jika ada
+              if (tertiaryValue != null) {
+                statuses.add(tertiaryValue);
+              }
+              // Tambahkan status keempat jika ada
+              if (quaternaryValue != null) {
+                statuses.add(quaternaryValue);
+              }
+              orderController.filterOrdersByMultipleStatus(statuses);
             } else {
               // Filter normal untuk status tunggal
               orderController.filterOrders(value);
@@ -584,15 +597,23 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
         return const Center(child: CircularProgressIndicator());
       }
 
-      if (orderController.orders.isEmpty) {
+      // Tambahkan filter tambahan di sini untuk memastikan hanya status yang sesuai yang ditampilkan
+      final filteredOrders = selectedFilter.value == 'processing'
+          ? orderController.orders
+              .where((order) =>
+                  order['status'].toString().toLowerCase() == 'processing')
+              .toList()
+          : orderController.orders;
+
+      if (filteredOrders.isEmpty) {
         return _buildEmptyState('Belum ada pesanan');
       }
 
       return ListView.builder(
         padding: const EdgeInsets.all(12),
-        itemCount: orderController.orders.length,
+        itemCount: filteredOrders.length,
         itemBuilder: (context, index) {
-          final order = orderController.orders[index];
+          final order = filteredOrders[index];
           final totalAmount =
               double.tryParse(order['total_amount'].toString()) ?? 0.0;
           final shippingCost =
