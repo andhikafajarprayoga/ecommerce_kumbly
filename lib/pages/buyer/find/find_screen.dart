@@ -34,13 +34,12 @@ class _FindScreenState extends State<FindScreen> {
   void initState() {
     super.initState();
 
-    // Set initial search query dan lakukan pencarian jika ada
-    if (widget.initialSearchQuery != null &&
-        widget.initialSearchQuery!.isNotEmpty) {
-      searchController.text = widget.initialSearchQuery!;
-      // Lakukan pencarian dengan delay kecil untuk memastikan widget sudah ter-mount
+    // Selalu gunakan nilai pencarian dari productController jika ada
+    final searchValue = productController.searchQuery.value;
+    if (searchValue.isNotEmpty) {
+      searchController.text = searchValue;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _performSearch(widget.initialSearchQuery!);
+        _performSearch(searchValue);
       });
     }
 
@@ -907,7 +906,8 @@ class _FindScreenState extends State<FindScreen> {
           // Tampilkan produk secara langsung saat awal masuk
           if (productController.products.isEmpty &&
               productController.searchedMerchants.isEmpty &&
-              !isSearching.value) {
+              !isSearching.value &&
+              productController.searchQuery.value.isEmpty) {
             print('Debug: Auto-loading all products');
             performSearch('');
           }

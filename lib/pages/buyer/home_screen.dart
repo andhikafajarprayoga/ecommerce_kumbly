@@ -338,18 +338,55 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       // Set search query
       productController.searchQuery.value = value;
 
-      // Cari produk berdasarkan nama, deskripsi, dan kategori
-      await supabase
+      // Debug: Periksa struktur data kategori
+      final sampleProducts =
+          await supabase.from('products').select('id, name, category').limit(5);
+
+      print('Debug: Sample product categories:');
+      for (var product in sampleProducts) {
+        print('Product: ${product['name']}, Category: ${product['category']}');
+      }
+
+      // Cari produk berdasarkan nama dan deskripsi
+      final nameDescResponse = await supabase
           .from('products')
           .select()
-          .or('name.ilike.%${value}%,description.ilike.%${value}%,category.ilike.%${value}%')
-          .order('created_at', ascending: false)
-          .then((response) {
-        if (response != null) {
-          productController.products.assignAll(response);
-          print('Debug: Found ${response.length} products for query: $value');
+          .or('name.ilike.%${value}%,description.ilike.%${value}%')
+          .order('created_at', ascending: false);
+
+      // Coba beberapa variasi pencarian kategori
+      final categoryResponse1 = await supabase
+          .from('products')
+          .select()
+          .ilike('category', '%${value}%')
+          .order('created_at', ascending: false);
+
+      final categoryResponse2 = await supabase
+          .from('products')
+          .select()
+          .textSearch('category', value)
+          .order('created_at', ascending: false);
+
+      // Gabungkan semua hasil
+      final allProducts = [
+        ...nameDescResponse,
+        ...categoryResponse1,
+        ...categoryResponse2
+      ];
+
+      // Hilangkan duplikat
+      final uniqueProducts = <Map<String, dynamic>>[];
+      final productIds = <String>{};
+
+      for (var product in allProducts) {
+        if (!productIds.contains(product['id'])) {
+          productIds.add(product['id']);
+          uniqueProducts.add(product);
         }
-      });
+      }
+
+      productController.products.assignAll(uniqueProducts);
+      print('Debug: Found ${uniqueProducts.length} products for query: $value');
 
       // Cari toko dengan case insensitive
       final merchantResponse = await supabase
@@ -367,9 +404,6 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         // Update search query di product controller
         productController.searchQuery.value = value;
       });
-
-      // Kosongkan field pencarian setelah berpindah ke FindScreen
-      searchController.clear();
     } catch (e) {
       print('Error searching: $e');
     }
