@@ -51,6 +51,8 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     super.initState();
     Get.put(RxInt(0), tag: 'selectedIndex');
 
+    // Kosongkan field pencarian saat halaman beranda dimuat
+
     // Setup notifikasi untuk berbagai event
 
     // Reset data jika kembali dari FindScreen
@@ -61,6 +63,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         productController.searchQuery.value = '';
         productController.searchedMerchants.clear();
         productController.fetchProducts();
+        searchController.clear();
       });
     } else {
       productController.fetchProducts();
@@ -299,19 +302,19 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         if (index == 0) {
           // Reset Beranda
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            searchController.clear();
             productController.products.clear();
             productController.searchQuery.value = '';
             productController.searchedMerchants.clear();
             productController.fetchProducts();
           });
-          searchController
-              .clear(); // Kosongkan field pencarian saat kembali ke beranda
+          // Kosongkan field pencarian saat kembali ke beranda
         } else if (index == 1) {
           // Reset Find/Search screen hanya jika tab diklik ulang
           if (_selectedIndex == 1) {
             searchController.clear();
-            productController.searchQuery.value = '';
             productController.products.clear();
+            productController.searchQuery.value = '';
             productController.searchedMerchants.clear();
             productController.fetchProducts();
           }
@@ -335,8 +338,18 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       // Set search query
       productController.searchQuery.value = value;
 
-      // Cari produk
-      await productController.searchProducts(value);
+      // Cari produk berdasarkan nama, deskripsi, dan kategori
+      await supabase
+          .from('products')
+          .select()
+          .or('name.ilike.%${value}%,description.ilike.%${value}%,category.ilike.%${value}%')
+          .order('created_at', ascending: false)
+          .then((response) {
+        if (response != null) {
+          productController.products.assignAll(response);
+          print('Debug: Found ${response.length} products for query: $value');
+        }
+      });
 
       // Cari toko dengan case insensitive
       final merchantResponse = await supabase
@@ -354,6 +367,9 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         // Update search query di product controller
         productController.searchQuery.value = value;
       });
+
+      // Kosongkan field pencarian setelah berpindah ke FindScreen
+      searchController.clear();
     } catch (e) {
       print('Error searching: $e');
     }

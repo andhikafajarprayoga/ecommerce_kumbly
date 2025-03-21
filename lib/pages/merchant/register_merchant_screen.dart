@@ -55,35 +55,36 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
             .eq('id', widget.sellerId)
             .maybeSingle();
 
+        // Buat objek alamat yang menyertakan latitude dan longitude
+        final storeAddress = {
+          "street": _streetController.text,
+          "village": _villageController.text,
+          "district": _districtController.text,
+          "city": _cityController.text,
+          "province": _provinceController.text,
+          "postal_code": _postalCodeController.text,
+          "latitude": _selectedLocation.latitude.toString(),
+          "longitude": _selectedLocation.longitude.toString()
+        };
+
         if (existingMerchant != null) {
           // Jika sudah ada, lakukan update
           await supabase.from('merchants').update({
             'store_name': _storeNameController.text,
             'store_description': _storeDescController.text,
-            'store_address': {
-              "street": _streetController.text,
-              "village": _villageController.text,
-              "district": _districtController.text,
-              "city": _cityController.text,
-              "province": _provinceController.text,
-              "postal_code": _postalCodeController.text
-            },
+            'store_address': storeAddress,
             'store_phone': _storePhoneController.text,
           }).eq('id', widget.sellerId);
         } else {
           // Jika belum ada, lakukan insert
           await supabase.from('merchants').insert({
             'id': widget.sellerId,
+
+
+            
             'store_name': _storeNameController.text,
             'store_description': _storeDescController.text,
-            'store_address': {
-              "street": _streetController.text,
-              "village": _villageController.text,
-              "district": _districtController.text,
-              "city": _cityController.text,
-              "province": _provinceController.text,
-              "postal_code": _postalCodeController.text
-            },
+            'store_address': storeAddress,
             'store_phone': _storePhoneController.text,
           });
         }

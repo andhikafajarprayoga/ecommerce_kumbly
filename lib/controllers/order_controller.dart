@@ -8,6 +8,11 @@ class OrderController extends GetxController {
   final RxList hotelBookings = <Map<String, dynamic>>[].obs;
   final RxBool isLoadingHotel = false.obs;
   final orderss = <Map<String, dynamic>>[].obs;
+  var allOrders = <Map<String, dynamic>>[]
+      .obs; // Tambahkan ini untuk menyimpan semua pesanan
+  final RxString selectedFilter = 'pending'.obs; // Tambahkan ini
+  final RxList<Map<String, dynamic>> _originalOrders =
+      <Map<String, dynamic>>[].obs;
 
   @override
   void onInit() {
@@ -59,7 +64,14 @@ class OrderController extends GetxController {
           ''').eq('buyer_id', userId).order('created_at', ascending: false);
 
       print('Orders with payment groups: $response'); // Debug print
-      orders.assignAll(response);
+      allOrders.value = List<Map<String, dynamic>>.from(response);
+
+      // Simpan salinan data asli
+      _originalOrders.value = allOrders.value;
+      orders.value = allOrders.value;
+
+      // Terapkan filter yang sedang aktif
+      filterOrders(selectedFilter.value);
     } catch (e) {
       print('Error fetching orders: $e');
     } finally {
@@ -81,14 +93,41 @@ class OrderController extends GetxController {
     }
   }
 
-  void filterOrders(String status) {
-    if (status == 'all') {
-      fetchOrders();
+  void filterOrders(String filter) {
+    if (filter == 'pending') {
+      // Hanya tampilkan pesanan dengan status 'pending'
+      orders.value = allOrders
+          .where(
+              (order) => order['status'].toString().toLowerCase() == 'pending')
+          .toList();
+    } else if (filter == 'confirmed') {
+      orders.value = allOrders
+          .where((order) =>
+              order['status'].toString().toLowerCase() == 'confirmed')
+          .toList();
+    } else if (filter == 'shipping') {
+      orders.value = allOrders
+          .where(
+              (order) => order['status'].toString().toLowerCase() == 'shipping')
+          .toList();
+    } else if (filter == 'completed') {
+      orders.value = allOrders
+          .where((order) =>
+              order['status'].toString().toLowerCase() == 'completed')
+          .toList();
+    } else if (filter == 'cancelled') {
+      orders.value = allOrders
+          .where((order) =>
+              order['status'].toString().toLowerCase() == 'cancelled')
+          .toList();
     } else {
-      final filtered =
-          orders.where((order) => order['status'] == status).toList();
-      orders.assignAll(filtered);
+      // Untuk filter 'all'
+      orders.value = allOrders;
     }
+
+    // Debug: Print filtered orders
+    print('Current filter: $filter');
+    print('Filtered orders: ${orders.value.map((o) => o['status']).toList()}');
   }
 
   Future<void> updateOrderStatus(int orderId, String newStatus) async {
@@ -310,5 +349,23 @@ class OrderController extends GetxController {
           .toList();
       hotelBookings.assignAll(filtered);
     }
+  }
+
+  void filterOrdersByMultipleStatus(List<String> statusList) {
+    if (statusList.contains('all')) {
+      fetchOrders(); // Ambil semua pesanan
+      return;
+    }
+
+    final allOrders =
+        _originalOrders.toList(); // Gunakan salinan dari data asli
+
+    // Filter pesanan berdasarkan daftar status
+    final filteredOrders = allOrders
+        .where((order) =>
+            statusList.contains(order['status'].toString().toLowerCase()))
+        .toList();
+
+    orders.value = filteredOrders;
   }
 }

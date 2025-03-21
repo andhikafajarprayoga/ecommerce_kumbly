@@ -133,6 +133,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
           ],
         ),
         backgroundColor: AppTheme.primary,
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -224,6 +225,274 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
     required String time,
     required bool isRead,
   }) {
+    if (message.contains('Detail Pesanan:') && message.contains('Order ID:')) {
+      try {
+        // Pisahkan bagian detail pesanan dan produk
+        final parts = message.split('Produk dalam pesanan ini:');
+        final orderDetailText = parts[0].trim();
+        final productsText = parts.length > 1 ? parts[1].trim() : '';
+
+        // Pisahkan setiap produk berdasarkan pemisah "---"
+        final products = productsText
+            .split('---')
+            .where((p) => p.trim().isNotEmpty)
+            .toList();
+
+        print('Debug - Total produk: ${products.length}');
+
+        return Align(
+          alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            width: MediaQuery.of(context).size.width * 0.75,
+            decoration: BoxDecoration(
+              color: isMine ? AppTheme.primary : Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header section
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isMine
+                        ? AppTheme.primary.withOpacity(0.8)
+                        : Colors.grey[300],
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(12)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: orderDetailText
+                        .split('\n')
+                        .where((line) => line.isNotEmpty)
+                        .map((line) => Text(
+                              line,
+                              style: TextStyle(
+                                color: isMine ? Colors.white : Colors.black87,
+                                fontWeight: line.contains('Total:')
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ),
+
+                // Produk dalam pesanan
+                Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    'Produk dalam pesanan ini:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isMine ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ),
+
+                // Products section
+                ...products.map((product) {
+                  final lines = product
+                      .split('\n')
+                      .map((line) => line.trim())
+                      .where((line) => line.isNotEmpty)
+                      .toList();
+
+                  String? productName;
+                  String? price;
+                  String? imageUrl;
+
+                  for (var line in lines) {
+                    if (line.startsWith('Rp')) {
+                      price = line;
+                    } else if (line.startsWith('http')) {
+                      imageUrl = line;
+                    } else if (!line.contains('<!--') &&
+                        !line.contains('product_id:')) {
+                      productName = line;
+                    }
+                  }
+
+                  if (productName == null || price == null) {
+                    return Container();
+                  }
+
+                  return Container(
+                    padding: EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: isMine ? Colors.white24 : Colors.grey[300]!,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        if (imageUrl != null)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              imageUrl,
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  width: 60,
+                                  height: 60,
+                                  color: Colors.grey[300],
+                                  child: Icon(Icons.error,
+                                      color: Colors.grey[500]),
+                                );
+                              },
+                            ),
+                          ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                productName,
+                                style: TextStyle(
+                                  color: isMine ? Colors.white : Colors.black87,
+                                ),
+                              ),
+                              Text(
+                                price,
+                                style: TextStyle(
+                                  color: isMine ? Colors.white : Colors.black87,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+
+                // Timestamp & Read Status
+                Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        time,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isMine ? Colors.white70 : Colors.grey,
+                        ),
+                      ),
+                      if (isMine) ...[
+                        SizedBox(width: 4),
+                        Icon(
+                          isRead ? Icons.done_all : Icons.done,
+                          size: 12,
+                          color: Colors.white70,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      } catch (e) {
+        print('Error parsing order message: $e');
+      }
+    }
+
+    // Cek apakah pesan mengandung URL gambar dan harga
+    if (message.contains('https://') && message.contains('Rp')) {
+      final parts = message.split('\n');
+      String? imageUrl;
+      String? price;
+
+      for (var part in parts) {
+        if (part.contains('https://')) {
+          imageUrl = part.trim();
+        } else if (part.contains('Rp')) {
+          price = part.trim();
+        }
+      }
+
+      return Align(
+        alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isMine ? AppTheme.primary : Colors.grey[200],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (imageUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    width: MediaQuery.of(context).size.width * 0.6,
+                    height: 150,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 150,
+                        width: MediaQuery.of(context).size.width * 0.6,
+                        color: Colors.grey[200],
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    },
+                  ),
+                ),
+              if (price != null)
+                Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text(
+                    price,
+                    style: TextStyle(
+                      color: isMine ? Colors.white : Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: EdgeInsets.all(8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      time,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isMine ? Colors.white70 : Colors.grey,
+                      ),
+                    ),
+                    if (isMine) ...[
+                      SizedBox(width: 4),
+                      Icon(
+                        isRead ? Icons.done_all : Icons.done,
+                        size: 12,
+                        color: isMine ? Colors.white70 : Colors.grey,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Default message bubble untuk pesan biasa
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(

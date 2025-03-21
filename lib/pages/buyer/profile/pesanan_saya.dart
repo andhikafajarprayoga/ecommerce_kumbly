@@ -26,7 +26,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
     with SingleTickerProviderStateMixin {
   final OrderController orderController = Get.put(OrderController());
   late TabController _tabController;
-  RxString selectedFilter = 'all'.obs;
+  RxString selectedFilter = 'pending'.obs;
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
@@ -151,7 +151,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
         return Colors.orange.shade700;
       case 'processing':
         return Colors.blue;
-      case 'shipped':
+      case 'shipping':
         return Colors.green;
       case 'delivered':
         return Colors.green.shade700;
@@ -536,18 +536,18 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
-                _filterChip('Semua', 'all'),
                 _filterChip('Menunggu Pembayaran', 'pending'),
-                _filterChip('Dikonfirmasi', 'confirmed'),
+                _filterChip('Dikirim', 'confirmed', 'shipping'),
                 _filterChip('Selesai', 'completed'),
                 _filterChip('Dibatalkan', 'cancelled'),
+                _filterChip('Semua', 'all'),
               ],
             ),
           )),
     );
   }
 
-  Widget _filterChip(String label, String value) {
+  Widget _filterChip(String label, String value, [String? secondaryValue]) {
     final isSelected = selectedFilter.value == value;
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -561,9 +561,18 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
         backgroundColor: Colors.grey[200],
         selectedColor: AppTheme.primary,
         onSelected: (bool selected) {
-          selectedFilter.value = value;
-          orderController.filterOrders(value);
-          orderController.filterHotelBookings(value);
+          if (selected) {
+            selectedFilter.value = value;
+
+            if (value == 'confirmed' && secondaryValue != null) {
+              // Buat filter khusus untuk status 'Dikirim' yang mencakup 'confirmed' dan 'shipping'
+              orderController
+                  .filterOrdersByMultipleStatus([value, secondaryValue]);
+            } else {
+              // Filter normal untuk status tunggal
+              orderController.filterOrders(value);
+            }
+          }
         },
       ),
     );
