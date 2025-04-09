@@ -372,27 +372,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         print('Harga per KG: Rp $perKg');
         print('Harga per KM: Rp $perKm');
 
+        // Kelompokkan produk berdasarkan merchant
+        Map<String, List<Map<String, dynamic>>> productsByMerchant = {};
         for (var item in widget.data['items']) {
           final merchantId = item['products']['seller_id'];
-          final product = item['products'];
-          final quantity = item['quantity'];
+          if (!productsByMerchant.containsKey(merchantId)) {
+            productsByMerchant[merchantId] = [];
+          }
+          productsByMerchant[merchantId]!.add(item);
+        }
+
+        // Hitung ongkir per merchant
+        for (var entry in productsByMerchant.entries) {
+          final merchantId = entry.key;
+          final merchantProducts = entry.value;
 
           print('\n--- Perhitungan untuk Merchant ID: $merchantId ---');
 
-          final actualWeight = (product['weight'] ?? 1000) / 1000.0;
-          final volumetricWeight = calculateVolumetricWeight(
-            product['length'] ?? 0,
-            product['width'] ?? 0,
-            product['height'] ?? 0,
-          );
-          final itemWeight =
-              actualWeight > volumetricWeight ? actualWeight : volumetricWeight;
-          final totalWeight = roundWeight(itemWeight * quantity);
+          // Hitung total berat untuk merchant ini
+          double totalWeight = 0;
+          for (var item in merchantProducts) {
+            final product = item['products'];
+            final quantity = item['quantity'];
+            final actualWeight = (product['weight'] ?? 1000) / 1000.0;
+            final volumetricWeight = calculateVolumetricWeight(
+              product['length'] ?? 0,
+              product['width'] ?? 0,
+              product['height'] ?? 0,
+            );
+            final itemWeight = actualWeight > volumetricWeight
+                ? actualWeight
+                : volumetricWeight;
+            totalWeight += (itemWeight * quantity);
+          }
+          totalWeight = roundWeight(totalWeight);
 
-          print('Berat Aktual: $actualWeight kg');
-          print('Berat Volumetrik: $volumetricWeight kg');
-          print('Berat yang digunakan: $itemWeight kg');
-          print('Total Berat (dengan quantity): $totalWeight kg');
+          print('Total Berat untuk Merchant: $totalWeight kg');
 
           final merchantData = await supabase
               .from('merchants')
@@ -416,7 +431,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
             print('Jarak: $distance km');
 
-            double ongkirBerat = (perKg * roundWeight(totalWeight)).toDouble();
+            double ongkirBerat = (perKg * totalWeight).toDouble();
             double ongkirJarak = (perKm * distance).toDouble();
             double merchantOngkir = roundToThousand(ongkirBerat + ongkirJarak);
 
@@ -427,32 +442,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             print('Total sebelum pembulatan: ${ongkirBerat + ongkirJarak}');
             print('Total setelah pembulatan: $merchantOngkir');
 
-            // Perhitungan diskon ongkir
-            if (discountAmount > 0) {
-              double discountedOngkir = merchantOngkir;
-              if (discountVoucher != null &&
-                  discountVoucher!['type'] == 'shipping') {
-                discountedOngkir = max(0, merchantOngkir - discountAmount);
-                print('\nPerhitungan Setelah Diskon Ongkir:');
-                print('Diskon yang diterapkan: Rp $discountAmount');
-                print('Ongkir setelah diskon: Rp $discountedOngkir');
-              }
-              merchantShippingCosts[merchantId] = discountedOngkir;
-              totalShippingCost += discountedOngkir;
-            } else {
-              merchantShippingCosts[merchantId] = merchantOngkir;
-              totalShippingCost += merchantOngkir;
-            }
+            merchantShippingCosts[merchantId] = merchantOngkir;
+            totalShippingCost += merchantOngkir;
           }
         }
 
         print('\n=== TOTAL ONGKIR ===');
         print('Total Ongkir Sebelum Diskon: Rp $totalShippingCost');
-        if (discountAmount > 0) {
-          print('Total Diskon: Rp $discountAmount');
-          print(
-              'Total Ongkir Setelah Diskon: Rp ${totalShippingCost - discountAmount}');
-        }
 
         setState(() {
           shippingCost = totalShippingCost;
@@ -1666,7 +1662,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         children: [
           _buildPaymentDetail('Total Harga', productTotal),
           _buildPaymentDetail('Biaya Penanganan', adminFeeTotal),
-          _buildPaymentDetail('Ongkos Kirim', shippingTotal),
+          _buildPaymentDetail('Ongkos Kirim', discountedShipping,
+              note: discountedShipping == 0 ? 'Gratis Ongkir' : null),
           if (appliedDiscount > 0)
             _buildPaymentDetail('Diskon Ongkir', -appliedDiscount,
                 isDiscount: true),
@@ -1700,11 +1697,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               if (note != null) ...[
-                SizedBox(width: 4),
+                SizedBox(width: 8),
                 Text(
                   note,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                     color: Colors.green,
                     fontStyle: FontStyle.italic,
                   ),

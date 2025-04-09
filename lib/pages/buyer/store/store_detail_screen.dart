@@ -22,11 +22,13 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
   late TabController _tabController;
   final ProductController productController = Get.find<ProductController>();
   final supabase = Supabase.instance.client;
+  final TextEditingController searchController = TextEditingController();
+  var searchQuery = ''.obs;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchMerchantProducts();
     });
@@ -70,6 +72,33 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
     }
   }
 
+  void _performSearch(String value) async {
+    if (value.isEmpty) {
+      // Jika pencarian kosong, tampilkan semua produk
+      _fetchMerchantProducts();
+      return;
+    }
+
+    try {
+      productController.isLoading.value = true;
+
+      // Fetch products dengan filter pencarian
+      final productsResponse = await supabase
+          .from('products')
+          .select()
+          .eq('seller_id', widget.merchant['id'])
+          .or('name.ilike.%${value}%,description.ilike.%${value}%,category.ilike.%${value}%');
+
+      if (productsResponse != null) {
+        productController.products.assignAll(productsResponse);
+      }
+    } catch (e) {
+      print('Error searching products: $e');
+    } finally {
+      productController.isLoading.value = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,6 +107,41 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
             style: TextStyle(color: Colors.white)),
         foregroundColor: Colors.white,
         backgroundColor: AppTheme.primary,
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(60),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: searchController,
+              style: TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.2),
+                hintText: 'Cari produk di toko ini...',
+                hintStyle: TextStyle(color: Colors.white70),
+                prefixIcon: Icon(Icons.search, color: Colors.white),
+                suffixIcon: searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(Icons.clear, color: Colors.white),
+                        onPressed: () {
+                          searchController.clear();
+                          _fetchMerchantProducts();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+              onChanged: (value) {
+                searchQuery.value = value;
+                _performSearch(value);
+              },
+            ),
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -151,6 +215,7 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
               ),
               tabs: [
                 Tab(text: 'Produk'),
+                Tab(text: 'Makanan'),
                 Tab(text: 'Hotel'),
               ],
             ),
@@ -203,6 +268,64 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                     itemBuilder: (context, index) {
                       return ProductCard(
                           product: productController.products[index]);
+                    },
+                  );
+                }),
+
+                // Food Tab
+                Obx(() {
+                  if (productController.isLoading.value) {
+                    return Center(
+                        child: CircularProgressIndicator(
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                    ));
+                  }
+
+                  final foodCategories = [
+                    'Makanan Instan',
+                    'Minuman Kemasan',
+                    'Makanan Camilan & Snack',
+                    'Bahan Makanan',
+                    'Makanan Hotel',
+                  ];
+
+                  final foodProducts = productController.products
+                      .where((product) =>
+                          foodCategories.contains(product['category']))
+                      .toList();
+
+                  if (foodProducts.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.fastfood_outlined,
+                              size: 50, color: Colors.grey[400]),
+                          SizedBox(height: 16),
+                          Text(
+                            'Tidak ada produk makanan',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return GridView.builder(
+                    padding: EdgeInsets.all(16),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 0.65,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: foodProducts.length,
+                    itemBuilder: (context, index) {
+                      return ProductCard(product: foodProducts[index]);
                     },
                   );
                 }),
@@ -449,11 +572,5 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
         ],
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 }

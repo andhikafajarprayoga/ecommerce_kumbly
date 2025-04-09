@@ -539,7 +539,7 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
                 _filterChip('Menunggu Pembayaran', 'pending'),
                 _filterChip('Dikemas', 'processing'),
                 _filterChip(
-                    'Dikirim', 'confirmed', 'shipping', 'transit', 'to_branch'),
+                    'Dikirim', 'shipping', 'transit', 'to_branch', 'delivered'),
                 _filterChip('Selesai', 'completed'),
                 _filterChip('Dibatalkan', 'cancelled'),
                 _filterChip('Semua', 'all'),
@@ -570,16 +570,22 @@ class _PesananSayaScreenState extends State<PesananSayaScreen>
             selectedFilter.value = value;
 
             // Cek apakah ini filter dengan multiple status
-            if (value == 'confirmed' && secondaryValue != null) {
-              List<String> statuses = [value, secondaryValue];
+            if (secondaryValue != null) {
+              List<String> statuses = [value];
+
+              // Tambahkan status kedua
+              statuses.add(secondaryValue);
+
               // Tambahkan status ketiga jika ada
               if (tertiaryValue != null) {
                 statuses.add(tertiaryValue);
               }
+
               // Tambahkan status keempat jika ada
               if (quaternaryValue != null) {
                 statuses.add(quaternaryValue);
               }
+
               orderController.filterOrdersByMultipleStatus(statuses);
             } else {
               // Filter normal untuk status tunggal

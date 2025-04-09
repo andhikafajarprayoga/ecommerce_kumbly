@@ -52,8 +52,9 @@ class AddProductScreen extends StatelessWidget {
     'Makanan & Minuman': [
       'Makanan Instan',
       'Minuman Kemasan',
-      'Camilan & Snack',
+      'Makanan Camilan & Snack',
       'Bahan Makanan',
+      'Makanan Hotel',
     ],
     'Rumah Tangga & Perabotan': [
       'Peralatan Dapur',
@@ -338,6 +339,12 @@ class AddProductScreen extends StatelessWidget {
                       hint: 'Masukkan deskripsi produk',
                       icon: Icons.description_outlined,
                       maxLines: 3,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Deskripsi tidak boleh kosong';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 10),
                     _buildTextField(

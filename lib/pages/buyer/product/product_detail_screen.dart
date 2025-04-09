@@ -152,17 +152,56 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           });
                         },
                         itemBuilder: (context, index) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              image: DecorationImage(
-                                image: NetworkImage(
-                                  imageUrls.isEmpty
-                                      ? 'https://via.placeholder.com/300'
-                                      : imageUrls[index],
+                          return Stack(
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  image: DecorationImage(
+                                    image: NetworkImage(
+                                      imageUrls.isEmpty
+                                          ? 'https://via.placeholder.com/300'
+                                          : imageUrls[index],
+                                    ),
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
-                                fit: BoxFit.cover,
                               ),
-                            ),
+                              if (widget.product['stock'] == 0)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.black.withOpacity(0.7),
+                                        Colors.black.withOpacity(0.5),
+                                      ],
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.block,
+                                          color: Colors.white,
+                                          size: 50,
+                                        ),
+                                        SizedBox(height: 16),
+                                        Text(
+                                          'Stok Habis',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
                           );
                         },
                       ),
@@ -725,22 +764,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: SizedBox(
                 height: 32,
                 child: ElevatedButton(
-                  onPressed: () {
-                    final userId = supabase.auth.currentUser?.id;
-                    if (userId == null) {
-                      Get.toNamed('/login');
-                      return;
-                    }
-                    cartController.addToCart(widget.product);
-                    Get.snackbar(
-                      'Sukses',
-                      'Produk ditambahkan ke keranjang',
-                      snackPosition: SnackPosition.TOP,
-                      backgroundColor: Colors.green,
-                      colorText: Colors.white,
-                      duration: Duration(seconds: 2),
-                    );
-                  },
+                  onPressed: widget.product['stock'] == 0
+                      ? null
+                      : () {
+                          final userId = supabase.auth.currentUser?.id;
+                          if (userId == null) {
+                            Get.toNamed('/login');
+                            return;
+                          }
+                          cartController.addToCart(widget.product);
+                          Get.snackbar(
+                            'Sukses',
+                            'Produk ditambahkan ke keranjang',
+                            snackPosition: SnackPosition.TOP,
+                            backgroundColor: Colors.green,
+                            colorText: Colors.white,
+                            duration: Duration(seconds: 2),
+                          );
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: AppTheme.primary,
@@ -752,7 +793,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                  child: Text('Keranjang', style: TextStyle(fontSize: 11)),
+                  child: Text(
+                    widget.product['stock'] == 0 ? 'Stok Habis' : 'Keranjang',
+                    style: TextStyle(fontSize: 11),
+                  ),
                 ),
               ),
             ),
@@ -762,7 +806,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: SizedBox(
                 height: 32,
                 child: ElevatedButton(
-                  onPressed: handleCheckout,
+                  onPressed:
+                      widget.product['stock'] == 0 ? null : handleCheckout,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.white,
@@ -773,7 +818,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                  child: Text('Beli Langsung', style: TextStyle(fontSize: 11)),
+                  child: Text(
+                    widget.product['stock'] == 0
+                        ? 'Stok Habis'
+                        : 'Beli Langsung',
+                    style: TextStyle(fontSize: 11),
+                  ),
                 ),
               ),
             ),
