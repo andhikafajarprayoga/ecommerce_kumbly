@@ -13,10 +13,13 @@ class ProductController extends GetxController {
   Rx<double?> maxPrice = Rx<double?>(null);
   final RxList<dynamic> searchedMerchants = <dynamic>[].obs;
   RxList<Map<String, dynamic>> hotels = <Map<String, dynamic>>[].obs;
+  List<Map<String, dynamic>> originalProducts = [];
 
   @override
   void onInit() {
     super.onInit();
+    originalProducts =
+        products.map((product) => Map<String, dynamic>.from(product)).toList();
     fetchProducts();
   }
 
@@ -42,44 +45,31 @@ class ProductController extends GetxController {
   }
 
   Future<void> searchProducts(String query, {String? category}) async {
-    try {
-      isLoading.value = true;
-
-      if (query.isEmpty) {
-        await fetchProducts();
-        return;
-      }
-
-      // Membangun query pencarian
-      var queryBuilder = supabase
-          .from('products')
-          .select()
-          .or('name.ilike.%${query}%,description.ilike.%${query}%');
-
-      // Jika kategori tidak kosong, tambahkan filter kategori dengan or
-      if (category != null && category.isNotEmpty) {
-        queryBuilder = queryBuilder.or('category.ilike.%${category}%');
-      }
-
-      final response = await queryBuilder.order('created_at', ascending: false);
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (response != null) {
-          products.assignAll(response);
-        } else {
-          products.clear();
-        }
-      });
-    } catch (e) {
-      print('Error searching products: $e');
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        products.clear();
-      });
-    } finally {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        isLoading.value = false;
-      });
+    if (query.isEmpty && category == null) {
+      products.assignAll(originalProducts);
+      return;
     }
+
+    final filteredProducts = originalProducts.where((product) {
+      final name = product['name']?.toString().toLowerCase() ?? '';
+      final productCategory =
+          product['category']?.toString().toLowerCase() ?? '';
+      final description =
+          product['description']?.toString().toLowerCase() ?? '';
+      final searchQuery = query.toLowerCase();
+
+      bool matchesQuery = query.isEmpty ||
+          name.contains(searchQuery) ||
+          productCategory.contains(searchQuery) ||
+          description.contains(searchQuery);
+
+      bool matchesCategory =
+          category == null || productCategory == category.toLowerCase();
+
+      return matchesQuery && matchesCategory;
+    }).toList();
+
+    products.assignAll(filteredProducts);
   }
 
   void filterByCategory(String category) async {

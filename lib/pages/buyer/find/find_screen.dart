@@ -47,23 +47,27 @@ class _FindScreenState extends State<FindScreen> {
     final arguments = Get.arguments;
     if (arguments != null) {
       if (arguments is String) {
-        // Jika arguments adalah String, itu adalah query pencarian
+        // Jika arguments adalah String, itu adalah query pencarian dari home screen
         searchController.text = arguments;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           performSearch(arguments);
         });
       } else if (arguments is int) {
         // Jika arguments adalah int, itu adalah index navigasi
-        // Langsung load semua produk
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          performSearch(''); // Load semua produk dengan query kosong
-        });
+        // Langsung load semua produk hanya jika bukan dari home screen
+        if (productController.searchQuery.value.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            performSearch(''); // Load semua produk dengan query kosong
+          });
+        }
       }
     } else {
-      // Jika tidak ada arguments, tetap load semua produk
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        performSearch('');
-      });
+      // Jika tidak ada arguments dan tidak ada query pencarian, load semua produk
+      if (productController.searchQuery.value.isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          performSearch('');
+        });
+      }
     }
   }
 
@@ -482,34 +486,33 @@ class _FindScreenState extends State<FindScreen> {
                     onPressed: () {
                       try {
                         // Konversi string ke integer dengan menghapus format ribuan
-                        int? minPrice = minPriceController.text.isEmpty
-                            ? null
-                            : int.parse(minPriceController.text
-                                .replaceAll(RegExp(r'[^0-9]'), ''));
+                        int minPrice = 0;
+                        int maxPrice = 999999999;
 
-                        int? maxPrice = maxPriceController.text.isEmpty
-                            ? null
-                            : int.parse(maxPriceController.text
-                                .replaceAll(RegExp(r'[^0-9]'), ''));
+                        if (minPriceController.text.isNotEmpty) {
+                          minPrice = int.parse(minPriceController.text
+                              .replaceAll(RegExp(r'[^0-9]'), ''));
+                        }
 
-                        // Validasi hanya jika kedua nilai diisi
-                        if (minPrice != null &&
-                            maxPrice != null &&
-                            minPrice > maxPrice &&
-                            maxPrice != 0) {
+                        if (maxPriceController.text.isNotEmpty) {
+                          maxPrice = int.parse(maxPriceController.text
+                              .replaceAll(RegExp(r'[^0-9]'), ''));
+                        }
+
+                        // Validasi harga minimum dan maksimum
+                        if (minPrice > maxPrice && maxPrice != 999999999) {
                           Get.snackbar(
                             'Error',
-                            'Harga minimum tidak boleh lebih besar dari harga maksimum',
+                            'Harga maksimum tidak boleh kosong',
                             backgroundColor: Colors.red,
                             colorText: Colors.white,
                           );
                           return;
                         }
 
-                        // Gunakan nilai null jika field kosong
-                        // Jika hanya minPrice yang diisi, gunakan minPrice dan biarkan maxPrice null
+                        // Terapkan filter harga
                         productController.filterByPriceRange(
-                            minPrice ?? 0, maxPrice ?? 999999999);
+                            minPrice, maxPrice);
                         Get.back();
                       } catch (e) {
                         print('Error applying price filter: $e');
@@ -753,8 +756,11 @@ class _FindScreenState extends State<FindScreen> {
       productController.products.clear();
       productController.searchedMerchants.clear();
 
-      if (value.isEmpty) {
-        // Jika query kosong, ambil semua produk
+      // Cek apakah ini pencarian dari home screen
+      final isFromHomeScreen = Get.arguments is String && value.isNotEmpty;
+
+      if (value.isEmpty && !isFromHomeScreen) {
+        // Jika query kosong dan bukan dari home screen, ambil semua produk
         final productsResponse = await supabase
             .from('products')
             .select()
@@ -789,7 +795,7 @@ class _FindScreenState extends State<FindScreen> {
         print('Debug: No merchants found for query: $value');
       }
 
-      // Jika tidak ada produk dari merchant, cari produk berdasarkan nama dan kategori
+      // Jika tidak ada produk dari merchant, cari produk berdasarkan nama, deskripsi, dan kategori
       if (productController.products.isEmpty) {
         final productsResponse = await supabase
             .from('products')
@@ -1122,7 +1128,9 @@ class ProductCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    product['name'],
+                    product['name'].length > 20
+                        ? '${product['name'].substring(0, 20)}...'
+                        : product['name'],
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(

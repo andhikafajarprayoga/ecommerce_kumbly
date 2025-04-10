@@ -55,7 +55,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
 
     // Setup notifikasi untuk berbagai event
 
-    // Reset data jika kembali dari FindScreen
+    // Reset data jika kembali dari FindScreen atau StoreDetail
     final arguments = Get.arguments;
     if (arguments != null && arguments is int && arguments == 0) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -66,6 +66,9 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
         searchController.clear();
       });
     } else {
+      // Reset data produk dan hotel ketika kembali ke home screen
+      productController.products.clear();
+      productController.hotels.clear();
       productController.fetchProducts();
     }
 
@@ -316,7 +319,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
             productController.products.clear();
             productController.searchQuery.value = '';
             productController.searchedMerchants.clear();
-            productController.fetchProducts();
+            // Jangan panggil fetchProducts() di sini
           }
         } else if (index == 2) {
           // Reset Hotel screen
@@ -341,52 +344,24 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       // Debug: Periksa struktur data kategori
       final sampleProducts =
           await supabase.from('products').select('id, name, category').limit(5);
-
       print('Debug: Sample product categories:');
       for (var product in sampleProducts) {
         print('Product: ${product['name']}, Category: ${product['category']}');
       }
 
-      // Cari produk berdasarkan nama dan deskripsi
-      final nameDescResponse = await supabase
+      // Buat query pencarian yang lebih komprehensif
+      final productsResponse = await supabase
           .from('products')
           .select()
-          .or('name.ilike.%${value}%,description.ilike.%${value}%')
+          .or('name.ilike.%${value}%,description.ilike.%${value}%,category.ilike.%${value}%')
           .order('created_at', ascending: false);
 
-      // Coba beberapa variasi pencarian kategori
-      final categoryResponse1 = await supabase
-          .from('products')
-          .select()
-          .ilike('category', '%${value}%')
-          .order('created_at', ascending: false);
-
-      final categoryResponse2 = await supabase
-          .from('products')
-          .select()
-          .textSearch('category', value)
-          .order('created_at', ascending: false);
-
-      // Gabungkan semua hasil
-      final allProducts = [
-        ...nameDescResponse,
-        ...categoryResponse1,
-        ...categoryResponse2
-      ];
-
-      // Hilangkan duplikat
-      final uniqueProducts = <Map<String, dynamic>>[];
-      final productIds = <String>{};
-
-      for (var product in allProducts) {
-        if (!productIds.contains(product['id'])) {
-          productIds.add(product['id']);
-          uniqueProducts.add(product);
-        }
+      // Update hasil pencarian
+      if (productsResponse != null) {
+        productController.products.assignAll(productsResponse);
+        print(
+            'Debug: Found ${productsResponse.length} products for query: $value');
       }
-
-      productController.products.assignAll(uniqueProducts);
-      print('Debug: Found ${uniqueProducts.length} products for query: $value');
 
       // Cari toko dengan case insensitive
       final merchantResponse = await supabase
@@ -720,8 +695,9 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                         subCategories: [
                           'Makanan Instan',
                           'Minuman Kemasan',
-                          'Camilan & Snack',
-                          'Bahan Makanan'
+                          'Makanan Camilan & Snack',
+                          'Bahan Makanan',
+                          'Makanan Hotel'
                         ],
                         onTap: () {
                           if (productController.currentCategory.value ==
@@ -733,8 +709,9 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                             productController.filterByMainCategory([
                               'Makanan Instan',
                               'Minuman Kemasan',
-                              'Camilan & Snack',
-                              'Bahan Makanan'
+                              'Makanan Camilan & Snack',
+                              'Bahan Makanan',
+                              'Makanan Hotel'
                             ]);
                           }
                         },
@@ -962,7 +939,9 @@ class ProductCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    product['name'],
+                    product['name'].length > 20
+                        ? '${product['name'].substring(0, 20)}...'
+                        : product['name'],
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1071,8 +1050,9 @@ class CategoryListModal extends StatelessWidget {
     'Makanan & Minuman': [
       'Makanan Instan',
       'Minuman Kemasan',
-      'Camilan & Snack',
+      'Makanan Camilan & Snack',
       'Bahan Makanan',
+      'Makanan Hotel',
     ],
     'Rumah Tangga & Perabotan': [
       'Peralatan Dapur',

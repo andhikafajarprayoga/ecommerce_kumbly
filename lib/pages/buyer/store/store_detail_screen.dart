@@ -236,7 +236,20 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                     ));
                   }
 
-                  if (productController.products.isEmpty) {
+                  final foodCategories = [
+                    'Makanan Instan',
+                    'Minuman Kemasan',
+                    'Makanan Camilan & Snack',
+                    'Bahan Makanan',
+                    'Makanan Hotel',
+                  ];
+
+                  final nonFoodProducts = productController.products
+                      .where((product) =>
+                          !foodCategories.contains(product['category']))
+                      .toList();
+
+                  if (nonFoodProducts.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -264,10 +277,9 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
-                    itemCount: productController.products.length,
+                    itemCount: nonFoodProducts.length,
                     itemBuilder: (context, index) {
-                      return ProductCard(
-                          product: productController.products[index]);
+                      return ProductCard(product: nonFoodProducts[index]);
                     },
                   );
                 }),
