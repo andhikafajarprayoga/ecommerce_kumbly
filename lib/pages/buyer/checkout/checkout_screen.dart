@@ -1161,7 +1161,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       contentPadding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       title: Text(
-                        'Diskon Rp ${NumberFormat('#,###').format(voucher['rate'])}',
+                        'Diskon Ongkir Rp ${NumberFormat('#,###').format(voucher['rate'])}',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,

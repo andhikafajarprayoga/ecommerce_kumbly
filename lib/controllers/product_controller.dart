@@ -29,8 +29,7 @@ class ProductController extends GetxController {
       final response = await supabase
           .from('products')
           .select()
-          .order('created_at', ascending: false)
-          .limit(20);
+          .order('created_at', ascending: false);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         products.assignAll(response);

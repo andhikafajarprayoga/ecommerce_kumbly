@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../../theme/app_theme.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class WithdrawalDetailScreen extends StatelessWidget {
   final WithdrawalRequest request;
@@ -314,10 +316,65 @@ class WithdrawalDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.phone, color: Colors.blue, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      final phone = _getPhoneNumber();
+                      if (phone != null) {
+                        _launchWhatsApp(phone);
+                      }
+                    },
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _getPhoneNumber() ?? 'Nomor telepon tidak tersedia',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Colors.blue,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                        if (_getPhoneNumber() != null)
+                          const FaIcon(
+                            FontAwesomeIcons.whatsapp,
+                            size: 20,
+                            color: Color(0xFF25D366),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
+  }
+
+  String? _getPhoneNumber() {
+    print(
+        "informationMerchant value: ${request.informationMerchant}"); // Debug print raw value
+
+    if (request.informationMerchant == null) return null;
+
+    final phonePattern = RegExp(r'Telepon Toko:\s*(\d+)');
+    final match = phonePattern.firstMatch(request.informationMerchant!);
+
+    if (match != null) {
+      print(
+          "Phone number found: ${match.group(1)}"); // Debug print extracted number
+      return match.group(1);
+    }
+    print("No phone number match found in the text"); // Debug print if no match
+    return null;
   }
 
   Widget _buildActionButtons() {
@@ -414,6 +471,21 @@ class WithdrawalDetailScreen extends StatelessWidget {
 
     if (image != null) {
       controller.uploadTransferProof(request.id, image);
+    }
+  }
+
+  Future<void> _launchWhatsApp(String phone) async {
+    String whatsappUrl =
+        "https://wa.me/${phone.replaceAll(RegExp(r'[^\d+]'), '')}";
+    try {
+      await launchUrl(Uri.parse(whatsappUrl));
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Tidak dapat membuka WhatsApp',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 }

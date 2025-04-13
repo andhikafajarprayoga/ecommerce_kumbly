@@ -29,6 +29,7 @@ class WithdrawalController extends GetxController {
             transfer_proof_url,
             merchant_id,
             bank_account_id,
+            information_merchant,
             merchants (
               store_name
             ),
@@ -40,7 +41,15 @@ class WithdrawalController extends GetxController {
             )
           ''').order('created_at', ascending: false);
 
-      print('Response data: $response'); // Untuk debugging
+      print(
+          'Raw Response data: $response'); // Debug print untuk response mentah
+
+      // Debug print untuk memeriksa satu data withdrawal
+      if (response.isNotEmpty) {
+        print('First withdrawal data: ${response[0]}');
+        print(
+            'information_merchant value: ${response[0]['information_merchant']}');
+      }
 
       withdrawalRequests.value = response
           .map<WithdrawalRequest>((json) => WithdrawalRequest.fromJson(json))

@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Model
 class ActiveDelivery {
@@ -187,24 +188,34 @@ class PickupOrdersScreen extends GetView<PickupOrdersController> {
                       isUnavailable: order.merchantData == null,
                     ),
                     _buildSimpleInfoRow(
+                      icon: Icons.phone_outlined,
+                      label: 'Kontak Penjual',
+                      value: order.merchantData?['store_phone'] ??
+                          "Tidak tersedia",
+                      isUnavailable: order.merchantData == null ||
+                          order.merchantData?['store_phone'] == null,
+                      onTap: order.merchantData?['store_phone'] != null
+                          ? () => _launchWhatsApp(
+                              order.merchantData!['store_phone'])
+                          : null,
+                    ),
+                    _buildSimpleInfoRow(
                       icon: Icons.location_on_outlined,
                       label: 'Alamat Penjemputan',
                       value: _formatMerchantAddress(
                           order.merchantData?['store_address']),
                       isUnavailable: order.merchantData == null,
-                    ),
-                    _buildSimpleInfoRow(
-                      icon: Icons.phone_outlined,
-                      label: 'Telepon',
-                      value: order.merchantData?['store_phone'] ??
-                          "Tidak tersedia",
-                      isUnavailable: order.merchantData == null,
+                      onTap: order.merchantData?['store_address'] != null
+                          ? () => _launchMaps(_formatMerchantAddress(
+                              order.merchantData?['store_address']))
+                          : null,
                     ),
                     _buildSimpleInfoRow(
                       icon: Icons.local_shipping_outlined,
                       label: 'Alamat Pengiriman',
                       value: order.shippingAddress,
                       isUnavailable: false,
+                      onTap: () => _launchMaps(order.shippingAddress),
                     ),
                     _buildSimpleInfoRow(
                       icon: Icons.payment_outlined,
@@ -255,40 +266,57 @@ class PickupOrdersScreen extends GetView<PickupOrdersController> {
     required IconData icon,
     required String label,
     required String value,
-    required bool isUnavailable,
+    bool isUnavailable = false,
+    Function()? onTap,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.grey[800],
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: Colors.grey[600]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
                   ),
-                ),
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isUnavailable ? Colors.grey : Colors.black87,
-                    fontWeight:
-                        isUnavailable ? FontWeight.w400 : FontWeight.w500,
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          value,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isUnavailable
+                                ? Colors.grey
+                                : onTap != null
+                                    ? Colors.blue[700]
+                                    : Colors.black87,
+                            decoration:
+                                onTap != null ? TextDecoration.underline : null,
+                          ),
+                        ),
+                      ),
+                      if (onTap != null && !isUnavailable)
+                        Icon(Icons.launch, size: 16, color: Colors.blue[700]),
+                    ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -310,5 +338,22 @@ class PickupOrdersScreen extends GetView<PickupOrdersController> {
       print('Error formatting address: $e');
       return "Format alamat tidak valid";
     }
+  }
+
+  void _launchWhatsApp(String phone) async {
+    String cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '62' + cleanPhone.substring(1);
+    } else if (!cleanPhone.startsWith('62')) {
+      cleanPhone = '62' + cleanPhone;
+    }
+    final url = 'https://wa.me/$cleanPhone';
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  void _launchMaps(String address) async {
+    final url =
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}';
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 }

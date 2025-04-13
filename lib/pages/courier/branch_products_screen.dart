@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert';
 
 class BranchProductsScreen extends StatefulWidget {
   const BranchProductsScreen({Key? key}) : super(key: key);
@@ -65,6 +66,7 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
               shipping_address,
               total_amount,
               shipping_cost,
+              information_merchant,
               payment_method:payment_methods (
                 name,
                 admin
@@ -298,6 +300,9 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
                     padding: EdgeInsets.symmetric(vertical: 16),
                     child: Divider(height: 1),
                   ),
+                  if (order['information_merchant'] != null) ...[
+                    ..._buildMerchantInfo(order['information_merchant']),
+                  ],
                   _buildInfoRow('Cabang', branch['name'], Icons.store),
                   _buildInfoRow('Jumlah', '${item['quantity']} unit',
                       Icons.shopping_basket),
@@ -306,21 +311,7 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
                     Icons.phone,
                     'Telepon Pembeli',
                     InkWell(
-                      onTap: () async {
-                        String phone = buyer['phone']
-                            .toString()
-                            .replaceAll(RegExp(r'[^\d+]'), '');
-                        if (!phone.startsWith('+')) {
-                          phone =
-                              '+62${phone.startsWith('0') ? phone.substring(1) : phone}';
-                        }
-                        final url = 'whatsapp://send?phone=$phone';
-                        if (await canLaunchUrl(Uri.parse(url))) {
-                          await launchUrl(Uri.parse(url));
-                        } else {
-                          Get.snackbar('Error', 'Tidak dapat membuka WhatsApp');
-                        }
-                      },
+                      onTap: () => _launchWhatsApp(buyer['phone']),
                       child: Text(
                         buyer['phone'],
                         style: const TextStyle(
@@ -330,8 +321,20 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
                       ),
                     ),
                   ),
-                  _buildInfoRow('Alamat Pengiriman', order['shipping_address'],
-                      Icons.location_on),
+                  _buildInfoRowWithIcon(
+                    Icons.location_on,
+                    'Alamat Pengiriman',
+                    InkWell(
+                      onTap: () => _launchMaps(order['shipping_address']),
+                      child: Text(
+                        order['shipping_address'],
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
                   _buildInfoRow(
                     'Metode Pembayaran',
                     paymentMethod != null
@@ -752,5 +755,94 @@ class _BranchProductsScreenState extends State<BranchProductsScreen>
         colorText: Colors.white,
       );
     }
+  }
+
+  List<Widget> _buildMerchantInfo(String merchantInfo) {
+    try {
+      final RegExp phoneRegex = RegExp(r'Telepon Toko: (\d+)');
+      final RegExp addressRegex = RegExp(r'Alamat Toko: ({.*?})');
+
+      final phoneMatch = phoneRegex.firstMatch(merchantInfo);
+      final addressMatch = addressRegex.firstMatch(merchantInfo);
+
+      String? phone = phoneMatch?.group(1);
+      String? addressJson = addressMatch?.group(1);
+
+      List<Widget> widgets = [];
+
+      if (phone != null) {
+        widgets.add(
+          _buildInfoRowWithIcon(
+            Icons.phone,
+            'Telepon Penjual',
+            InkWell(
+              onTap: () => _launchWhatsApp(phone),
+              child: Text(
+                phone,
+                style: const TextStyle(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      if (addressJson != null) {
+        try {
+          final addressMap = jsonDecode(addressJson);
+          final formattedAddress = [
+            addressMap['street'],
+            addressMap['village'],
+            addressMap['district'],
+            addressMap['city'],
+            addressMap['province'],
+            addressMap['postal_code'],
+          ].where((e) => e != null && e.isNotEmpty).join(', ');
+
+          widgets.add(
+            _buildInfoRowWithIcon(
+              Icons.location_on,
+              'Alamat Penjual',
+              InkWell(
+                onTap: () => _launchMaps(formattedAddress),
+                child: Text(
+                  formattedAddress,
+                  style: const TextStyle(
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
+          );
+        } catch (e) {
+          print('Error parsing address JSON: $e');
+        }
+      }
+
+      return widgets;
+    } catch (e) {
+      print('Error parsing merchant info: $e');
+      return [];
+    }
+  }
+
+  void _launchWhatsApp(String phone) async {
+    String cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '62' + cleanPhone.substring(1);
+    } else if (!cleanPhone.startsWith('62')) {
+      cleanPhone = '62' + cleanPhone;
+    }
+    final url = 'https://wa.me/$cleanPhone';
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  void _launchMaps(String address) async {
+    final url =
+        'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}';
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 }

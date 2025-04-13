@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 
 class PickupBranchOrdersScreen extends StatefulWidget {
   const PickupBranchOrdersScreen({Key? key}) : super(key: key);
@@ -82,6 +83,42 @@ class _PickupBranchOrdersScreenState extends State<PickupBranchOrdersScreen> {
       );
     } finally {
       isLoading(false);
+    }
+  }
+
+  void _launchWhatsApp(String phone) async {
+    String formattedPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    if (!formattedPhone.startsWith('+62')) {
+      formattedPhone =
+          '+62${formattedPhone.startsWith('0') ? formattedPhone.substring(1) : formattedPhone}';
+    }
+
+    final url = 'https://wa.me/$formattedPhone';
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      Get.snackbar(
+        'Error',
+        'Tidak dapat membuka WhatsApp',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void _launchMaps(String address) async {
+    final encodedAddress = Uri.encodeComponent(address);
+    final url =
+        'https://www.google.com/maps/search/?api=1&query=$encodedAddress';
+    if (await canLaunch(url)) {
+      await launch(url);
+    } else {
+      Get.snackbar(
+        'Error',
+        'Tidak dapat membuka Maps',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 
@@ -176,13 +213,49 @@ class _PickupBranchOrdersScreenState extends State<PickupBranchOrdersScreen> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Alamat: $formattedAddress',
-                              style: const TextStyle(color: Colors.white70),
+                            InkWell(
+                              onTap: () => _launchMaps(formattedAddress),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Alamat: $formattedAddress',
+                                      style: const TextStyle(
+                                        color:
+                                            Color.fromARGB(179, 255, 255, 255),
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.launch,
+                                    size: 16,
+                                    color: Colors.white70,
+                                  ),
+                                ],
+                              ),
                             ),
-                            Text(
-                              'Telepon: ${branch['phone']}',
-                              style: const TextStyle(color: Colors.white70),
+                            InkWell(
+                              onTap: () => _launchWhatsApp(branch['phone']),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Telepon: ${branch['phone']}',
+                                      style: const TextStyle(
+                                        color:
+                                            Color.fromARGB(179, 255, 255, 255),
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.launch,
+                                    size: 16,
+                                    color: Colors.white70,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -247,10 +320,14 @@ class _PickupBranchOrdersScreenState extends State<PickupBranchOrdersScreen> {
                                 ),
                                 if (shippingAddress.isNotEmpty) ...[
                                   const SizedBox(height: 8),
-                                  _buildInfoRow(
-                                    Icons.location_on_outlined,
-                                    'Alamat Pengiriman:',
-                                    shippingAddress,
+                                  InkWell(
+                                    onTap: () => _launchMaps(shippingAddress),
+                                    child: _buildInfoRow(
+                                      Icons.location_on_outlined,
+                                      'Alamat Pengiriman:',
+                                      shippingAddress,
+                                      isLink: true,
+                                    ),
                                   ),
                                 ],
                                 const SizedBox(height: 12),
@@ -317,7 +394,8 @@ class _PickupBranchOrdersScreenState extends State<PickupBranchOrdersScreen> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(IconData icon, String label, String value,
+      {bool isLink = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -326,17 +404,37 @@ class _PickupBranchOrdersScreenState extends State<PickupBranchOrdersScreen> {
           Icon(icon, size: 18, color: Colors.grey[600]),
           const SizedBox(width: 8),
           Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: TextStyle(color: Colors.grey[800]),
-                children: [
-                  TextSpan(
-                    text: '$label ',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
+            child: Row(
+              children: [
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: TextStyle(color: Colors.grey[800]),
+                      children: [
+                        TextSpan(
+                          text: '$label ',
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        TextSpan(
+                          text: value,
+                          style: isLink
+                              ? const TextStyle(
+                                  color: Colors.blue,
+                                  decoration: TextDecoration.underline,
+                                )
+                              : null,
+                        ),
+                      ],
+                    ),
                   ),
-                  TextSpan(text: value),
-                ],
-              ),
+                ),
+                if (isLink)
+                  Icon(
+                    Icons.launch,
+                    size: 16,
+                    color: Colors.blue,
+                  ),
+              ],
             ),
           ),
         ],

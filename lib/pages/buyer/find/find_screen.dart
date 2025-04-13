@@ -752,6 +752,8 @@ class _FindScreenState extends State<FindScreen> {
 
   Future<void> performSearch(String value) async {
     try {
+      // Set loading state ke true
+      productController.isLoading.value = true;
       isSearching.value = true;
       productController.products.clear();
       productController.searchedMerchants.clear();
@@ -820,6 +822,8 @@ class _FindScreenState extends State<FindScreen> {
     } catch (e) {
       print('Debug: Error dalam pencarian: $e');
     } finally {
+      // Set loading state ke false setelah selesai
+      productController.isLoading.value = false;
       isSearching.value = false;
     }
   }
@@ -900,7 +904,24 @@ class _FindScreenState extends State<FindScreen> {
           print('Debug: products count: ${productController.products.length}');
 
           if (productController.isLoading.value) {
-            return Center(child: CircularProgressIndicator());
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Memuat produk...',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
 
           // Cek apakah ada produk yang ditemukan

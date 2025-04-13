@@ -17,6 +17,9 @@ class ProductDetailScreen extends StatefulWidget {
   final dynamic product;
   ProductDetailScreen({super.key, required this.product}) {
     Get.put(CartController());
+    if (!Get.isRegistered<ProductController>()) {
+      Get.put(ProductController());
+    }
   }
 
   @override
@@ -25,8 +28,14 @@ class ProductDetailScreen extends StatefulWidget {
 
 class ProductDetailController extends GetxController {
   final showSearch = false.obs;
-  final ProductController productController = Get.find<ProductController>();
+  late final ProductController productController;
   final searchController = TextEditingController();
+
+  @override
+  void onInit() {
+    super.onInit();
+    productController = Get.find<ProductController>();
+  }
 
   void updateSearchVisibility(double offset) {
     showSearch.value = offset > 200;

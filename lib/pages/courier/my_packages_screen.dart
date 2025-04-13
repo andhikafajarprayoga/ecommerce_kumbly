@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:convert';
 
 class MyPackagesScreen extends StatefulWidget {
   const MyPackagesScreen({Key? key}) : super(key: key);
@@ -344,6 +345,12 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
                       decimalDigits: 0,
                     ).format(calculateTotal(package)),
                   ),
+                  _buildInfoRowWithIcon(
+                    Icons.store,
+                    'Informasi Toko',
+                    package['information_merchant'] ??
+                        'Tidak ada informasi toko',
+                  ),
                   const SizedBox(height: 16),
                   if (package['status'] == 'processing' ||
                       package['status'] == 'shipping') ...[
@@ -452,20 +459,20 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
   Widget _buildInfoRowWithIcon(IconData icon, String label, String value) {
     // Fungsi untuk membuka WhatsApp
     void _openWhatsApp(String phone) {
-      // Bersihkan nomor telepon dari karakter non-digit
       String cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-
-      // Pastikan format nomor benar untuk Indonesia
       if (cleanPhone.startsWith('0')) {
         cleanPhone = '62' + cleanPhone.substring(1);
       } else if (!cleanPhone.startsWith('62')) {
         cleanPhone = '62' + cleanPhone;
       }
-
-      // Buat URL WhatsApp
       final url = 'https://wa.me/$cleanPhone';
+      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    }
 
-      // Buka URL
+    // Fungsi untuk membuka Google Maps
+    void _openMaps(String address) {
+      final url =
+          'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}';
       launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
     }
 
@@ -487,26 +494,84 @@ class _MyPackagesScreenState extends State<MyPackagesScreen> {
           ),
           const Text(': '),
           Expanded(
-            child: label == 'Telepon' && value != 'N/A'
-                ? InkWell(
-                    onTap: () => _openWhatsApp(value),
-                    child: Text(
-                      value,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
+            child: label == 'Informasi Toko' &&
+                    value != 'Tidak ada informasi toko'
+                ? Builder(
+                    builder: (context) {
+                      // Cari bagian JSON dalam string
+                      final jsonStart = value.indexOf('{');
+                      final jsonEnd = value.lastIndexOf('}') + 1;
+                      final jsonString = value.substring(jsonStart, jsonEnd);
+
+                      // Parsing JSON
+                      final info = jsonDecode(jsonString);
+                      final address = info['street'];
+                      final phone = value.split('Telepon Toko: ').last.trim();
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          InkWell(
+                            onTap: () => _openMaps(address),
+                            child: Text(
+                              address,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => _openWhatsApp(phone),
+                            child: Text(
+                              phone,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   )
-                : Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                : label == 'Telepon' && value != 'N/A'
+                    ? InkWell(
+                        onTap: () => _openWhatsApp(value),
+                        child: Text(
+                          value,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      )
+                    : label == 'Alamat' && value != 'N/A'
+                        ? InkWell(
+                            onTap: () => _openMaps(value),
+                            child: Text(
+                              value,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.blue,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          )
+                        : Text(
+                            value,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
           ),
         ],
       ),

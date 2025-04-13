@@ -12,6 +12,7 @@ class WithdrawalRequest {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? transferProofUrl;
+  final String? informationMerchant;
 
   WithdrawalRequest({
     required this.id,
@@ -27,6 +28,7 @@ class WithdrawalRequest {
     required this.createdAt,
     required this.updatedAt,
     this.transferProofUrl,
+    this.informationMerchant,
   });
 
   factory WithdrawalRequest.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,7 @@ class WithdrawalRequest {
           ? DateTime.parse(json['updated_at'])
           : DateTime.parse(json['created_at']),
       transferProofUrl: json['transfer_proof_url'],
+      informationMerchant: json['information_merchant'],
     );
   }
 }

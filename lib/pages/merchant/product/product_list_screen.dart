@@ -78,7 +78,33 @@ class _ProductListScreenState extends State<ProductListScreen> {
       ),
       body: Obx(() {
         if (productController.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Memuat Produk...',
+                  style: TextStyle(
+                    color: AppTheme.primary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 8),
+                SizedBox(
+                  width: 200,
+                  child: LinearProgressIndicator(
+                    backgroundColor: AppTheme.primary.withOpacity(0.2),
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                  ),
+                ),
+              ],
+            ),
+          );
         }
 
         final myProducts = productController.products

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import '../../../theme/app_theme.dart';
 import 'package:intl/intl.dart';
+import 'package:image/image.dart' as img;
 
 class EditProductScreen extends StatefulWidget {
   final dynamic product;
@@ -79,20 +80,53 @@ class _EditProductScreenState extends State<EditProductScreen> {
           continue;
         }
 
+        final file = File(path);
+        final fileSize =
+            await file.length(); // Mendapatkan ukuran file dalam bytes
+
+        // Jika ukuran file lebih dari 100 KB, lakukan kompresi
+        List<int> compressedImage;
+        if (fileSize > 100 * 1024) {
+          // 100 KB
+          final originalImage = img.decodeImage(await file.readAsBytes());
+          if (originalImage != null) {
+            compressedImage = img.encodeJpg(originalImage,
+                quality: 55); // Kompresi dengan kualitas 55
+          } else {
+            compressedImage = await file.readAsBytes();
+          }
+        } else {
+          // Jika ukuran file kurang dari 100 KB, gunakan file asli
+          compressedImage = await file.readAsBytes();
+        }
+
         final fileName =
             '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
-        final file = File(path);
 
-        await supabase.storage.from('products').upload(fileName, file);
+        // Simpan gambar terkompresi ke file sementara
+        final compressedFile = File('${file.path}_compressed.jpg');
+        await compressedFile.writeAsBytes(compressedImage);
+
+        await supabase.storage
+            .from('products')
+            .upload(fileName, compressedFile);
+
+        // Hapus file terkompresi setelah upload
+        await compressedFile.delete();
 
         final imageUrl =
             supabase.storage.from('products').getPublicUrl(fileName);
-
         imageUrls.add(imageUrl);
       }
       return imageUrls;
     } catch (e) {
       print('Error uploading images: $e');
+      Get.snackbar(
+        'Error',
+        'Gagal mengupload gambar: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
       return [];
     }
   }

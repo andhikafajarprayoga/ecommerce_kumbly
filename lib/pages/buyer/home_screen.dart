@@ -340,14 +340,7 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
     try {
       // Set search query
       productController.searchQuery.value = value;
-
-      // Debug: Periksa struktur data kategori
-      final sampleProducts =
-          await supabase.from('products').select('id, name, category').limit(5);
-      print('Debug: Sample product categories:');
-      for (var product in sampleProducts) {
-        print('Product: ${product['name']}, Category: ${product['category']}');
-      }
+      productController.isLoading.value = true;
 
       // Buat query pencarian yang lebih komprehensif
       final productsResponse = await supabase
@@ -366,21 +359,28 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       // Cari toko dengan case insensitive
       final merchantResponse = await supabase
           .from('merchants')
-          .select('id, store_name, store_description')
+          .select('id, store_name, store_description, store_address')
           .or('store_name.ilike.%${value}%,store_description.ilike.%${value}%')
-          .limit(5);
+          .limit(10);
 
-      print('Merchant search response: $merchantResponse');
-      productController.searchedMerchants.assignAll(merchantResponse);
+      print('Debug: Merchants search result: $merchantResponse');
 
-      // Pindah ke FindScreen dengan search query
-      setState(() {
-        _selectedIndex = 1;
-        // Update search query di product controller
-        productController.searchQuery.value = value;
-      });
+      if (merchantResponse != null) {
+        productController.searchedMerchants.assignAll(merchantResponse);
+      }
+
+      // Pindah ke FindScreen dengan search query dan hasil pencarian
+      Get.off(() => FindScreen(initialSearchQuery: value), arguments: value);
     } catch (e) {
       print('Error searching: $e');
+      Get.snackbar(
+        'Error',
+        'Terjadi kesalahan saat mencari produk',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      productController.isLoading.value = false;
     }
   }
 
@@ -389,8 +389,9 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
       case 0:
         return _buildHomeContent();
       case 1:
-        // Pass initial search query ke FindScreen
-        return FindScreen(initialSearchQuery: searchController.text);
+        // Pass initial search query dan hasil pencarian ke FindScreen
+        return FindScreen(
+            initialSearchQuery: productController.searchQuery.value);
       case 2:
         return HotelScreen();
       case 3:

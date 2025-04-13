@@ -11,7 +11,12 @@ import '../hotel/hotel_detail_screen.dart';
 class StoreDetailScreen extends StatefulWidget {
   final Map<String, dynamic> merchant;
 
-  const StoreDetailScreen({Key? key, required this.merchant}) : super(key: key);
+  StoreDetailScreen({Key? key, required this.merchant}) : super(key: key) {
+    // Pastikan ProductController sudah diinisialisasi
+    if (!Get.isRegistered<ProductController>()) {
+      Get.put(ProductController());
+    }
+  }
 
   @override
   State<StoreDetailScreen> createState() => _StoreDetailScreenState();
@@ -20,7 +25,7 @@ class StoreDetailScreen extends StatefulWidget {
 class _StoreDetailScreenState extends State<StoreDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final ProductController productController = Get.find<ProductController>();
+  late final ProductController productController;
   final supabase = Supabase.instance.client;
   final TextEditingController searchController = TextEditingController();
   var searchQuery = ''.obs;
@@ -29,6 +34,8 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    productController = Get.find<ProductController>();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchMerchantProducts();
     });
@@ -37,6 +44,8 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
   Future<void> _fetchMerchantProducts() async {
     try {
       productController.isLoading.value = true;
+      productController.products.clear(); // Reset products list
+      productController.hotels.clear(); // Reset hotels list
 
       // Fetch products
       final productsResponse = await supabase
@@ -56,8 +65,6 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
             rating
           ''').eq('merchant_id', widget.merchant['id']);
 
-      print('Hotels response: $hotelsResponse'); // Debug print
-
       if (productsResponse != null) {
         productController.products.assignAll(productsResponse);
       }
@@ -67,6 +74,12 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
       }
     } catch (e) {
       print('Error fetching merchant data: $e');
+      Get.snackbar(
+        'Error',
+        'Terjadi kesalahan saat memuat data',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     } finally {
       productController.isLoading.value = false;
     }

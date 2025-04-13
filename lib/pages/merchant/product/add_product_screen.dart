@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import '../../../theme/app_theme.dart';
 import 'package:intl/intl.dart';
+import 'package:image/image.dart' as img;
 
 class AddProductScreen extends StatelessWidget {
   AddProductScreen({super.key});
@@ -100,11 +101,32 @@ class AddProductScreen extends StatelessWidget {
     List<String> imageUrls = [];
     try {
       for (String path in paths) {
+        final file = File(path);
+        final fileSize =
+            await file.length(); // Mendapatkan ukuran file dalam bytes
+
+        // Jika ukuran file lebih dari 100 KB, lakukan kompresi
+        List<int> compressedImage;
+        if (fileSize > 100 * 1024) {
+          // 100 KB
+          final originalImage = img.decodeImage(await file.readAsBytes());
+          compressedImage = img.encodeJpg(originalImage!,
+              quality: 55); // Kompresi dengan kualitas 85
+        } else {
+          // Jika ukuran file kurang dari 100 KB, gunakan file asli
+          compressedImage = await file.readAsBytes();
+        }
+
         final fileName =
             '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
-        final file = File(path);
 
-        await supabase.storage.from('products').upload(fileName, file);
+        // Simpan gambar terkompresi ke file sementara
+        final compressedFile = File('${file.path}_compressed.jpg');
+        await compressedFile.writeAsBytes(compressedImage);
+
+        await supabase.storage
+            .from('products')
+            .upload(fileName, compressedFile);
 
         final imageUrl =
             supabase.storage.from('products').getPublicUrl(fileName);
