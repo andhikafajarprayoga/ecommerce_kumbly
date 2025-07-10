@@ -326,7 +326,10 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
                         TileLayer(
                           urlTemplate:
                               'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.example.app',
+                          userAgentPackageName: 'com.saraja.kumblyecommerce.v2.app',
+                          additionalOptions: {
+                            'User-Agent': 'Saraja Kumbly App (com.saraja.kumblyecommerce.v2.app)',
+                          },
                         ),
                         MarkerLayer(
                           markers: [

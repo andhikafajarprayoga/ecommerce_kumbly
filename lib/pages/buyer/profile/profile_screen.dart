@@ -378,7 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _buildMenuCard(
                     icon: Icons.store_rounded,
-                    title: 'Seller',
+                    title: 'Buka Toko',
                     subtitle: 'Mulai berjualan di Saraja',
                     onTap: () async {
                       final userData = await supabase

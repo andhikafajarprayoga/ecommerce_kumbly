@@ -282,6 +282,11 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                       urlTemplate:
                           'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                       subdomains: ['a', 'b', 'c'],
+                      userAgentPackageName: 'com.saraja.kumblyecommerce.v2.app',
+                      additionalOptions: {
+                        'User-Agent':
+                            'Saraja Kumbly App (com.saraja.kumblyecommerce.v2.app)',
+                      },
                     ),
                     MarkerLayer(
                       markers: [

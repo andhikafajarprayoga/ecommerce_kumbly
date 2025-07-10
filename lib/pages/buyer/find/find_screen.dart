@@ -762,11 +762,10 @@ class _FindScreenState extends State<FindScreen> {
       final isFromHomeScreen = Get.arguments is String && value.isNotEmpty;
 
       if (value.isEmpty && !isFromHomeScreen) {
-        // Jika query kosong dan bukan dari home screen, ambil semua produk
-        final productsResponse = await supabase
-            .from('products')
-            .select()
-            .order('created_at', ascending: false);
+        // Jika query kosong dan bukan dari home screen, ambil semua produk dan urutkan berdasarkan penjualan
+        final productsResponse = await supabase.from('products').select().order(
+            'sales',
+            ascending: false); // Urutkan berdasarkan penjualan tertinggi
 
         if (productsResponse != null) {
           productController.products.assignAll(productsResponse);
@@ -788,10 +787,19 @@ class _FindScreenState extends State<FindScreen> {
         productController.searchedMerchants.assignAll(merchantsResponse);
         print('Debug: Found ${merchantsResponse.length} merchants');
 
-        // Jika ada merchant yang ditemukan, cari produk dari merchant pertama
+        // Jika ada merchant yang ditemukan, cari produk dari merchant pertama dan urutkan berdasarkan penjualan
         if (merchantsResponse.isNotEmpty) {
           final merchantId = merchantsResponse[0]['id'];
-          await _fetchMerchantProducts(merchantId);
+          final merchantProducts = await supabase
+              .from('products')
+              .select()
+              .eq('seller_id', merchantId)
+              .order('sales',
+                  ascending: false); // Urutkan berdasarkan penjualan tertinggi
+
+          if (merchantProducts != null) {
+            productController.products.assignAll(merchantProducts);
+          }
         }
       } else {
         print('Debug: No merchants found for query: $value');
@@ -803,7 +811,8 @@ class _FindScreenState extends State<FindScreen> {
             .from('products')
             .select()
             .or('name.ilike.%$value%,category.ilike.%$value%')
-            .order('created_at', ascending: false);
+            .order('sales',
+                ascending: false); // Urutkan berdasarkan penjualan tertinggi
 
         print('Debug: Products search result: $productsResponse');
 

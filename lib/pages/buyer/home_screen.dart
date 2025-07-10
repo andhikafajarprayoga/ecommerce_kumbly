@@ -778,31 +778,51 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
             // Products Grid
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
-              child: Obx(() {
-                if (productController.isLoading.value) {
-                  return Center(child: CircularProgressIndicator());
-                }
-
-                if (productController.products.isEmpty) {
-                  return Center(child: Text('Tidak ada produk'));
-                }
-
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.65,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Produk Terlaris',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
                   ),
-                  itemCount: productController.products.length,
-                  itemBuilder: (context, index) {
-                    final product = productController.products[index];
-                    return ProductCard(product: product);
-                  },
-                );
-              }),
+                  Obx(() {
+                    if (productController.isLoading.value) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+
+                    if (productController.products.isEmpty) {
+                      return Center(child: Text('Tidak ada produk'));
+                    }
+
+                    // Sort products by sales in descending order
+                    final sortedProducts = List.from(productController.products)
+                      ..sort((a, b) =>
+                          (b['sales'] ?? 0).compareTo(a['sales'] ?? 0));
+
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.65,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: sortedProducts.length,
+                      itemBuilder: (context, index) {
+                        final product = sortedProducts[index];
+                        return ProductCard(product: product);
+                      },
+                    );
+                  }),
+                ],
+              ),
             ),
           ],
         ),

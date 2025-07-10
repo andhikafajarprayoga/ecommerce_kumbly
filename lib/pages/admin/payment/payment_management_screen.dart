@@ -6,6 +6,7 @@ import '../../../theme/app_theme.dart';
 import 'payment_summary_screen.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PaymentManagementScreen extends StatefulWidget {
   @override
@@ -482,9 +483,21 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                     'Telp: ',
                     style: TextStyle(color: Colors.grey[600]),
                   ),
-                  Text(
-                    payment['buyer']?['phone'] ?? '-',
-                    style: TextStyle(fontWeight: FontWeight.w500),
+                  GestureDetector(
+                    onTap: () {
+                      final phone = payment['buyer']?['phone'];
+                      if (phone != null && phone != '-') {
+                        _launchWhatsApp(phone);
+                      }
+                    },
+                    child: Text(
+                      payment['buyer']?['phone'] ?? '-',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w500,
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -874,5 +887,35 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
         ],
       ),
     );
+  }
+
+  void _launchWhatsApp(String phone) async {
+    try {
+      // Hapus karakter selain angka
+      String cleanPhone = phone.replaceAll(RegExp(r'[^\d]'), '');
+
+      // Pastikan nomor dimulai dengan kode negara
+      if (!cleanPhone.startsWith('62')) {
+        if (cleanPhone.startsWith('0')) {
+          cleanPhone = '62${cleanPhone.substring(1)}';
+        } else {
+          cleanPhone = '62$cleanPhone';
+        }
+      }
+
+      final Uri url = Uri.parse('https://wa.me/$cleanPhone');
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Could not launch WhatsApp');
+      }
+    } catch (e) {
+      print('Error launching WhatsApp: $e');
+      Get.snackbar(
+        'Error',
+        'Tidak dapat membuka WhatsApp',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 }

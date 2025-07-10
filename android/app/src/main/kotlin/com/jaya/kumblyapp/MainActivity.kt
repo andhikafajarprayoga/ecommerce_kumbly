@@ -1,4 +1,4 @@
-package com.saraja.kumblyecommerce
+package com.jaya.kumblyapp
 
 import io.flutter.embedding.android.FlutterActivity
 

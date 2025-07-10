@@ -279,7 +279,7 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
         Uri.parse(url),
         headers: {
           'Accept-Language': 'id',
-          'User-Agent': 'Kumbly/1.0',
+          'User-Agent': 'Saraja Kumbly App (com.saraja.kumblyecommerce.v2.app)',
         },
       );
 
@@ -505,7 +505,11 @@ class _EditStoreScreenState extends State<EditStoreScreen> {
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.app',
+                userAgentPackageName: 'com.saraja.kumblyecommerce.v2.app',
+                additionalOptions: {
+                  'User-Agent':
+                      'Saraja Kumbly App (com.saraja.kumblyecommerce.v2.app)',
+                },
               ),
               MarkerLayer(
                 markers: [
