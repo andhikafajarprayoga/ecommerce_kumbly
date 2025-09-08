@@ -498,8 +498,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> validateVoucherCode(String code) async {
     try {
       print('Debug - Validasi kode: $code');
-      print('Debug - Total sebelum diskon: ${calculateTotal()}');
-
+      print('Debug - Total produk: ${widget.data['total_amount']}');
       // Cek dari tabel discount_vouchers dulu
       final discountResponse = await supabase
           .from('discount_vouchers')
@@ -507,13 +506,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .eq('code', code)
           .maybeSingle();
 
-      // Jika tidak ada di discount_vouchers, cek di shipping_vouchers
       if (discountResponse != null) {
-        double total = calculateTotal();
-        double minPurchase =
-            (discountResponse['min_purchase'] as num).toDouble();
+        double productTotal = widget.data['total_amount'].toDouble();
+        double minPurchase = (discountResponse['min_purchase'] as num).toDouble();
 
-        if (total >= minPurchase) {
+        print('Debug - Product total: $productTotal');
+        print('Debug - Min purchase: $minPurchase');
+
+        if (productTotal >= minPurchase) {
           setState(() {
             discountVoucher = discountResponse;
             discountAmount = (discountResponse['rate'] as num).toDouble();
@@ -525,10 +525,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           );
         } else {
+          setState(() {
+            discountVoucher = null;
+            discountAmount = 0;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Total pembelian minimum Rp ${NumberFormat('#,###').format(minPurchase)}'),
+                  'Total pembelian produk minimum Rp ${NumberFormat('#,###').format(minPurchase)}'),
               backgroundColor: Colors.red,
             ),
           );
@@ -555,6 +559,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         );
       } else {
+        setState(() {
+          discountVoucher = null;
+          discountAmount = 0;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Kode voucher tidak valid'),
@@ -564,6 +572,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     } catch (e) {
       print('Debug - Error validasi voucher: $e');
+      setState(() {
+        discountVoucher = null;
+        discountAmount = 0;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Kode voucher tidak valid'),
@@ -1140,10 +1152,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 itemBuilder: (context, index) {
                   final voucher = availableDiscountVouchers[index];
                   final isSelected = discountVoucher?['id'] == voucher['id'];
-                  final totalAmount =
-                      widget.data['total_amount'] + adminFee + shippingCost;
-                  final isEligible =
-                      totalAmount >= (voucher['min_purchase'] ?? 0);
+                  final productTotal = widget.data['total_amount'].toDouble();
+                  final isEligible = productTotal >= (voucher['min_purchase'] ?? 0);
+
+                  print('Debug voucher check - Product: $productTotal, Min: ${voucher['min_purchase']}, Eligible: $isEligible');
 
                   return Container(
                     margin: EdgeInsets.only(bottom: 8),
@@ -1172,7 +1184,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         children: [
                           if (voucher['min_purchase'] != null)
                             Text(
-                              'Min. pembelian Rp ${NumberFormat('#,###').format(voucher['min_purchase'])}',
+                              'Min. pembelian produk Rp ${NumberFormat('#,###').format(voucher['min_purchase'])}',
                               style: TextStyle(fontSize: 12),
                             ),
                           if (voucher['max_discount'] != null)
@@ -1209,7 +1221,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             )
                           : Text(
-                              'Min. pembelian tidak terpenuhi',
+                              'Min. pembelian produk tidak terpenuhi',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.red,
@@ -1793,6 +1805,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   double calculateTotal() {
-    return widget.data['total_amount'] + adminFee + shippingCost;
+    return widget.data['total_amount'] + adminFee + shippingCost; // Ini tetap untuk total pembayaran
   }
 }

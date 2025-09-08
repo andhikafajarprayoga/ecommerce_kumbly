@@ -19,6 +19,7 @@ class _PengirimanFormScreenState extends State<PengirimanFormScreen> {
   final _namaController = TextEditingController();
   final _hargaKgController = TextEditingController();
   final _hargaKmController = TextEditingController();
+  bool isReguler = true; // Tambahkan state untuk is_reguler
 
   @override
   void initState() {
@@ -27,6 +28,7 @@ class _PengirimanFormScreenState extends State<PengirimanFormScreen> {
       _namaController.text = widget.pengiriman!['nama_pengiriman'];
       _hargaKgController.text = widget.pengiriman!['harga_per_kg'].toString();
       _hargaKmController.text = widget.pengiriman!['harga_per_km'].toString();
+      isReguler = widget.pengiriman!['is_reguler'] ?? true;
     }
   }
 
@@ -46,6 +48,7 @@ class _PengirimanFormScreenState extends State<PengirimanFormScreen> {
             double.parse(_hargaKgController.text.replaceAll(',', '')),
         'harga_per_km':
             double.parse(_hargaKmController.text.replaceAll(',', '')),
+        'is_reguler': isReguler, // Tambahkan field is_reguler
       };
 
       if (widget.pengiriman != null) {
@@ -60,8 +63,7 @@ class _PengirimanFormScreenState extends State<PengirimanFormScreen> {
       // Tutup loading indicator
       Get.back();
 
-      Get.back(
-          result: true); // Kembali ke halaman sebelumnya dengan hasil sukses
+      Get.back(result: true);
 
       Get.snackbar(
         'Sukses',
@@ -151,6 +153,34 @@ class _PengirimanFormScreenState extends State<PengirimanFormScreen> {
                 }
                 return null;
               },
+            ),
+            SizedBox(height: 16),
+            // Tambahkan pilihan is_reguler
+            InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'Jenis Pengiriman',
+                border: OutlineInputBorder(),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<bool>(
+                  value: isReguler,
+                  items: [
+                    DropdownMenuItem(
+                      value: true,
+                      child: Text('Reguler (Pengiriman Reguler)'),
+                    ),
+                    DropdownMenuItem(
+                      value: false,
+                      child: Text('Kirim Barang (Non-Reguler)'),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      isReguler = val ?? true;
+                    });
+                  },
+                ),
+              ),
             ),
             SizedBox(height: 24),
             ElevatedButton(

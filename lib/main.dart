@@ -25,6 +25,7 @@ import 'services/background_notification_service.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'services/chat_service.dart';
 import 'services/buyer_chat_service.dart';
+import 'pages/buyer/kirim_barang/kirim_barang_screen.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -75,17 +76,16 @@ Future<void> requestPermissions() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Add this line after ensureInitialized
   await checkFirstRun();
   // Initialize local notifications
   await LocalNotificationService().initNotification();
-
   await _initializeNotifications();
 
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: true, // Set false jika sudah release
-  );
+  // Sementara comment workmanager untuk debugging
+  // await Workmanager().initialize(
+  //   callbackDispatcher,
+  //   isInDebugMode: true,
+  // );
 
   await Supabase.initialize(
     url: 'https://hfeolsmaqsjfueypfebj.supabase.co',
@@ -142,6 +142,7 @@ void main() async {
       GetPage(name: '/admin/home_screen', page: () => AdminHomeScreen()),
       GetPage(name: '/courier/home_screen', page: () => CourierHomeScreen()),
       GetPage(name: '/branch/home_screen', page: () => BranchHomeScreen()),
+      GetPage(name: '/kirim_barang', page: () => KirimBarangScreen()),
     ],
     navigatorObservers: [RouteObserver<PageRoute>()],
   ));

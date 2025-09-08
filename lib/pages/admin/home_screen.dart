@@ -26,6 +26,7 @@ import './account/admin_account_screen.dart';
 import 'pengiriman/pengiriman_types_screen.dart';
 import 'feature/admin_fees_screen.dart';
 import 'feature/complete_orders_screen.dart';
+import 'shipping_requests/shipping_requests_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -306,6 +307,25 @@ class AdminHomeScreen extends StatelessWidget {
                                 .stream(primaryKey: ['id'])
                                 .eq('status', 'delivered')
                                 .map((data) => data.length),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.local_shipping_outlined,
+                            title: 'Kirim Barang',
+                            subtitle: 'Kelola Permintaan Kirim Barang',
+                            color: Colors.cyan,
+                            onTap: () => Get.to(() => ShippingRequestsScreen()),
+                            badgeStream: supabase
+                                .from('shipping_requests')
+                                .stream(primaryKey: ['id'])
+                                .map((data) => data
+                                    .where((request) =>
+                                        request['status'] == 'pending' ||
+                                        request['status'] == 'waiting_verification')
+                                    .length)
+                                .handleError((error) {
+                                  print('Error getting shipping requests count: $error');
+                                  return 0;
+                                }),
                           ),
                         ],
                       ),

@@ -19,6 +19,7 @@ import 'notification/notification_screen.dart';
 import '../../controllers/hotel_screen_controller.dart';
 import '../../services/notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'kirim_barang/kirim_barang_screen.dart';
 
 class BuyerHomeScreen extends StatefulWidget {
   BuyerHomeScreen({super.key});
@@ -672,106 +673,114 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
             Container(
               padding: EdgeInsets.all(12),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Kategori',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                    ],
+                  Text(
+                  'Kategori',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.normal,
                   ),
-                  SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      CategoryIcon(
-                        icon: Icons.food_bank_outlined,
-                        label: 'Makanan',
-                        subCategories: [
-                          'Makanan Instan',
-                          'Minuman Kemasan',
-                          'Makanan Camilan & Snack',
-                          'Bahan Makanan',
-                          'Makanan Hotel'
-                        ],
-                        onTap: () {
-                          if (productController.currentCategory.value ==
-                              'Makanan') {
-                            productController.currentCategory.value = '';
-                            productController.fetchProducts();
-                          } else {
-                            productController.currentCategory.value = 'Makanan';
-                            productController.filterByMainCategory([
-                              'Makanan Instan',
-                              'Minuman Kemasan',
-                              'Makanan Camilan & Snack',
-                              'Bahan Makanan',
-                              'Makanan Hotel'
-                            ]);
-                          }
-                        },
-                      ),
-                      CategoryIcon(
-                        icon: Icons.home_outlined,
-                        label: 'Perabotan',
-                        subCategories: [
-                          'Peralatan Dapur',
-                          'Furniture',
-                          'Dekorasi Rumah',
-                          'Alat Kebersihan'
-                        ],
-                        onTap: () {
-                          if (productController.currentCategory.value ==
-                              'perabotan') {
-                            productController.currentCategory.value = '';
-                            productController.fetchProducts();
-                          } else {
-                            productController.currentCategory.value =
-                                'perabotan';
-                            productController.filterByMainCategory([
-                              'Peralatan Dapur',
-                              'Furniture',
-                              'Dekorasi Rumah',
-                              'Alat Kebersihan'
-                            ]);
-                          }
-                        },
-                      ),
-                      CategoryIcon(
-                        icon: Icons.local_mall_outlined,
-                        label: 'Aksesoris',
-                        subCategories: ['Tas & Dompet'],
-                        onTap: () {
-                          if (productController.currentCategory.value ==
-                              'aksesoris') {
-                            productController.currentCategory.value = '';
-                            productController.fetchProducts();
-                          } else {
-                            productController.currentCategory.value =
-                                'aksesoris';
-                            productController
-                                .filterByMainCategory(['Tas & Dompet']);
-                          }
-                        },
-                      ),
-                      CategoryIcon(
-                        icon: Icons.more_horiz,
-                        label: 'Lainnya',
-                        subCategories: [],
-                        onTap: () => showModalBottomSheet(
-                          context: context,
-                          builder: (context) => CategoryListModal(),
-                        ),
-                      ),
-                    ],
                   ),
                 ],
+                ),
+                SizedBox(height: 12),
+                Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  CategoryIcon(
+                  icon: Icons.food_bank_outlined,
+                  label: 'Makanan',
+                  subCategories: [
+                    'Makanan Instan',
+                    'Minuman Kemasan',
+                    'Makanan Camilan & Snack',
+                    'Bahan Makanan',
+                    'Makanan Hotel'
+                  ],
+                  onTap: () {
+                    if (productController.currentCategory.value ==
+                      'Makanan') {
+                    productController.currentCategory.value = '';
+                    productController.fetchProducts();
+                    } else {
+                    productController.currentCategory.value = 'Makanan';
+                    productController.filterByMainCategory([
+                      'Makanan Instan',
+                      'Minuman Kemasan',
+                      'Makanan Camilan & Snack',
+                      'Bahan Makanan',
+                      'Makanan Hotel'
+                    ]);
+                    }
+                  },
+                  ),
+                  CategoryIcon(
+                  icon: Icons.home_outlined,
+                  label: 'Perabotan',
+                  subCategories: [
+                    'Peralatan Dapur',
+                    'Furniture',
+                    'Dekorasi Rumah',
+                    'Alat Kebersihan'
+                  ],
+                  onTap: () {
+                    if (productController.currentCategory.value ==
+                      'perabotan') {
+                    productController.currentCategory.value = '';
+                    productController.fetchProducts();
+                    } else {
+                    productController.currentCategory.value =
+                      'perabotan';
+                    productController.filterByMainCategory([
+                      'Peralatan Dapur',
+                      'Furniture',
+                      'Dekorasi Rumah',
+                      'Alat Kebersihan'
+                    ]);
+                    }
+                  },
+                  ),
+                  CategoryIcon(
+                  icon: Icons.local_mall_outlined,
+                  label: 'Aksesoris',
+                  subCategories: ['Tas & Dompet'],
+                  onTap: () {
+                    if (productController.currentCategory.value ==
+                      'aksesoris') {
+                    productController.currentCategory.value = '';
+                    productController.fetchProducts();
+                    } else {
+                    productController.currentCategory.value =
+                      'aksesoris';
+                    productController
+                      .filterByMainCategory(['Tas & Dompet']);
+                    }
+                  },
+                  ),
+                    CategoryIcon(
+                    icon: Icons.local_shipping_outlined,
+                    label: 'Kirim Barang',
+                    subCategories: [],
+                    onTap: () {
+                    Get.to(() => KirimBarangScreen());
+                    },
+                  ),
+                  CategoryIcon(
+                  icon: Icons.more_horiz,
+                  label: 'Lainnya',
+                  subCategories: [],
+                  onTap: () => showModalBottomSheet(
+                    context: context,
+                    builder: (context) => CategoryListModal(),
+                  ),
+                  ),
+                ],
+                ),
+              ],
               ),
             ),
 

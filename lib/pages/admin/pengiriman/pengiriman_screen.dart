@@ -86,7 +86,7 @@ class _PengirimanScreenState extends State<PengirimanScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () => Get.to(() => PengirimanFormScreen())
             ?.then((_) => fetchPengiriman()),
-        child: Icon(Icons.add),
+        child: Icon(Icons.add, color: Colors.white),
         backgroundColor: AppTheme.primary,
       ),
       body: isLoading
