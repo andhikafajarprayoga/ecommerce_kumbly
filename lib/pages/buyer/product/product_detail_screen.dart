@@ -12,6 +12,7 @@ import '../../../controllers/product_controller.dart';
 import '../find/find_screen.dart';
 import '../store/store_detail_screen.dart';
 import '../profile/alamat_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final dynamic product;
@@ -266,6 +267,43 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           ),
                           Row(
                             children: [
+                              // Tombol share yang baru
+                              InkWell(
+                                onTap: () async {
+                                  final String productName =
+                                      widget.product['name'];
+                                  final String productDescription =
+                                      widget.product['description'] ?? '';
+                                  final String productUrl =
+                                      'https://play.google.com/store/apps/details?id=com.saraja.kumblyecommerce.v2.app&referrer=productId%3D${widget.product['id']}';
+                                  final String shareContent =
+                                      'Cek produk ini: $productName\n\n$productDescription\n\n$productUrl';
+                                  try {
+                                    await Share.share(
+                                      shareContent,
+                                      subject: 'Produk Menarik dari Saraja',
+                                    );
+                                  } catch (e) {
+                                    print('Error sharing: $e');
+                                    Get.snackbar(
+                                      'Gagal Membagikan',
+                                      'Tidak dapat membagikan produk saat ini',
+                                      backgroundColor: Colors.red,
+                                      colorText: Colors.white,
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.share,
+                                      size: 20, color: AppTheme.primary),
+                                ),
+                              ),
+                              SizedBox(width: 8),
                               Icon(Icons.shopping_bag_outlined, size: 16),
                               SizedBox(width: 4),
                               Text(
@@ -283,7 +321,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       Container(
                         padding: EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.grey[100],
+                          color: Colors
+                              .grey[100], // Changed to standard light gray
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
