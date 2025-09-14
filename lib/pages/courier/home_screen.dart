@@ -11,6 +11,7 @@ import 'branch_products_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'notifications_screen.dart';
 import '../../services/notification_service.dart';
+import 'shipping_request.dart';
 import 'package:rxdart/rxdart.dart';
 
 class CourierHomeScreen extends StatefulWidget {
@@ -30,6 +31,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
   final RxInt _branchPickupCount = 0.obs;
   final RxInt _branchPackagesCount = 0.obs;
   final RxInt _completedDeliveriesCount = 0.obs;
+  final RxInt _courierRequestBadgeCount = 0.obs;
   StreamSubscription? _notificationSubscription;
   StreamSubscription? _ordersSubscription;
 
@@ -38,6 +40,7 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
     super.initState();
     _setupNotificationsStream();
     _setupCountsStream();
+    _fetchCourierRequestBadgeCount();
   }
 
   @override
@@ -149,6 +152,34 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                 .length;
           }
         });
+  }
+
+  Future<void> _fetchCourierRequestBadgeCount() async {
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+      final userResponse = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+      final courierName = userResponse['full_name'];
+      final available = await supabase
+          .from('shipping_requests')
+          .select('id, status')
+          .eq('courier_status', 'waiting');
+      final my = await supabase
+          .from('shipping_requests')
+          .select('id, status')
+          .eq('courier_name', courierName)
+          .not('status', 'in', ['delivered', 'cancelled', 'completed']);
+      final availableCount = (available as List)
+          .where((r) => r['status'] != 'pending')
+          .length;
+      _courierRequestBadgeCount.value = availableCount + (my.length ?? 0);
+    } catch (e) {
+      _courierRequestBadgeCount.value = 0;
+    }
   }
 
   @override
@@ -292,6 +323,17 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
                     color: Colors.green,
                     onTap: () => Get.to(() => CompletedDeliveriesScreen()),
                     badgeCount: _completedDeliveriesCount.value,
+                  )),
+              Obx(() => _buildMenuListItem(
+                    icon: Icons.inventory_2_outlined,
+                    title: 'Paket Kurir',
+                    subtitle: 'Daftar semua paket instant',
+                    color: Colors.orange,
+                    onTap: () async {
+                      await Get.to(() => ShippingRequestScreen());
+                      _fetchCourierRequestBadgeCount();
+                    },
+                    badgeCount: _courierRequestBadgeCount.value,
                   )),
             ],
           ),

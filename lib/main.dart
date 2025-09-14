@@ -26,6 +26,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import 'services/chat_service.dart';
 import 'services/buyer_chat_service.dart';
 import 'pages/buyer/kirim_barang/kirim_barang_screen.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -76,6 +77,7 @@ Future<void> requestPermissions() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
   await checkFirstRun();
   // Initialize local notifications
   await LocalNotificationService().initNotification();

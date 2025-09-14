@@ -311,7 +311,7 @@ class AdminHomeScreen extends StatelessWidget {
                           _buildMenuCard(
                             icon: Icons.local_shipping_outlined,
                             title: 'Kirim Barang',
-                            subtitle: 'Kelola Permintaan Kirim Barang',
+                            subtitle: 'Permintaan Kirim Barang',
                             color: Colors.cyan,
                             onTap: () => Get.to(() => ShippingRequestsScreen()),
                             badgeStream: supabase

@@ -44,7 +44,6 @@ class _ShippingRequestsScreenState extends State<ShippingRequestsScreen> {
           .from('shipping_requests')
           .select('''
             *,
-            users!inner(full_name, phone),
             pengiriman!inner(nama_pengiriman),
             payment_methods!inner(name)
           ''');
@@ -160,7 +159,7 @@ class _ShippingRequestsScreenState extends State<ShippingRequestsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Kelola Permintaan Kirim Barang', style: TextStyle(color: Colors.white)),
+        title: Text('Kelola Kirim Barang', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
         iconTheme: IconThemeData(color: Colors.white),
         actions: [

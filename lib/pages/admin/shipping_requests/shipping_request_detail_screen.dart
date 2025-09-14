@@ -206,57 +206,44 @@ class _ShippingRequestDetailScreenState extends State<ShippingRequestDetailScree
 
   Widget _buildStatusCard() {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: EdgeInsets.all(10),
+        child: Row(
           children: [
-            Row(
-              children: [
-                Icon(Icons.info_outline, color: AppTheme.primary),
-                SizedBox(width: 8),
-                Text('Status Pengiriman', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              ],
-            ),
-            SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: getStatusColor(request['status']).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: getStatusColor(request['status'])),
-              ),
+            Icon(Icons.info_outline, color: AppTheme.primary, size: 24),
+            SizedBox(width: 8),
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.local_shipping,
-                    size: 48,
-                    color: getStatusColor(request['status']),
-                  ),
-                  SizedBox(height: 8),
                   Text(
                     _getStatusText(request['status']),
                     style: TextStyle(
-                      fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      fontSize: 14,
                       color: getStatusColor(request['status']),
                     ),
                   ),
-                  SizedBox(height: 4),
+                  SizedBox(height: 2),
                   Text(
                     'Dibuat: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(request['created_at']))}',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: TextStyle(color: Colors.grey[600], fontSize: 11),
                   ),
                   if (request['updated_at'] != null)
                     Text(
                       'Diperbarui: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.parse(request['updated_at']))}',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 11),
                     ),
                 ],
               ),
+            ),
+            SizedBox(width: 8),
+            Icon(
+              Icons.local_shipping,
+              size: 28,
+              color: getStatusColor(request['status']),
             ),
           ],
         ),
@@ -367,10 +354,12 @@ class _ShippingRequestDetailScreenState extends State<ShippingRequestDetailScree
               ],
             ),
             SizedBox(height: 16),
-            _buildDetailRow('Layanan Pengiriman', request['pengiriman']?['nama_pengiriman'] ?? 'N/A'),
+            _buildDetailRow('Pengiriman', request['pengiriman']?['nama_pengiriman'] ?? 'N/A'),
             if (request['pengiriman'] != null) ...[
-              _buildDetailRow('Tarif per KG', formatCurrency(request['pengiriman']['harga_per_kg'])),
-              _buildDetailRow('Tarif per KM', formatCurrency(request['pengiriman']['harga_per_km'])),
+              if (request['pengiriman']['harga_per_kg'] != null)
+                _buildDetailRow('Tarif per KG', formatCurrency(request['pengiriman']['harga_per_kg'])),
+              if (request['pengiriman']['harga_per_km'] != null)
+                _buildDetailRow('Tarif per KM', formatCurrency(request['pengiriman']['harga_per_km'])),
             ],
           ],
         ),
@@ -476,9 +465,6 @@ class _ShippingRequestDetailScreenState extends State<ShippingRequestDetailScree
               ],
             ),
             SizedBox(height: 16),
-            _buildDetailRow('Nama Lengkap', request['users']?['full_name'] ?? 'N/A'),
-            _buildDetailRow('No. Telepon', request['users']?['phone'] ?? 'N/A'),
-            _buildDetailRow('Email', request['users']?['email'] ?? 'N/A'),
             _buildDetailRow('User ID', request['user_id']),
           ],
         ),
