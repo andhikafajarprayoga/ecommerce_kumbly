@@ -93,13 +93,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       final response = await supabase
           .from('pengiriman')
-          .select('id_pengiriman, nama_pengiriman, harga_per_kg, harga_per_km');
+          .select('id_pengiriman, nama_pengiriman, harga_per_kg, harga_per_km, is_reguler');
 
       print('2. Raw response:');
       print(response);
 
       setState(() {
-        shippingMethods = List<Map<String, dynamic>>.from(response);
+        // Filter hanya yang is_reguler == true
+        shippingMethods = List<Map<String, dynamic>>.from(response)
+            .where((method) => method['is_reguler'] == true)
+            .toList();
         print('3. Data yang tersimpan:');
         shippingMethods.forEach((method) {
           print('- ID: ${method['id_pengiriman']}');

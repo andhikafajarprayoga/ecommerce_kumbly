@@ -92,8 +92,50 @@ class AddProductScreen extends StatelessWidget {
   Future<void> pickImage() async {
     final ImagePicker picker = ImagePicker();
     final List<XFile> images = await picker.pickMultiImage();
+    // Batasi maksimal 4 foto
     if (images.isNotEmpty) {
-      imagePaths.addAll(images.map((image) => image.path));
+      int remaining = 4 - imagePaths.length;
+      if (remaining <= 0) {
+        Get.snackbar(
+          'Maksimal Foto',
+          'Anda hanya dapat mengunggah maksimal 4 foto produk',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+      // Filter hanya jpg/jpeg/png
+      final allowed = images.where((img) {
+        final ext = img.path.toLowerCase();
+        return ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png');
+      }).toList();
+      if (allowed.isEmpty) {
+        Get.snackbar(
+          'Format Tidak Didukung',
+          'Hanya file JPG dan PNG yang diperbolehkan',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+      if (allowed.length < images.length) {
+        Get.snackbar(
+          'Sebagian Foto Ditolak',
+          'Hanya file JPG dan PNG yang diunggah, lainnya diabaikan.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      }
+      final toAdd = allowed.take(remaining).map((image) => image.path).toList();
+      imagePaths.addAll(toAdd);
+      if (allowed.length > remaining) {
+        Get.snackbar(
+          'Maksimal Foto',
+          'Hanya 4 foto pertama yang diunggah, sisanya diabaikan.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+      }
     }
   }
 
@@ -102,19 +144,24 @@ class AddProductScreen extends StatelessWidget {
     try {
       for (String path in paths) {
         final file = File(path);
-        final fileSize =
-            await file.length(); // Mendapatkan ukuran file dalam bytes
-
-        // Jika ukuran file lebih dari 100 KB, lakukan kompresi
         List<int> compressedImage;
-        if (fileSize > 100 * 1024) {
-          // 100 KB
-          final originalImage = img.decodeImage(await file.readAsBytes());
-          compressedImage = img.encodeJpg(originalImage!,
-              quality: 55); // Kompresi dengan kualitas 85
-        } else {
-          // Jika ukuran file kurang dari 100 KB, gunakan file asli
-          compressedImage = await file.readAsBytes();
+        int quality = 55;
+        int minQuality = 10;
+        int maxTries = 10;
+        int tryCount = 0;
+        int targetSize = 20 * 1024; // 20 KB
+
+        // Kompresi berulang hingga < 20KB atau kualitas minimum
+        img.Image? originalImage = img.decodeImage(await file.readAsBytes());
+        if (originalImage == null) {
+          continue;
+        }
+        compressedImage = img.encodeJpg(originalImage, quality: quality);
+        while (compressedImage.length > targetSize && quality > minQuality && tryCount < maxTries) {
+          quality -= 10;
+          if (quality < minQuality) quality = minQuality;
+          compressedImage = img.encodeJpg(originalImage, quality: quality);
+          tryCount++;
         }
 
         final fileName =
@@ -247,10 +294,11 @@ class AddProductScreen extends StatelessWidget {
                               height: 200,
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
-                                itemCount: imagePaths.length +
-                                    1, // +1 untuk tombol tambah
+                                itemCount: imagePaths.length < 4
+                                    ? imagePaths.length + 1 // +1 tombol tambah
+                                    : 4, // Tidak tampilkan tombol tambah jika sudah 4
                                 itemBuilder: (context, index) {
-                                  if (index == imagePaths.length) {
+                                  if (index == imagePaths.length && imagePaths.length < 4) {
                                     // Tombol tambah foto
                                     return Padding(
                                       padding: const EdgeInsets.all(8.0),

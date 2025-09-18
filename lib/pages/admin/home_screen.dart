@@ -27,6 +27,7 @@ import 'pengiriman/pengiriman_types_screen.dart';
 import 'feature/admin_fees_screen.dart';
 import 'feature/complete_orders_screen.dart';
 import 'shipping_requests/shipping_requests_screen.dart';
+import 'admin-courier/admin_settings_screen.dart';
 
 class AdminHomeScreen extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
@@ -326,6 +327,13 @@ class AdminHomeScreen extends StatelessWidget {
                                   print('Error getting shipping requests count: $error');
                                   return 0;
                                 }),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.settings,
+                            title: 'Pengaturan Admin',
+                            subtitle: 'Fee Admin Kurir',
+                            color: Colors.deepOrange,
+                            onTap: () => Get.to(() => AdminSettingsScreen()),
                           ),
                         ],
                       ),

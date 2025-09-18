@@ -24,6 +24,54 @@ class _KirimBarangScreenState extends State<KirimBarangScreen> {
   @override
   void initState() {
     super.initState();
+    // Cek login
+    if (supabase.auth.currentUser == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.dialog(
+        AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+          Icon(Icons.lock_outline, color: AppTheme.primary),
+          SizedBox(width: 8),
+          Text('Login Diperlukan', style: TextStyle(color: AppTheme.primary)),
+          ],
+        ),
+        content: Text(
+          'Silakan login dahulu untuk menggunakan fitur Kirim Barang.',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+          onPressed: () {
+            Get.back(); // tutup dialog
+            Get.back(); // kembali ke halaman sebelumnya
+          },
+          child: Text('Batal', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: () {
+            Get.back(); // tutup dialog
+            Get.offAllNamed('/login');
+          },
+          child: Text('Login'),
+          ),
+        ],
+        ),
+        barrierDismissible: false,
+      );
+      });
+      return;
+    }
     fetchUserAddresses();
   }
 
@@ -348,4 +396,3 @@ class _KirimBarangScreenState extends State<KirimBarangScreen> {
     super.dispose();
   }
 }
-       

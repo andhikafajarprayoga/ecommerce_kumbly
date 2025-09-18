@@ -766,7 +766,73 @@ class _BuyerHomeScreenState extends State<BuyerHomeScreen> {
                     label: 'Kirim Barang',
                     subCategories: [],
                     onTap: () {
-                    Get.to(() => KirimBarangScreen());
+                    if (supabase.auth.currentUser == null) {
+                      // Tampilkan dialog login dengan tampilan lebih menarik
+                      showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        ),
+                        title: Row(
+                        children: [
+                          Icon(Icons.lock_outline, color: AppTheme.primary),
+                          SizedBox(width: 8),
+                          Text(
+                          'Login Diperlukan',
+                          style: TextStyle(
+                            color: AppTheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          ),
+                        ],
+                        ),
+                        content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.local_shipping_outlined,
+                            size: 48, color: AppTheme.primary),
+                          SizedBox(height: 12),
+                          Text(
+                          'Silakan login dahulu untuk menggunakan fitur Kirim Barang.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppTheme.textPrimary,
+                          ),
+                          ),
+                        ],
+                        ),
+                        actionsAlignment: MainAxisAlignment.spaceBetween,
+                        actions: [
+                        TextButton(
+                          style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.textHint,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text('Batal'),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          foregroundColor: Colors.white, // icon & text color
+                          ),
+                          icon: Icon(Icons.login, size: 18, color: Colors.white),
+                          label: Text('Login', style: TextStyle(color: Colors.white)),
+                          onPressed: () {
+                          Navigator.of(context).pop();
+                          Get.toNamed('/login');
+                          },
+                        ),
+                        ],
+                      ),
+                      );
+                    } else {
+                      Get.to(() => KirimBarangScreen());
+                    }
                     },
                   ),
                   CategoryIcon(

@@ -273,69 +273,71 @@ class _CourierHomeScreenState extends State<CourierHomeScreen> {
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Obx(() => _buildMenuListItem(
-                    icon: Icons.local_shipping,
-                    title: 'Pengiriman Aktif',
-                    subtitle: 'Lihat pengiriman yang sedang berlangsung',
-                    color: Colors.blue,
-                    onTap: () => Get.to(() => ActiveDeliveriesScreen()),
-                    badgeCount: _activeDeliveriesCount.value,
-                  )),
-              Obx(() => _buildMenuListItem(
-                    icon: Icons.local_shipping_outlined,
-                    title: 'Jemput Paket',
-                    subtitle: 'Jemput paket dari Seller',
-                    color: Colors.blue,
-                    onTap: () => Get.to(() => PickupOrdersScreen()),
-                    badgeCount: _pickupOrdersCount.value,
-                  )),
-              Obx(() => _buildMenuListItem(
-                    icon: Icons.receipt_long_rounded,
-                    title: 'Paket dari seller',
-                    subtitle: 'paket siap dikirim',
-                    color: Colors.blue,
-                    onTap: () => Get.to(() => const MyPackagesScreen()),
-                    badgeCount: _sellerPackagesCount.value,
-                  )),
-              Obx(() => _buildMenuListItem(
-                    icon: Icons.local_shipping_outlined,
-                    title: 'Jemput Paket Cabang',
-                    subtitle: 'Jemput paket dari cabang',
-                    color: Colors.blue,
-                    onTap: () => Get.to(() => const PickupBranchOrdersScreen()),
-                    badgeCount: _branchPickupCount.value,
-                  )),
-              Obx(() => _buildMenuListItem(
-                    icon: Icons.local_shipping_outlined,
-                    title: 'Paket dari cabang',
-                    subtitle: 'Paket dibawa dari cabang',
-                    color: Colors.blue,
-                    onTap: () => Get.to(() => const BranchProductsScreen()),
-                    badgeCount: _branchPackagesCount.value,
-                  )),
-              Obx(() => _buildMenuListItem(
-                    icon: Icons.check_circle_outline,
-                    title: 'Pengiriman Selesai',
-                    subtitle: 'Riwayat pengiriman yang telah selesai',
-                    color: Colors.green,
-                    onTap: () => Get.to(() => CompletedDeliveriesScreen()),
-                    badgeCount: _completedDeliveriesCount.value,
-                  )),
-              Obx(() => _buildMenuListItem(
-                    icon: Icons.inventory_2_outlined,
-                    title: 'Paket Kurir',
-                    subtitle: 'Daftar semua paket instant',
-                    color: Colors.orange,
-                    onTap: () async {
-                      await Get.to(() => ShippingRequestScreen());
-                      _fetchCourierRequestBadgeCount();
-                    },
-                    badgeCount: _courierRequestBadgeCount.value,
-                  )),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Obx(() => _buildMenuListItem(
+                      icon: Icons.local_shipping,
+                      title: 'Pengiriman Aktif',
+                      subtitle: 'Lihat pengiriman yang sedang berlangsung',
+                      color: Colors.blue,
+                      onTap: () => Get.to(() => ActiveDeliveriesScreen()),
+                      badgeCount: _activeDeliveriesCount.value,
+                    )),
+                Obx(() => _buildMenuListItem(
+                      icon: Icons.local_shipping_outlined,
+                      title: 'Jemput Paket',
+                      subtitle: 'Jemput paket dari Seller',
+                      color: Colors.blue,
+                      onTap: () => Get.to(() => PickupOrdersScreen()),
+                      badgeCount: _pickupOrdersCount.value,
+                    )),
+                Obx(() => _buildMenuListItem(
+                      icon: Icons.receipt_long_rounded,
+                      title: 'Paket dari seller',
+                      subtitle: 'paket siap dikirim',
+                      color: Colors.blue,
+                      onTap: () => Get.to(() => const MyPackagesScreen()),
+                      badgeCount: _sellerPackagesCount.value,
+                    )),
+                Obx(() => _buildMenuListItem(
+                      icon: Icons.local_shipping_outlined,
+                      title: 'Jemput Paket Cabang',
+                      subtitle: 'Jemput paket dari cabang',
+                      color: Colors.blue,
+                      onTap: () => Get.to(() => const PickupBranchOrdersScreen()),
+                      badgeCount: _branchPickupCount.value,
+                    )),
+                Obx(() => _buildMenuListItem(
+                      icon: Icons.local_shipping_outlined,
+                      title: 'Paket dari cabang',
+                      subtitle: 'Paket dibawa dari cabang',
+                      color: Colors.blue,
+                      onTap: () => Get.to(() => const BranchProductsScreen()),
+                      badgeCount: _branchPackagesCount.value,
+                    )),
+                Obx(() => _buildMenuListItem(
+                      icon: Icons.check_circle_outline,
+                      title: 'Pengiriman Selesai',
+                      subtitle: 'Riwayat pengiriman yang telah selesai',
+                      color: Colors.green,
+                      onTap: () => Get.to(() => CompletedDeliveriesScreen()),
+                      badgeCount: _completedDeliveriesCount.value,
+                    )),
+                Obx(() => _buildMenuListItem(
+                      icon: Icons.inventory_2_outlined,
+                      title: 'Paket Kurir',
+                      subtitle: 'Daftar semua paket instant',
+                      color: Colors.orange,
+                      onTap: () async {
+                        await Get.to(() => ShippingRequestScreen());
+                        _fetchCourierRequestBadgeCount();
+                      },
+                      badgeCount: _courierRequestBadgeCount.value,
+                    )),
+              ],
+            ),
           ),
         ),
       ),

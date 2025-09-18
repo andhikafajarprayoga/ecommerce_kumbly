@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../theme/app_theme.dart';
 import 'shipping_request_detail_screen.dart';
+import 'shipping_request_financial_summary_screen.dart';
 import 'dart:convert';
 
 class ShippingRequestsScreen extends StatefulWidget {
@@ -157,12 +158,28 @@ class _ShippingRequestsScreenState extends State<ShippingRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Group shippingRequests by date (created_at)
+    Map<String, List<Map<String, dynamic>>> groupedByDate = {};
+    for (var req in shippingRequests) {
+      String dateKey = DateFormat('yyyy-MM-dd').format(DateTime.parse(req['created_at']));
+      groupedByDate.putIfAbsent(dateKey, () => []).add(req);
+    }
+    final sortedDateKeys = groupedByDate.keys.toList()
+      ..sort((a, b) => b.compareTo(a)); // descending (terbaru di atas)
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Kelola Kirim Barang', style: TextStyle(color: Colors.white)),
         backgroundColor: AppTheme.primary,
         iconTheme: IconThemeData(color: Colors.white),
         actions: [
+          IconButton(
+            icon: Icon(Icons.summarize, color: Colors.white),
+            tooltip: 'Summary Keuangan',
+            onPressed: () {
+              Get.to(() => ShippingRequestFinancialSummaryScreen());
+            },
+          ),
           IconButton(
             icon: Icon(Icons.refresh, color: Colors.white),
             onPressed: fetchShippingRequests,
@@ -239,10 +256,33 @@ class _ShippingRequestsScreenState extends State<ShippingRequestsScreen> {
                       )
                     : ListView.builder(
                         padding: EdgeInsets.all(16),
-                        itemCount: shippingRequests.length,
-                        itemBuilder: (context, index) {
-                          final request = shippingRequests[index];
-                          return _buildRequestCard(request);
+                        itemCount: sortedDateKeys.length,
+                        itemBuilder: (context, dateIdx) {
+                          final dateKey = sortedDateKeys[dateIdx];
+                          final requests = groupedByDate[dateKey]!;
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8, top: 16),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.calendar_today, size: 16, color: AppTheme.primary),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(DateTime.parse(dateKey)),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                        color: AppTheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ...requests.map((request) => _buildRequestCard(request)).toList(),
+                            ],
+                          );
                         },
                       ),
           ),

@@ -17,6 +17,8 @@ class _CourierDeliveredScreenState extends State<CourierDeliveredScreen> {
   bool isLoading = true;
   double totalCODAmount = 0.0;
   int totalCODPackages = 0;
+  double totalAdminFee = 0.0;
+  int courierCodFee = 2000; // default, akan diambil dari DB
   String courierName = '';
   String selectedPeriod = 'today'; // today, week, month, all, custom
   DateTime selectedDate = DateTime.now();
@@ -34,7 +36,29 @@ class _CourierDeliveredScreenState extends State<CourierDeliveredScreen> {
   @override
   void initState() {
     super.initState();
-    fetchDeliveredPackages();
+    fetchCourierCodFeeAndPackages();
+  }
+
+  Future<void> fetchCourierCodFeeAndPackages() async {
+    await fetchCourierCodFee();
+    await fetchDeliveredPackages();
+  }
+
+  Future<void> fetchCourierCodFee() async {
+    try {
+      final res = await supabase
+          .from('admin_settings')
+          .select('courier_cod_fee')
+          .limit(1)
+          .maybeSingle();
+      if (res != null && res['courier_cod_fee'] != null) {
+        setState(() {
+          courierCodFee = int.tryParse(res['courier_cod_fee'].toString()) ?? 2000;
+        });
+      }
+    } catch (e) {
+      courierCodFee = 2000;
+    }
   }
 
   Future<void> fetchDeliveredPackages() async {
@@ -124,6 +148,7 @@ class _CourierDeliveredScreenState extends State<CourierDeliveredScreen> {
   void _calculateCODTotal() {
     totalCODAmount = 0.0;
     totalCODPackages = 0;
+    totalAdminFee = 0.0; // <-- Reset di sini
 
     for (var package in deliveredPackages) {
       final paymentMethodName = package['payment_methods']?['name']?.toString().toLowerCase() ?? '';
@@ -131,6 +156,7 @@ class _CourierDeliveredScreenState extends State<CourierDeliveredScreen> {
         totalCODAmount += (package['estimated_cost'] ?? 0.0);
         totalCODPackages++;
       }
+      totalAdminFee += (package['admin_fee'] ?? 0.0); // <-- Akumulasi admin_fee
     }
   }
 
@@ -293,101 +319,146 @@ class _CourierDeliveredScreenState extends State<CourierDeliveredScreen> {
             ),
 
           // COD Summary Card
-          Container(
+            Container(
             width: double.infinity,
-            margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: EdgeInsets.all(16),
+            margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.green.shade600, Colors.green.shade400],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+              colors: [Colors.green.shade600, Colors.green.shade400],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.green.withOpacity(0.3),
-                  spreadRadius: 1,
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
+              BoxShadow(
+                color: Colors.green.withOpacity(0.2),
+                spreadRadius: 1,
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.account_balance_wallet, color: Colors.white, size: 24),
-                    SizedBox(width: 8),
-                    Text(
-                      'Uang COD - ${periodLabels[selectedPeriod]}',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
+              Row(
+                children: [
+                Icon(Icons.account_balance_wallet, color: Colors.white, size: 18),
+                SizedBox(width: 6),
                 Text(
-                  'Total COD:',
+                  'Uang COD - ${periodLabels[selectedPeriod]}',
                   style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 4),
+                ],
+              ),
+              SizedBox(height: 6),
+              Text(
+                'Total COD:',
+                style: TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                formatCurrency(totalCODAmount),
+                style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 4),
+              Row(
+                children: [
+                Icon(Icons.monetization_on, color: Colors.yellow[200], size: 14),
+                SizedBox(width: 2),
                 Text(
-                  formatCurrency(totalCODAmount),
+                  'Admin Kurir:',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+                  color: Colors.white70,
+                  fontSize: 11,
                   ),
                 ),
-                SizedBox(height: 8),
-                // Tambahkan summary biaya admin COD
-                Row(
-                  children: [
-                    Icon(Icons.monetization_on, color: Colors.yellow[200], size: 18),
-                    SizedBox(width: 4),
-                    Text(
-                      'Total biaya admin COD:',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      formatCurrency(totalCODPackages * 2000),
-                      style: TextStyle(
-                        color: Colors.yellow[100],
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
+                SizedBox(width: 4),
+                Text(
+                  formatCurrency(totalCODPackages * courierCodFee),
+                  style: TextStyle(
+                  color: Colors.yellow[100],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  ),
                 ),
-                SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.local_shipping, color: Colors.white70, size: 16),
-                    SizedBox(width: 4),
-                    Text(
-                      '$totalCODPackages paket COD dari ${deliveredPackages.length} total terkirim',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                ],
+              ),
+              SizedBox(height: 2),
+              Row(
+                children: [
+                Icon(Icons.receipt_long, color: Colors.blue[100], size: 14),
+                SizedBox(width: 2),
+                Text(
+                  'Admin Aplikasi COD Pengiriman:',
+                  style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  ),
                 ),
+                SizedBox(width: 4),
+                Text(
+                  formatCurrency(totalAdminFee),
+                  style: TextStyle(
+                  color: Colors.blue[50],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  ),
+                ),
+                ],
+              ),
+              SizedBox(height: 2),
+              Row(
+                children: [
+                Icon(Icons.summarize, color: Colors.white, size: 14),
+                SizedBox(width: 2),
+                Text(
+                  'Total Setoran:',
+                  style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  ),
+                ),
+                SizedBox(width: 4),
+                Text(
+                  formatCurrency((totalCODPackages * courierCodFee) + totalAdminFee),
+                  style: TextStyle(
+                  color: Colors.purple[50],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  ),
+                ),
+                ],
+              ),
+              SizedBox(height: 2),
+              Row(
+                children: [
+                Icon(Icons.local_shipping, color: Colors.white70, size: 12),
+                SizedBox(width: 2),
+                Text(
+                  '$totalCODPackages paket COD dari ${deliveredPackages.length} total terkirim',
+                  style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  ),
+                ),
+                ],
+              ),
               ],
             ),
-          ),
+            ),
 
           // Package List by Date
           Expanded(
