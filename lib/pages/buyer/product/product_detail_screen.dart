@@ -164,15 +164,310 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         itemBuilder: (context, index) {
                           return Stack(
                             children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  image: DecorationImage(
-                                    image: NetworkImage(
-                                      imageUrls.isEmpty
-                                          ? 'https://via.placeholder.com/300'
-                                          : imageUrls[index],
+                              GestureDetector(
+                                onTap: () {
+                                  if (imageUrls.isNotEmpty) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (_) => Dialog(
+                                        backgroundColor: Colors.black,
+                                        insetPadding: EdgeInsets.zero,
+                                        child: Stack(
+                                            children: [
+                                            // PageView untuk geser foto
+                                            PageView.builder(
+                                              itemCount: imageUrls.length,
+                                              controller: PageController(initialPage: index),
+                                              itemBuilder: (context, pageIndex) {
+                                              return InteractiveViewer(
+                                                minScale: 1,
+                                                maxScale: 5,
+                                                child: Center(
+                                                child: Image.network(
+                                                  imageUrls[pageIndex],
+                                                  fit: BoxFit.contain,
+                                                ),
+                                                ),
+                                              );
+                                              },
+                                            ),
+                                            // Indikator halaman (jika lebih dari 1 foto)
+                                            if (imageUrls.length > 1)
+                                              Positioned(
+                                              top: 50,
+                                              left: 0,
+                                              right: 0,
+                                              child: Center(
+                                                child: Container(
+                                                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withOpacity(0.7),
+                                                  borderRadius: BorderRadius.circular(20),
+                                                ),
+                                                child: Text(
+                                                  '${index + 1} / ${imageUrls.length}',
+                                                  style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                ),
+                                              ),
+                                              ),
+                                            // Tombol close
+                                            Positioned(
+                                              top: 24,
+                                              right: 24,
+                                              child: IconButton(
+                                              icon: Icon(Icons.close, color: Colors.white, size: 32),
+                                              onPressed: () => Navigator.of(context).pop(),
+                                              ),
+                                            ),
+                                            // Bottom card dengan info produk dan tombol
+                                            // Icon toko yang bisa di klik
+                                            Positioned(
+                                              bottom: 250, // dinaikkan dari 190 ke 250
+                                              right: 24,
+                                              child: GestureDetector(
+                                              onTap: () async {
+                                              // Ambil data merchant
+                                              final merchant = await supabase
+                                                .from('merchants')
+                                                .select()
+                                                .eq('id', widget.product['seller_id'])
+                                                .single();
+                                              Get.to(() => StoreDetailScreen(
+                                                merchant: Map<String, dynamic>.from(merchant),
+                                                ));
+                                              },
+                                              child: Container(
+                                              padding: EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                color: Colors.black.withOpacity(0.08),
+                                                blurRadius: 8,
+                                                ),
+                                              ],
+                                              ),
+                                              child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                Icons.store,
+                                                color: AppTheme.primary,
+                                                size: 26,
+                                                ),
+                                                SizedBox(height: 1),
+                                                Container(
+                                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                color: AppTheme.primary.withOpacity(0.12),
+                                                borderRadius: BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                'Toko',
+                                                style: TextStyle(
+                                                fontSize: 10,
+                                                color: AppTheme.primary,
+                                                fontWeight: FontWeight.w500,
+                                                ),
+                                                ),
+                                                ),
+                                              ],
+                                              ),
+                                              ),
+                                              ),
+                                            ),
+                                            // Tombol share di bawah icon toko
+                                            Positioned(
+                                              bottom: 180, // dinaikkan dari 140 ke 200
+                                              right: 30,
+                                              child: GestureDetector(
+                                                onTap: () async {
+                                                  final String productName = widget.product['name'];
+                                                  final String productDescription = widget.product['description'] ?? '';
+                                                  final String productUrl =
+                                                      'https://play.google.com/store/apps/details?id=com.saraja.kumblyecommerce.v2.app&referrer=productId%3D${widget.product['id']}';
+                                                  final String shareContent =
+                                                      'Cek produk ini: $productName\n\n$productDescription\n\n$productUrl';
+                                                  try {
+                                                    await Share.share(
+                                                      shareContent,
+                                                      subject: 'Produk Menarik dari Saraja',
+                                                    );
+                                                  } catch (e) {
+                                                    Get.snackbar(
+                                                      'Gagal Membagikan',
+                                                      'Tidak dapat membagikan produk saat ini',
+                                                      backgroundColor: Colors.red,
+                                                      colorText: Colors.white,
+                                                    );
+                                                  }
+                                                },
+                                                child: Column(
+                                                  children: [
+                                                    Container(
+                                                      padding: EdgeInsets.all(8),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        shape: BoxShape.circle,
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.black.withOpacity(0.08),
+                                                            blurRadius: 8,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Transform.rotate(
+                                                        angle: -0.5, // sedikit miring seperti ikon di gambar
+                                                        child: Icon(
+                                                          Icons.send, // lebih mirip ikon share di gambar
+                                                          color: AppTheme.primary,
+                                                          size: 26,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    SizedBox(height: 2),
+                                                    Text(
+                                                      'Bagikan',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.w500,
+                                                        letterSpacing: 0.2,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              // Ubah bottom ke lebih atas, misal 80 dari bawah
+                                              bottom: 90,
+                                              left: 16,
+                                              right: 16,
+                                              child: Container(
+                                              padding: EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(10),
+                                              boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.08),
+                                                blurRadius: 10,
+                                              ),
+                                              ],
+                                              ),
+                                              child: SafeArea(
+                                                top: false,
+                                                child: Row(
+                                                children: [
+                                                  // Info produk
+                                                  Expanded(
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                    Text(
+                                                      'Rp ${NumberFormat('#,###').format(widget.product['price'])}',
+                                                      style: TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: AppTheme.primary,
+                                                      ),
+                                                    ),
+                                                    SizedBox(height: 4),
+                                                    Text(
+                                                      widget.product['name'],
+                                                      style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: Colors.black87,
+                                                      ),
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    ],
+                                                  ),
+                                                  ),
+                                                  SizedBox(width: 16),
+                                                  // Tombol actions
+                                                  Row(
+                                                  children: [
+                                                    // Tombol keranjang
+                                                    IconButton(
+                                                    onPressed: widget.product['stock'] == 0
+                                                      ? null
+                                                      : () {
+                                                        final userId = supabase.auth.currentUser?.id;
+                                                        if (userId == null) {
+                                                          Get.toNamed('/login');
+                                                          return;
+                                                        }
+                                                        cartController.addToCart(widget.product);
+                                                        Get.snackbar(
+                                                          'Sukses',
+                                                          'Produk ditambahkan ke keranjang',
+                                                          snackPosition: SnackPosition.TOP,
+                                                          backgroundColor: Colors.green,
+                                                          colorText: Colors.white,
+                                                          duration: Duration(seconds: 2),
+                                                        );
+                                                        },
+                                                    icon: Icon(Icons.shopping_cart_outlined, color: Colors.grey[600]),
+                                                    ),
+                                                    SizedBox(width: 8),
+                                                    
+                                                    SizedBox(width: 8),
+                                                    // Tombol beli sekarang
+                                                    ElevatedButton(
+                                                    onPressed: widget.product['stock'] == 0
+                                                      ? null
+                                                      : () => handleCheckout(),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: AppTheme.primary,
+                                                      foregroundColor: Colors.white,
+                                                      shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      ),
+                                                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                                                    ),
+                                                    child: Text(
+                                                      'Beli Sekarang',
+                                                      style: TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 12,
+                                                      ),
+                                                    ),
+                                                    ),
+                                                  ],
+                                                  ),
+                                                ],
+                                                ),
+                                              ),
+                                              ),
+                                            ),
+                                            ],
+                                          
+                                        ),
+                                      ),
+                                    );
+                                  
+                                  }
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    image: DecorationImage(
+                                      image: NetworkImage(
+                                        imageUrls.isEmpty
+                                            ? 'https://via.placeholder.com/300'
+                                            : imageUrls[index],
+                                      ),
+                                      fit: BoxFit.cover,
                                     ),
-                                    fit: BoxFit.cover,
                                   ),
                                 ),
                               ),

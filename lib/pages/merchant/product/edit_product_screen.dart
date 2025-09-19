@@ -8,6 +8,7 @@ import 'dart:convert';
 import '../../../theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:image/image.dart' as img;
+import 'dart:isolate';
 
 class EditProductScreen extends StatefulWidget {
   final dynamic product;
@@ -32,6 +33,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
   final TextEditingController heightController = TextEditingController();
   final RxList<String> imagePaths = <String>[].obs;
   final supabase = Supabase.instance.client;
+  final RxString uploadStatus = ''.obs;
+  final RxDouble uploadProgress = 0.0.obs;
 
   @override
   void initState() {
@@ -64,62 +67,190 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   Future<void> pickImage() async {
     final ImagePicker picker = ImagePicker();
-    final List<XFile> images = await picker.pickMultiImage();
-    if (images.isNotEmpty) {
-      imagePaths.addAll(images.map((image) => image.path));
+    
+    // Tampilkan dialog loading saat memilih gambar
+    showDialog(
+      context: Get.context!,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Memproses gambar...'),
+          ],
+        ),
+      ),
+    );
+    
+    try {
+      final List<XFile> images = await picker.pickMultiImage(
+        imageQuality: 70, // Reduksi kualitas dari picker
+      );
+      
+      Get.back(); // Tutup loading dialog
+      
+      if (images.isNotEmpty) {
+        int remaining = 4 - imagePaths.length;
+        if (remaining <= 0) {
+          Get.snackbar(
+            'Maksimal Foto',
+            'Anda hanya dapat mengunggah maksimal 4 foto produk',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+          return;
+        }
+        
+        // Filter hanya jpg/jpeg/png
+        final allowed = images.where((img) {
+          final ext = img.path.toLowerCase();
+          return ext.endsWith('.jpg') || ext.endsWith('.jpeg') || ext.endsWith('.png');
+        }).toList();
+        
+        if (allowed.isEmpty) {
+          Get.snackbar(
+            'Format Tidak Didukung',
+            'Hanya file JPG dan PNG yang diperbolehkan',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+          return;
+        }
+        
+        if (allowed.length < images.length) {
+          Get.snackbar(
+            'Sebagian Foto Ditolak',
+            'Hanya file JPG dan PNG yang diunggah, lainnya diabaikan.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+        }
+        
+        // Cek ukuran file dan beri peringatan
+        for (var image in allowed) {
+          final file = File(image.path);
+          final sizeInMB = (await file.length()) / (1024 * 1024);
+          if (sizeInMB > 5) {
+            Get.snackbar(
+              'Ukuran File Besar',
+              'Gambar ${image.name} berukuran ${sizeInMB.toStringAsFixed(1)}MB. Proses kompresi mungkin memerlukan waktu.',
+              backgroundColor: Colors.orange,
+              colorText: Colors.white,
+              duration: Duration(seconds: 4),
+            );
+          }
+        }
+        
+        // Batasi maksimal 4 foto total
+        final toAdd = allowed.take(remaining).map((image) => image.path).toList();
+        imagePaths.addAll(toAdd);
+        
+        if (allowed.length > remaining) {
+          Get.snackbar(
+            'Maksimal Foto',
+            'Hanya 4 foto pertama yang diunggah, sisanya diabaikan.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+          );
+        }
+      }
+    } catch (e) {
+      Get.back(); // Pastikan dialog loading ditutup
+      Get.snackbar(
+        'Error',
+        'Gagal memilih gambar: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
     }
   }
 
   Future<List<String>> uploadImages(List<String> paths) async {
     List<String> imageUrls = [];
     try {
-      for (String path in paths) {
+      // Tampilkan dialog progress
+      Get.dialog(
+        WillPopScope(
+          onWillPop: () async => false, // Prevent dismissing during upload
+          child: AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Obx(() => Text(uploadStatus.value)),
+                SizedBox(height: 8),
+                Obx(() => LinearProgressIndicator(value: uploadProgress.value)),
+                SizedBox(height: 8),
+                Obx(() => Text('${(uploadProgress.value * 100).toInt()}%')),
+              ],
+            ),
+          ),
+        ),
+        barrierDismissible: false,
+      );
+
+      for (int i = 0; i < paths.length; i++) {
+        final path = paths[i];
+        
         // Skip jika path adalah URL (gambar yang sudah ada)
         if (path.startsWith('http')) {
           imageUrls.add(path);
+          uploadProgress.value = ((i + 1) / paths.length) * 0.9;
           continue;
         }
 
-        final file = File(path);
-        final fileSize =
-            await file.length(); // Mendapatkan ukuran file dalam bytes
+        uploadStatus.value = 'Memproses gambar ${i + 1} dari ${paths.length}...';
+        uploadProgress.value = (i / paths.length) * 0.7; // 70% for compression
 
-        // Jika ukuran file lebih dari 100 KB, lakukan kompresi
-        List<int> compressedImage;
-        if (fileSize > 100 * 1024) {
-          // 100 KB
-          final originalImage = img.decodeImage(await file.readAsBytes());
-          if (originalImage != null) {
-            compressedImage = img.encodeJpg(originalImage,
-                quality: 55); // Kompresi dengan kualitas 55
-          } else {
-            compressedImage = await file.readAsBytes();
+        // Kompresi gambar menggunakan isolate
+        final compressedImageData = await _compressImageInIsolate(path);
+        
+        if (compressedImageData == null) continue;
+
+        uploadStatus.value = 'Mengunggah gambar ${i + 1}...';
+        
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${i}.jpg';
+
+        // Simpan ke file sementara
+        final tempFile = File('${path}_compressed.jpg');
+        await tempFile.writeAsBytes(compressedImageData);
+
+        try {
+          await supabase.storage.from('products').upload(fileName, tempFile);
+          
+          final imageUrl = supabase.storage.from('products').getPublicUrl(fileName);
+          imageUrls.add(imageUrl);
+          
+          // Hapus file sementara
+          if (await tempFile.exists()) {
+            await tempFile.delete();
           }
-        } else {
-          // Jika ukuran file kurang dari 100 KB, gunakan file asli
-          compressedImage = await file.readAsBytes();
+          
+          uploadProgress.value = ((i + 1) / paths.length) * 0.9; // 90% for upload progress
+        } catch (e) {
+          print('Error uploading image $i: $e');
+          // Hapus file sementara jika error
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+          }
         }
-
-        final fileName =
-            '${DateTime.now().millisecondsSinceEpoch}_${path.split('/').last}';
-
-        // Simpan gambar terkompresi ke file sementara
-        final compressedFile = File('${file.path}_compressed.jpg');
-        await compressedFile.writeAsBytes(compressedImage);
-
-        await supabase.storage
-            .from('products')
-            .upload(fileName, compressedFile);
-
-        // Hapus file terkompresi setelah upload
-        await compressedFile.delete();
-
-        final imageUrl =
-            supabase.storage.from('products').getPublicUrl(fileName);
-        imageUrls.add(imageUrl);
       }
+      
+      uploadStatus.value = 'Selesai!';
+      uploadProgress.value = 1.0;
+      
+      // Tutup dialog setelah delay singkat
+      await Future.delayed(Duration(milliseconds: 500));
+      if (Get.isDialogOpen == true) Get.back();
+      
       return imageUrls;
     } catch (e) {
+      uploadStatus.value = 'Error: $e';
+      await Future.delayed(Duration(seconds: 2));
+      if (Get.isDialogOpen == true) Get.back();
       print('Error uploading images: $e');
       Get.snackbar(
         'Error',
@@ -128,6 +259,76 @@ class _EditProductScreenState extends State<EditProductScreen> {
         colorText: Colors.white,
       );
       return [];
+    }
+  }
+
+  // Fungsi untuk kompresi gambar di isolate terpisah
+  static Future<List<int>?> _compressImageInIsolate(String imagePath) async {
+    final receivePort = ReceivePort();
+    
+    try {
+      await Isolate.spawn(_imageCompressionWorker, {
+        'imagePath': imagePath,
+        'sendPort': receivePort.sendPort,
+      });
+      
+      // Timeout 30 detik untuk kompresi
+      final result = await receivePort.first.timeout(
+        Duration(seconds: 30),
+        onTimeout: () => null,
+      );
+      
+      return result as List<int>?;
+    } catch (e) {
+      print('Error in image compression isolate: $e');
+      return null;
+    }
+  }
+
+  // Worker function yang berjalan di isolate terpisah
+  static void _imageCompressionWorker(Map<String, dynamic> params) {
+    final String imagePath = params['imagePath'];
+    final SendPort sendPort = params['sendPort'];
+    
+    try {
+      final file = File(imagePath);
+      final originalBytes = file.readAsBytesSync();
+      
+      // Decode gambar
+      final originalImage = img.decodeImage(originalBytes);
+      if (originalImage == null) {
+        sendPort.send(null);
+        return;
+      }
+      
+      // Resize jika terlalu besar (max 1024x1024)
+      img.Image resizedImage = originalImage;
+      if (originalImage.width > 1024 || originalImage.height > 1024) {
+        resizedImage = img.copyResize(
+          originalImage, 
+          width: originalImage.width > originalImage.height ? 1024 : null,
+          height: originalImage.height > originalImage.width ? 1024 : null,
+        );
+      }
+      
+      // Kompresi dengan kualitas bertahap
+      List<int> compressedImage;
+      int quality = 85;
+      int targetSize = 100 * 1024; // Target 100KB
+      int minQuality = 20;
+      
+      do {
+        compressedImage = img.encodeJpg(resizedImage, quality: quality);
+        if (compressedImage.length <= targetSize || quality <= minQuality) {
+          break;
+        }
+        quality -= 15;
+      } while (quality > minQuality);
+      
+      sendPort.send(compressedImage);
+    } catch (e) {
+      print('Worker error: $e');
+      sendPort.send(null);
     }
   }
 
@@ -176,9 +377,13 @@ class _EditProductScreenState extends State<EditProductScreen> {
                               height: 200,
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
-                                itemCount: imagePaths.length + 1,
+                                // Hapus tombol tambah jika sudah 4 foto
+                                itemCount: imagePaths.length >= 4
+                                    ? 4
+                                    : imagePaths.length + 1,
                                 itemBuilder: (context, index) {
-                                  if (index == imagePaths.length) {
+                                  // Tampilkan tombol tambah hanya jika < 4 foto
+                                  if (index == imagePaths.length && imagePaths.length < 4) {
                                     return Padding(
                                       padding: const EdgeInsets.all(8.0),
                                       child: InkWell(
@@ -501,6 +706,14 @@ class _EditProductScreenState extends State<EditProductScreen> {
   void updateProduct() async {
     if (_formKey.currentState!.validate()) {
       try {
+        // Tampilkan loading segera setelah tombol update ditekan
+        if (Get.isDialogOpen != true) {
+          Get.dialog(
+            const Center(child: CircularProgressIndicator()),
+            barrierDismissible: false,
+          );
+        }
+
         List<String> imageUrls = await uploadImages(imagePaths);
 
         final priceString =
@@ -521,6 +734,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
           int.parse(heightController.text),
         );
 
+        if (Get.isDialogOpen == true) Get.back(); // Tutup loading
         Get.back();
         Get.snackbar(
           'Sukses',
@@ -529,6 +743,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
           colorText: Colors.white,
         );
       } catch (e) {
+        if (Get.isDialogOpen == true) Get.back(); // Tutup loading
         Get.snackbar(
           'Error',
           'Gagal memperbarui produk: $e',
