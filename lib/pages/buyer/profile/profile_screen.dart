@@ -496,12 +496,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: () {
                       Get.dialog(
                         AlertDialog(
-                          title: const Text('Konfirmasi'),
-                          content:
-                              const Text('Apakah Anda yakin ingin keluar?'),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
+                            borderRadius: BorderRadius.circular(18),
                           ),
+                          title: Row(
+                            children: [
+                             
+                              SizedBox(width: 8),
+                              Text(
+                                'Konfirmasi Keluar',
+                                style: TextStyle(
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.exit_to_app, size: 48, color: AppTheme.primary),
+                              SizedBox(height: 12),
+                              Text(
+                                'Apakah Anda yakin ingin keluar dari akun ini?',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
+                          actionsAlignment: MainAxisAlignment.spaceBetween,
                           actions: [
                             TextButton(
                               onPressed: () => Get.back(),
@@ -510,15 +533,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: TextStyle(color: Colors.grey[600]),
                               ),
                             ),
-                            TextButton(
+                            ElevatedButton.icon(
+                              icon: Icon(Icons.logout, size: 18, color: Colors.white),
+                              label: Text('Keluar', style: TextStyle(color: Colors.white)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
                               onPressed: () async {
                                 await authController.signOut();
                                 Get.offAllNamed('/buyer/home_screen');
                               },
-                              child: const Text(
-                                'Ya',
-                                style: TextStyle(color: Colors.red),
-                              ),
                             ),
                           ],
                         ),
