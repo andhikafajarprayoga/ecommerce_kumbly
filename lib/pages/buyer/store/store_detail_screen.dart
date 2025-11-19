@@ -29,6 +29,7 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
   final supabase = Supabase.instance.client;
   final TextEditingController searchController = TextEditingController();
   var searchQuery = ''.obs;
+  bool _showOperationalHours = false; // state untuk expand/collapse
 
   @override
   void initState() {
@@ -184,12 +185,34 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.merchant['store_name'],
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            widget.merchant['store_name'],
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          // Keterangan toko libur di samping nama toko
+                          if (widget.merchant['is_active'] == false) ...[
+                            SizedBox(width: 8),
+                            Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.red, size: 16),
+                                SizedBox(width: 2),
+                                Text(
+                                  'Toko sedang libur',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
                       ),
                       SizedBox(height: 4),
                       Text(
@@ -200,6 +223,103 @@ class _StoreDetailScreenState extends State<StoreDetailScreen>
                           fontSize: 13,
                           height: 1.3,
                         ),
+                      ),
+                      // Jam operasional dengan tombol expand/collapse
+                      Builder(
+                        builder: (context) {
+                          final ops = widget.merchant['operational_hours'];
+                          if (ops == null) return SizedBox();
+                          final Map<String, dynamic> hours = ops is String
+                            ? jsonDecode(ops)
+                            : Map<String, dynamic>.from(ops);
+                          final dayLabels = {
+                            "monday": "Senin",
+                            "tuesday": "Selasa",
+                            "wednesday": "Rabu",
+                            "thursday": "Kamis",
+                            "friday": "Jumat",
+                            "saturday": "Sabtu",
+                            "sunday": "Minggu",
+                          };
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _showOperationalHours = !_showOperationalHours;
+                                    });
+                                  },
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        'Jam Operasional',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primary,
+                                        ),
+                                      ),
+                                      SizedBox(width: 6),
+                                      Icon(
+                                        _showOperationalHours
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
+                                        color: AppTheme.primary,
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                AnimatedCrossFade(
+                                  firstChild: SizedBox(),
+                                  secondChild: Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Table(
+                                      columnWidths: const {
+                                        0: FixedColumnWidth(80),
+                                        1: FlexColumnWidth(),
+                                      },
+                                      children: dayLabels.keys.map((day) {
+                                        final val = hours[day];
+                                        final open = val?['open'];
+                                        final close = val?['close'];
+                                        String jam = (open == null || close == null)
+                                          ? 'Tutup'
+                                          : '$open - $close';
+                                        return TableRow(
+                                          children: [
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(vertical: 2),
+                                              child: Text(dayLabels[day]!, style: TextStyle(fontSize: 12)),
+                                            ),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(vertical: 2),
+                                              child: Text(
+                                                jam,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: open == null ? Colors.red : Colors.black,
+                                                  fontWeight: open == null ? FontWeight.bold : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                  crossFadeState: _showOperationalHours
+                                    ? CrossFadeState.showSecond
+                                    : CrossFadeState.showFirst,
+                                  duration: Duration(milliseconds: 200),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

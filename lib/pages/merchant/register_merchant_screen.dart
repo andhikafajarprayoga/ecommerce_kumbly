@@ -45,6 +45,37 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
 
+  // Tambahkan state untuk jam operasional
+  final Map<String, Map<String, String?>> _operationalHours = {
+    "monday":    {"open": "08:00", "close": "17:00"},
+    "tuesday":   {"open": "08:00", "close": "17:00"},
+    "wednesday": {"open": "08:00", "close": "17:00"},
+    "thursday":  {"open": "08:00", "close": "17:00"},
+    "friday":    {"open": "08:00", "close": "17:00"},
+    "saturday":  {"open": "09:00", "close": "15:00"},
+    "sunday":    {"open": null,    "close": null},
+  };
+
+  // Helper untuk memilih waktu
+  Future<void> _pickTime(String day, String type) async {
+    final initial = _operationalHours[day]![type] != null
+        ? TimeOfDay(
+            hour: int.parse(_operationalHours[day]![type]!.split(":")[0]),
+            minute: int.parse(_operationalHours[day]![type]!.split(":")[1]),
+          )
+        : const TimeOfDay(hour: 8, minute: 0);
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: initial,
+    );
+    if (picked != null) {
+      setState(() {
+        _operationalHours[day]![type] =
+            "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+      });
+    }
+  }
+
   Future<void> _registerMerchant() async {
     if (_formKey.currentState!.validate()) {
       try {
@@ -74,18 +105,17 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
             'store_description': _storeDescController.text,
             'store_address': storeAddress,
             'store_phone': _storePhoneController.text,
+            'operational_hours': _operationalHours, // <-- Tambahkan ini
           }).eq('id', widget.sellerId);
         } else {
           // Jika belum ada, lakukan insert
           await supabase.from('merchants').insert({
             'id': widget.sellerId,
-
-
-            
             'store_name': _storeNameController.text,
             'store_description': _storeDescController.text,
             'store_address': storeAddress,
             'store_phone': _storePhoneController.text,
+            'operational_hours': _operationalHours, // <-- Tambahkan ini
           });
         }
 
@@ -567,6 +597,106 @@ class _RegisterMerchantScreenState extends State<RegisterMerchantScreen> {
                         validator: (value) => value?.isEmpty ?? true
                             ? 'Kode pos wajib diisi'
                             : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 24),
+
+              // Form Jam Operasional
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Jam Operasional Toko',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                      SizedBox(height: 12),
+                      Table(
+                        columnWidths: const {
+                          0: FixedColumnWidth(80),
+                          1: FlexColumnWidth(),
+                          2: FlexColumnWidth(),
+                          3: FixedColumnWidth(40),
+                        },
+                        children: _operationalHours.keys.map((day) {
+                          final dayLabel = {
+                            "monday": "Senin",
+                            "tuesday": "Selasa",
+                            "wednesday": "Rabu",
+                            "thursday": "Kamis",
+                            "friday": "Jumat",
+                            "saturday": "Sabtu",
+                            "sunday": "Minggu",
+                          }[day]!;
+                          return TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Text(dayLabel, style: TextStyle(fontSize: 13)),
+                              ),
+                              GestureDetector(
+                                onTap: () => _pickTime(day, "open"),
+                                child: Container(
+                                  margin: EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: Text(
+                                    _operationalHours[day]!["open"] ?? "-",
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () => _pickTime(day, "close"),
+                                child: Container(
+                                  margin: EdgeInsets.symmetric(vertical: 2, horizontal: 2),
+                                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.grey[300]!),
+                                  ),
+                                  child: Text(
+                                    _operationalHours[day]!["close"] ?? "-",
+                                    style: TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.clear, size: 18),
+                                tooltip: "Tutup hari ini",
+                                onPressed: () {
+                                  setState(() {
+                                    _operationalHours[day]!["open"] = null;
+                                    _operationalHours[day]!["close"] = null;
+                                  });
+                                },
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Kosongkan jam buka/tutup jika toko tutup di hari tersebut.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),

@@ -305,7 +305,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Widget _buildMessageItem(Map<String, dynamic> message) {
     final isMe = message['sender_id'] == supabase.auth.currentUser!.id;
-    final messageText = message['message'] ?? '';
+    // Ambil field pesan sesuai tipe room
+    final messageText = widget.isAdminRoom
+        ? (message['content'] ?? '')
+        : (message['message'] ?? '');
 
     // Cek apakah ini pesan gabungan (detail pesanan + produk)
     if (messageText.contains('Detail Pesanan:') &&

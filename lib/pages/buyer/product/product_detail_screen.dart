@@ -65,12 +65,70 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   int _currentImageIndex = 0;
 
+  // State untuk expand/collapse jam operasional
+  bool _showOperationalHours = false;
+  bool _isMerchantActive = true;
+  Map<String, dynamic>? _todayHours; // jam operasional hari ini
+  String? _operationalWarning; // pesan warning tutup
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(() {
       controller.updateSearchVisibility(_scrollController.offset);
     });
+    _fetchMerchantStatusAndHours();
+  }
+
+  Future<void> _fetchMerchantStatusAndHours() async {
+    final merchant = await supabase
+        .from('merchants')
+        .select('is_active, operational_hours')
+        .eq('id', widget.product['seller_id'])
+        .single();
+
+    setState(() {
+      _isMerchantActive = merchant['is_active'] != false;
+      // Ambil jam operasional hari ini
+      final ops = merchant['operational_hours'];
+      if (ops != null) {
+        final hours = ops is String ? jsonDecode(ops) : Map<String, dynamic>.from(ops);
+        final now = DateTime.now();
+        final dayKey = [
+          'monday','tuesday','wednesday','thursday','friday','saturday','sunday'
+        ][now.weekday == 7 ? 6 : now.weekday - 1];
+        _todayHours = hours[dayKey];
+        _operationalWarning = _getOperationalWarning(_todayHours);
+      }
+    });
+  }
+
+  String? _getOperationalWarning(Map<String, dynamic>? todayHours) {
+    if (todayHours == null || todayHours['open'] == null || todayHours['close'] == null) {
+      return 'Toko sudah tutup';
+    }
+    final now = DateTime.now();
+    final closeStr = todayHours['close'];
+    final openStr = todayHours['open'];
+    // Parse jam tutup
+    final closeParts = closeStr.split(':');
+    final closeTime = DateTime(now.year, now.month, now.day,
+      int.parse(closeParts[0]), int.parse(closeParts[1]));
+    final openParts = openStr.split(':');
+    final openTime = DateTime(now.year, now.month, now.day,
+      int.parse(openParts[0]), int.parse(openParts[1]));
+
+    if (now.isBefore(openTime)) {
+      return 'Toko belum buka';
+    }
+    if (now.isAfter(closeTime)) {
+      return 'Toko sudah tutup';
+    }
+    final diff = closeTime.difference(now).inMinutes;
+    if (diff <= 60 && diff > 0) {
+      return 'Toko akan tutup dalam $diff menit. Pesanan yang masuk setelah tutup akan diproses besok.';
+    }
+    return null;
   }
 
   @override
@@ -455,6 +513,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         ),
                                       ),
                                     );
+                                    
                                   
                                   }
                                 },
@@ -500,6 +559,72 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                             color: Colors.white,
                                             fontSize: 24,
                                             fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              // Overlay toko libur
+                              if (!_isMerchantActive)
+                                Container(
+                                  color: Colors.black.withOpacity(0.65),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.info_outline, color: Colors.red, size: 48),
+                                        SizedBox(height: 16),
+                                        Text(
+                                          'Toko sedang libur',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          'Produk tidak dapat dibeli atau ditambahkan ke keranjang',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              // Overlay warning tutup/tutup otomatis
+                              if (_operationalWarning != null && _isMerchantActive)
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                                    color: _operationalWarning == 'Toko sudah tutup'
+                                        ? Colors.red.withOpacity(0.85)
+                                        : Colors.orange.withOpacity(0.85),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.warning_amber_rounded,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            _operationalWarning!,
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                            textAlign: TextAlign.center,
                                           ),
                                         ),
                                       ],
@@ -703,13 +828,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                                     color: AppTheme.primary),
                                                 SizedBox(width: 8),
                                                 Text(
-                                                  merchant['store_name'] ??
-                                                      'Nama Toko',
+                                                  merchant['store_name'] ?? 'Nama Toko',
                                                   style: TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
+                                                // Tambahkan keterangan toko libur di samping nama toko
+                                                if (merchant['is_active'] == false) ...[
+                                                  SizedBox(width: 8),
+                                                  Row(
+                                                    children: [
+                                                      Icon(Icons.info_outline, color: Colors.red, size: 16),
+                                                      SizedBox(width: 2),
+                                                      Text(
+                                                        'Toko sedang libur',
+                                                        style: TextStyle(
+                                                          color: Colors.red,
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
                                               ],
                                             ),
                                             Icon(Icons.chevron_right,
@@ -752,6 +894,101 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                               ),
                                             ),
                                           ],
+                                        ),
+                                        // Jam operasional dengan tombol expand/collapse
+                                        const SizedBox(height: 12),
+                                        Builder(
+                                          builder: (context) {
+                                            final ops = merchant['operational_hours'];
+                                            if (ops == null) return SizedBox();
+                                            final Map<String, dynamic> hours = ops is String
+                                              ? jsonDecode(ops)
+                                              : Map<String, dynamic>.from(ops);
+                                            final dayLabels = {
+                                              "monday": "Senin",
+                                              "tuesday": "Selasa",
+                                              "wednesday": "Rabu",
+                                              "thursday": "Kamis",
+                                              "friday": "Jumat",
+                                              "saturday": "Sabtu",
+                                              "sunday": "Minggu",
+                                            };
+                                            return Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _showOperationalHours = !_showOperationalHours;
+                                                    });
+                                                  },
+                                                  child: Row(
+                                                    children: [
+                                                      Text(
+                                                        'Jam Operasional',
+                                                        style: TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: AppTheme.primary,
+                                                        ),
+                                                      ),
+                                                      SizedBox(width: 6),
+                                                      Icon(
+                                                        _showOperationalHours
+                                                          ? Icons.keyboard_arrow_up
+                                                          : Icons.keyboard_arrow_down,
+                                                        color: AppTheme.primary,
+                                                        size: 20,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                AnimatedCrossFade(
+                                                  firstChild: SizedBox(),
+                                                  secondChild: Padding(
+                                                    padding: const EdgeInsets.only(top: 8),
+                                                    child: Table(
+                                                      columnWidths: const {
+                                                        0: FixedColumnWidth(80),
+                                                        1: FlexColumnWidth(),
+                                                      },
+                                                      children: dayLabels.keys.map((day) {
+                                                        final val = hours[day];
+                                                        final open = val?['open'];
+                                                        final close = val?['close'];
+                                                        String jam = (open == null || close == null)
+                                                          ? 'Tutup'
+                                                          : '$open - $close';
+                                                        return TableRow(
+                                                          children: [
+                                                            Padding(
+                                                              padding: EdgeInsets.symmetric(vertical: 2),
+                                                              child: Text(dayLabels[day]!, style: TextStyle(fontSize: 12)),
+                                                            ),
+                                                            Padding(
+                                                              padding: EdgeInsets.symmetric(vertical: 2),
+                                                              child: Text(
+                                                                jam,
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: open == null ? Colors.red : Colors.black,
+                                                                  fontWeight: open == null ? FontWeight.bold : FontWeight.normal,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        );
+                                                      }).toList(),
+                                                    ),
+                                                  ),
+                                                  crossFadeState: _showOperationalHours
+                                                    ? CrossFadeState.showSecond
+                                                    : CrossFadeState.showFirst,
+                                                  duration: Duration(milliseconds: 200),
+                                                ),
+                                              ],
+                                            );
+                                          },
                                         ),
                                       ],
                                     ),
@@ -1107,7 +1344,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: SizedBox(
                 height: 32,
                 child: ElevatedButton(
-                  onPressed: widget.product['stock'] == 0
+                  onPressed: widget.product['stock'] == 0 || !_isMerchantActive
                       ? null
                       : () {
                           final userId = supabase.auth.currentUser?.id;
@@ -1137,7 +1374,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                   child: Text(
-                    widget.product['stock'] == 0 ? 'Stok Habis' : 'Keranjang',
+                    !_isMerchantActive
+                        ? 'Toko Libur'
+                        : widget.product['stock'] == 0
+                          ? 'Stok Habis'
+                          : 'Keranjang',
                     style: TextStyle(fontSize: 11),
                   ),
                 ),
@@ -1149,8 +1390,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: SizedBox(
                 height: 32,
                 child: ElevatedButton(
-                  onPressed:
-                      widget.product['stock'] == 0 ? null : handleCheckout,
+                  onPressed: widget.product['stock'] == 0 || !_isMerchantActive
+                      ? null
+                      : handleCheckout,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.white,
@@ -1162,9 +1404,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     ),
                   ),
                   child: Text(
-                    widget.product['stock'] == 0
-                        ? 'Stok Habis'
-                        : 'Beli Langsung',
+                    !_isMerchantActive
+                        ? 'Toko Libur'
+                        : widget.product['stock'] == 0
+                          ? 'Stok Habis'
+                          : 'Beli Langsung',
                     style: TextStyle(fontSize: 11),
                   ),
                 ),

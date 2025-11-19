@@ -49,7 +49,7 @@ class AdminHomeScreen extends StatelessWidget {
         elevation: 0,
         backgroundColor: AppTheme.primary,
         title: Text(
-          'Saraja OnlineShop',
+          'Saraja OnlineShop Admin',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -91,6 +91,25 @@ class AdminHomeScreen extends StatelessWidget {
                         childAspectRatio: 1.5,
                         children: [
                           _buildMenuCard(
+                            icon: Icons.local_shipping_outlined,
+                            title: 'Kirim Barang',
+                            subtitle: 'Permintaan Kirim Barang',
+                            color: Colors.cyan,
+                            onTap: () => Get.to(() => ShippingRequestsScreen()),
+                            badgeStream: supabase
+                                .from('shipping_requests')
+                                .stream(primaryKey: ['id'])
+                                .map((data) => data
+                                    .where((request) =>
+                                        request['status'] == 'pending' ||
+                                        request['status'] == 'waiting_verification')
+                                    .length)
+                                .handleError((error) {
+                                  print('Error getting shipping requests count: $error');
+                                  return 0;
+                                }),
+                          ),
+                          _buildMenuCard(
                             icon: Icons.people,
                             title: 'Kelola Users',
                             subtitle: 'Atur pengguna & hak akses',
@@ -116,6 +135,34 @@ class AdminHomeScreen extends StatelessWidget {
                                     .where((payment) =>
                                         payment['payment_status'] == 'pending')
                                     .length),
+                          ),
+                          _buildMenuCard(
+                            icon: Icons.local_shipping,
+                            title: 'Pengiriman',
+                            subtitle: 'ACC Pengiriman',
+                            color: Colors.orange,
+                            onTap: () => Get.to(() => ShipmentsScreen()),
+                            badgeStream: supabase
+                                .from('orders')
+                                .stream(primaryKey: ['id']).map((event) {
+                              final data = event as List;
+                              final pendingCount = data
+                                  .where((order) =>
+                                          order['status']
+                                                  ?.toString()
+                                                  .toLowerCase() ==
+                                              'pending' || // Menambahkan status pending
+                                          order['status']
+                                                  ?.toString()
+                                                  .toLowerCase() ==
+                                              'pending_cancellation' // Menambahkan status pending_cancellation
+                                      )
+                                  .length;
+
+                              return pendingCount;
+                            }).handleError((error) {
+                              return 0;
+                            }),
                           ),
                           _buildMenuCard(
                             icon: Icons.payments,
@@ -194,34 +241,7 @@ class AdminHomeScreen extends StatelessWidget {
                             color: Colors.teal,
                             onTap: () => Get.to(() => PengirimanTypesScreen()),
                           ),
-                          _buildMenuCard(
-                            icon: Icons.local_shipping,
-                            title: 'Pengiriman',
-                            subtitle: 'ACC Pengiriman',
-                            color: Colors.orange,
-                            onTap: () => Get.to(() => ShipmentsScreen()),
-                            badgeStream: supabase
-                                .from('orders')
-                                .stream(primaryKey: ['id']).map((event) {
-                              final data = event as List;
-                              final pendingCount = data
-                                  .where((order) =>
-                                          order['status']
-                                                  ?.toString()
-                                                  .toLowerCase() ==
-                                              'pending' || // Menambahkan status pending
-                                          order['status']
-                                                  ?.toString()
-                                                  .toLowerCase() ==
-                                              'pending_cancellation' // Menambahkan status pending_cancellation
-                                      )
-                                  .length;
-
-                              return pendingCount;
-                            }).handleError((error) {
-                              return 0;
-                            }),
-                          ),
+                          
                           _buildMenuCard(
                             icon: Icons.local_shipping,
                             title: 'Pengiriman',
@@ -309,25 +329,7 @@ class AdminHomeScreen extends StatelessWidget {
                                 .eq('status', 'delivered')
                                 .map((data) => data.length),
                           ),
-                          _buildMenuCard(
-                            icon: Icons.local_shipping_outlined,
-                            title: 'Kirim Barang',
-                            subtitle: 'Permintaan Kirim Barang',
-                            color: Colors.cyan,
-                            onTap: () => Get.to(() => ShippingRequestsScreen()),
-                            badgeStream: supabase
-                                .from('shipping_requests')
-                                .stream(primaryKey: ['id'])
-                                .map((data) => data
-                                    .where((request) =>
-                                        request['status'] == 'pending' ||
-                                        request['status'] == 'waiting_verification')
-                                    .length)
-                                .handleError((error) {
-                                  print('Error getting shipping requests count: $error');
-                                  return 0;
-                                }),
-                          ),
+                          
                           _buildMenuCard(
                             icon: Icons.settings,
                             title: 'Pengaturan Admin',

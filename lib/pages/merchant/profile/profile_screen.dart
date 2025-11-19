@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:kumbly_ecommerce/auth/login_page.dart';
 import 'package:kumbly_ecommerce/pages/buyer/home_screen.dart';
 import 'package:kumbly_ecommerce/theme/app_theme.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../controllers/auth_controller.dart';
 import '../../../screens/home_screen.dart';
 
@@ -96,6 +98,9 @@ class ProfileScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
+                  // Tambahkan switch untuk buka/tutup toko
+                  _StoreActiveSwitch(),
+                  const SizedBox(height: 16),
                   _buildMenuCard(
                     icon: Icons.shopping_bag_outlined,
                     title: 'Beralih ke Pembeli',
@@ -226,6 +231,96 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// Tambahkan widget switch status toko
+class _StoreActiveSwitch extends StatefulWidget {
+  @override
+  State<_StoreActiveSwitch> createState() => _StoreActiveSwitchState();
+}
+
+class _StoreActiveSwitchState extends State<_StoreActiveSwitch> {
+  bool? _isActive;
+  bool _loading = true;
+  final supabase = Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatus();
+  }
+
+  Future<void> _loadStatus() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    final merchant = await supabase
+        .from('merchants')
+        .select('is_active')
+        .eq('id', userId)
+        .single();
+    setState(() {
+      _isActive = merchant['is_active'] != false;
+      _loading = false;
+    });
+  }
+
+  Future<void> _updateStatus(bool value) async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    setState(() => _loading = true);
+    await supabase
+        .from('merchants')
+        .update({'is_active': value})
+        .eq('id', userId);
+    setState(() {
+      _isActive = value;
+      _loading = false;
+    });
+    Get.snackbar(
+      'Status Toko',
+      value ? 'Toko dibuka' : 'Toko ditutup',
+      backgroundColor: value ? Colors.green : Colors.red,
+      colorText: Colors.white,
+      duration: Duration(seconds: 2),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: Icon(
+          _isActive == true ? Icons.store : Icons.store_mall_directory,
+          color: AppTheme.primary,
+        ),
+        title: Text(
+          'Status Toko',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          _isActive == true ? 'Buka' : 'Tutup',
+          style: TextStyle(
+            color: _isActive == true ? Colors.green : Colors.red,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        trailing: Switch(
+          value: _isActive ?? true,
+          activeColor: Colors.green,
+          inactiveThumbColor: Colors.red,
+          onChanged: (val) => _updateStatus(val),
         ),
       ),
     );

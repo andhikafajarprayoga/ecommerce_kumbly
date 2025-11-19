@@ -106,6 +106,22 @@ class _AdminFeesScreenState extends State<AdminFeesScreen> {
 
         final configs = snapshot.data!;
 
+        if (configs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('Belum ada data fee penarikan'),
+                SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => _showWithdrawalConfigDialog(),
+                  child: Text('Tambah Konfigurasi'),
+                ),
+              ],
+            ),
+          );
+        }
+
         return ListView.builder(
           padding: EdgeInsets.all(16),
           itemCount: configs.length,
