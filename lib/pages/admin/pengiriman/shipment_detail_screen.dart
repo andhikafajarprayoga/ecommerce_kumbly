@@ -202,13 +202,25 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         throw Exception('User tidak terautentikasi');
       }
 
+      String newStatus;
+      if (note == 'Terima') {
+        newStatus = 'processing'; // atau status lain sesuai flow Anda
+      } else {
+        newStatus = 'cancelled';
+      }
+
       await supabase
           .from('orders')
           .update({
             'admin_acc_note': note,
+            'status': newStatus,
           })
           .eq('id', orderData['id'])
-          .select('id, admin_acc_note');
+          .select('id, admin_acc_note, status');
+
+      setState(() {
+        orderData['status'] = newStatus;
+      });
 
       Get.snackbar(
         'Sukses',
@@ -620,8 +632,11 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   }
 
   Widget _buildOrderItemTile(Map<String, dynamic> item) {
+    final productName = item['products'] != null && item['products']['name'] != null
+        ? item['products']['name']
+        : 'Produk tidak ditemukan';
     return ListTile(
-      title: Text(item['products']['name']),
+      title: Text(productName),
       subtitle: Text('Rp ${item['price']} x ${item['quantity']}'),
       trailing: Text('Rp ${item['price'] * item['quantity']}'),
     );
